@@ -26,7 +26,11 @@ pub fn render(frame: &mut Frame, app: &App) {
     )];
     let title_bar = Paragraph::new(title_bar_content)
         .alignment(Alignment::Center)
-        .style(Style::new().bg(colors.primary));
+        .style(
+            Style::new()
+                .fg(colors.title_bar_text)
+                .bg(colors.title_bar_bg),
+        );
     frame.render_widget(title_bar, layout[0]);
 
     // Navigation and editor layout
@@ -55,7 +59,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(colors.primary))
             .padding(Padding::symmetric(1, 0))
-            .style(Style::new().on_black()),
+            .bg(colors.bg),
     );
     frame.render_widget(navigation, window_layout[0]);
 
@@ -65,7 +69,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         .border_type(BorderType::Rounded)
         .border_style(Style::new().fg(colors.border))
         .padding(Padding::horizontal(1))
-        .style(Style::new().on_black());
+        .bg(colors.bg);
     frame.render_widget(screen_window, window_layout[1]);
 
     let screen_index = app

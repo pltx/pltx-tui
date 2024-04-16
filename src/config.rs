@@ -9,6 +9,7 @@ struct ColorsConfigFile {
     primary: Option<String>,
     active: Option<String>,
     secondary: Option<String>,
+    bg: Option<String>,
     text: Option<String>,
     border: Option<String>,
 
@@ -31,6 +32,7 @@ pub struct ColorsConfig {
     pub primary: Color,
     pub active: Color,
     pub secondary: Color,
+    pub bg: Color,
     pub text: Color,
     pub border: Color,
 
@@ -55,6 +57,7 @@ fn get_base_config() -> Config {
             active: get_color("#00FFFF"),
             secondary: get_color("#999999"),
             text: get_color("#FFFFFF"),
+            bg: get_color("#000000"),
             border: get_color("#666666"),
 
             title_bar_bg: get_color("#AF5FFF"),
@@ -125,8 +128,9 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                 primary: get_color_op(colors.primary).unwrap_or(base_config.colors.primary),
                 active: get_color_op(colors.active).unwrap_or(base_config.colors.active),
                 secondary: get_color_op(colors.secondary).unwrap_or(base_config.colors.secondary),
-                border: get_color_op(colors.border).unwrap_or(base_config.colors.border),
                 text: get_color_op(colors.text).unwrap_or(base_config.colors.text),
+                bg: get_color_op(colors.bg).unwrap_or(base_config.colors.bg),
+                border: get_color_op(colors.border).unwrap_or(base_config.colors.border),
 
                 title_bar_bg: get_color_op(colors.title_bar_bg)
                     .unwrap_or(base_config.colors.title_bar_bg),
