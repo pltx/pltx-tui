@@ -2,7 +2,7 @@ use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::{
-    state::{Mode, Window},
+    state::{Mode, Popup, Window},
     App,
 };
 
@@ -16,6 +16,7 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) -> Result<()> {
 
     if app.state.mode == Mode::Navigation {
         match key_event.code {
+            // Quit the application
             KeyCode::Char('q') | KeyCode::Char('Q') => app.exit(),
             // Go down an option
             KeyCode::Char('j') => {
@@ -36,14 +37,30 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) -> Result<()> {
             // Focus on the previous window
             KeyCode::Char('h') => {
                 if app.state.window == Window::Screen {
-                    app.state.window = Window::Navigation
+                    app.state.window = Window::Navigation;
                 }
             }
             // Focus on the next window
             KeyCode::Char('l') => {
                 if app.state.window == Window::Navigation {
-                    app.state.window = Window::Screen
+                    app.state.window = Window::Screen;
                 }
+            }
+            // Show the help menu
+            KeyCode::Char('?') => {
+                app.state.mode = Mode::Popup;
+                app.state.popup = Popup::Help;
+            }
+            _ => {}
+        }
+    }
+
+    if app.state.mode == Mode::Popup {
+        match key_event.code {
+            // Close the popup
+            KeyCode::Char('q') | KeyCode::Char('Q') => {
+                app.state.mode = Mode::Navigation;
+                app.state.popup = Popup::None;
             }
             _ => {}
         }

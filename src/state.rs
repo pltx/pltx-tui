@@ -2,6 +2,7 @@
 #[derive(Eq, PartialEq)]
 pub enum Mode {
     Navigation,
+    Popup,
 }
 
 /// The current screen (page)
@@ -19,8 +20,16 @@ pub enum Window {
     Screen,
 }
 
+/// The current popup
+#[derive(Eq, PartialEq, Clone)]
+pub enum Popup {
+    Help,
+    None,
+}
+
 pub struct State {
     pub mode: Mode,
     pub screen: Screen,
     pub window: Window,
+    pub popup: Popup,
 }

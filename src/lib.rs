@@ -3,22 +3,25 @@ use config::Config;
 use crossterm::event::{self, Event, KeyEventKind};
 use database::database_connection;
 use keybinds::handle_key_event;
-use ratatui::{layout::Rect, Frame};
+use ratatui::{layout::Rect, style::Color, Frame};
+
+pub mod popups;
+pub mod screens;
+pub mod utils;
 
 pub mod config;
 pub mod database;
 pub mod errors;
 pub mod keybinds;
-pub mod screens;
 pub mod state;
 pub mod tui;
 pub mod ui;
 
 use rusqlite::Connection;
-use state::{Screen, Mode, State, Window};
+use state::{Mode, Popup, Screen, State, Window};
 use ui::render;
 
-use crate::config::get_config;
+use crate::{config::get_config, utils::RenderScreen};
 
 type ScreenRenderFn = &'static dyn Fn(&mut Frame, &App, Rect);
 
@@ -44,22 +47,15 @@ impl App {
             config: get_config(),
             db: database_connection(),
             screen_list: vec![
-                (
-                    Screen::Dashboard,
-                    "Dashboard",
-                    &screens::dashboard::render_dashboard,
-                ),
-                (Screen::Sleep, "Sleep", &screens::sleep::render_sleep),
-                (
-                    Screen::Settings,
-                    "Settings",
-                    &screens::settings::render_settings,
-                ),
+                (Screen::Dashboard, "Dashboard", &screens::Dashboard::render),
+                (Screen::Sleep, "Sleep", &screens::Sleep::render),
+                (Screen::Settings, "Settings", &screens::Settings::render),
             ],
             state: State {
                 mode: Mode::Navigation,
                 screen: Screen::Dashboard,
                 window: Window::Navigation,
+                popup: Popup::None,
             },
         }
     }
@@ -92,9 +88,20 @@ impl App {
         self.exit = true
     }
 
-    fn get_mode(&self) -> &str {
+    /// Returns (text, fg, bg)
+    fn get_mode(&self) -> (&str, Color, Color) {
+        let colors = &self.config.colors;
         match self.state.mode {
-            Mode::Navigation => "Navigation",
+            Mode::Navigation => (
+                "Navigation",
+                colors.status_bar_navigation_mode_fg,
+                colors.status_bar_navigation_mode_bg,
+            ),
+            Mode::Popup => (
+                "Popup",
+                colors.status_bar_popup_mode_fg,
+                colors.status_bar_popup_mode_bg,
+            ),
         }
     }
 }

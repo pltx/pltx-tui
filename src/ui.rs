@@ -6,7 +6,12 @@ use ratatui::{
     Frame,
 };
 
-use crate::{state::Window, App};
+use crate::{
+    popups,
+    state::{Mode, Window},
+    utils::RenderPopup,
+    App, Popup,
+};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let colors = &app.config.colors;
@@ -26,11 +31,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     )];
     let title_bar = Paragraph::new(title_bar_content)
         .alignment(Alignment::Center)
-        .style(
-            Style::new()
-                .fg(colors.title_bar_text)
-                .bg(colors.title_bar_bg),
-        );
+        .style(Style::new().fg(colors.title_bar_fg).bg(colors.title_bar_bg));
     frame.render_widget(title_bar, layout[0]);
 
     // Navigation and editor layout
@@ -57,8 +58,8 @@ pub fn render(frame: &mut Frame, app: &App) {
         Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(match app.state.window {
-                Window::Navigation => colors.primary,
+            .border_style(Style::new().fg(match (&app.state.mode, &app.state.window) {
+                (Mode::Navigation, Window::Navigation) => colors.primary,
                 _ => colors.border,
             }))
             .padding(Padding::symmetric(1, 0))
@@ -70,8 +71,8 @@ pub fn render(frame: &mut Frame, app: &App) {
     let screen_window = Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::new().fg(match app.state.window {
-            Window::Screen => colors.primary,
+        .border_style(Style::new().fg(match (&app.state.mode, &app.state.window) {
+            (Mode::Navigation, Window::Screen) => colors.primary,
             _ => colors.border,
         }))
         .padding(Padding::horizontal(1))
@@ -89,22 +90,31 @@ pub fn render(frame: &mut Frame, app: &App) {
         .constraints([Constraint::Min(1)])
         .split(window_layout[1]);
     app.screen_list[screen_index].2(frame, app, screen_layout[0]);
-    // let text = Paragraph::new("Dashboard Test");
-    // frame.render_widget(text, screen_layout[0]);
+
+    // Popup
+    if app.state.mode == Mode::Popup {
+        match app.state.popup {
+            Popup::Help => {
+                popups::Help::init().render(frame, app);
+            }
+            Popup::None => {}
+        }
+    }
 
     // Status bar
+    let mode = app.get_mode();
     let status_bar_content = vec![Line::from(vec![
-        Span::from(format!(" {} ", app.get_mode().to_uppercase()))
+        Span::from(format!(" {} ", mode.0.to_uppercase()))
             .bold()
-            .fg(colors.status_bar_mode_text)
-            .bg(colors.status_bar_mode_bg),
-        Span::from("").fg(colors.status_bar_mode_bg),
+            .fg(mode.1)
+            .bg(mode.2),
+        Span::from("").fg(mode.2),
     ])];
     let status_bar = Paragraph::new(status_bar_content)
         .alignment(Alignment::Left)
         .style(
             Style::new()
-                .fg(colors.status_bar_text)
+                .fg(colors.status_bar_fg)
                 .bg(colors.status_bar_bg),
         );
     frame.render_widget(status_bar, layout[2]);
