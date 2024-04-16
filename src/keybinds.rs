@@ -16,6 +16,11 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) -> Result<()> {
 
     if app.state.mode == Mode::Navigation {
         match key_event.code {
+            // Show the help menu
+            KeyCode::Char('?') => {
+                app.state.mode = Mode::Popup;
+                app.state.popup = Popup::Help;
+            }
             // Quit the application
             KeyCode::Char('q') | KeyCode::Char('Q') => app.exit(),
             // Go down an option
@@ -45,11 +50,6 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) -> Result<()> {
                 if app.state.window == Window::Navigation {
                     app.state.window = Window::Screen;
                 }
-            }
-            // Show the help menu
-            KeyCode::Char('?') => {
-                app.state.mode = Mode::Popup;
-                app.state.popup = Popup::Help;
             }
             _ => {}
         }
