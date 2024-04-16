@@ -6,9 +6,11 @@ use ratatui::{
     Frame,
 };
 
-use crate::config::Config;
+use crate::App;
 
-pub fn render(frame: &mut Frame, config: &Config) {
+pub fn render(frame: &mut Frame, app: &App) {
+    let colors = &app.config.colors;
+
     // Root layout
     let layout = Layout::default()
         .constraints([
@@ -24,7 +26,7 @@ pub fn render(frame: &mut Frame, config: &Config) {
     )];
     let title_bar = Paragraph::new(title_bar_content)
         .alignment(Alignment::Center)
-        .style(Style::new().bg(config.colors.primary));
+        .style(Style::new().bg(colors.primary));
     frame.render_widget(title_bar, layout[0]);
 
     // Navigation and editor layout
@@ -34,42 +36,66 @@ pub fn render(frame: &mut Frame, config: &Config) {
         .split(layout[1]);
 
     // Navigation
-    let navigation_options = vec![
-        Line::styled(" Option #1 ", Style::new().bold().fg(config.colors.primary)),
-        Line::styled(
-            " Option #2 ",
-            Style::new().bold().fg(config.colors.secondary),
-        ),
-    ];
-    let navigation = Paragraph::new(navigation_options).block(
+    let navigation_options = &app
+        .screen_list
+        .iter()
+        .map(|s| {
+            let mut style = Style::new();
+            if s.0 == app.state.screen {
+                style = style.fg(colors.active).bold()
+            } else {
+                style = style.fg(colors.secondary)
+            };
+            Line::from(s.1).style(style)
+        })
+        .collect::<Vec<Line>>();
+    let navigation = Paragraph::new(navigation_options.clone()).block(
         Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(config.colors.primary))
+            .border_style(Style::new().fg(colors.primary))
             .padding(Padding::symmetric(1, 0))
             .style(Style::new().on_black()),
     );
     frame.render_widget(navigation, window_layout[0]);
 
-    // Main content
-    let main_content = Paragraph::new("Main content").block(
-        Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(config.colors.border))
-            .padding(Padding::horizontal(1))
-            .style(Style::new().on_black()),
-    );
-    frame.render_widget(main_content, window_layout[1]);
+    // Screen content
+    let screen_window = Block::new()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::new().fg(colors.border))
+        .padding(Padding::horizontal(1))
+        .style(Style::new().on_black());
+    frame.render_widget(screen_window, window_layout[1]);
+
+    let screen_index = app
+        .screen_list
+        .iter()
+        .position(|s| s.0 == app.state.screen)
+        .unwrap();
+    let screen_layout = Layout::default()
+        .vertical_margin(1)
+        .horizontal_margin(2)
+        .constraints([Constraint::Min(1)])
+        .split(window_layout[1]);
+    app.screen_list[screen_index].2(frame, app, screen_layout[0]);
+    // let text = Paragraph::new("Dashboard Test");
+    // frame.render_widget(text, screen_layout[0]);
 
     // Status bar
-    let status_bar_content = vec![Line::from(vec![Span::from("Status bar")])];
+    let status_bar_content = vec![Line::from(vec![
+        Span::from(format!(" {} ", app.get_mode().to_uppercase()))
+            .bold()
+            .fg(colors.status_bar_mode_text)
+            .bg(colors.status_bar_mode_bg),
+        Span::from("").fg(colors.status_bar_mode_bg),
+    ])];
     let status_bar = Paragraph::new(status_bar_content)
-        .alignment(Alignment::Center)
+        .alignment(Alignment::Left)
         .style(
             Style::new()
-                .fg(config.colors.status_bar_text)
-                .bg(config.colors.status_bar_bg),
+                .fg(colors.status_bar_text)
+                .bg(colors.status_bar_bg),
         );
     frame.render_widget(status_bar, layout[2]);
 }
