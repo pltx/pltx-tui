@@ -14,4 +14,8 @@ license = "GPL-3.0"
 [dependencies]
 color-eyre = "0.6.3"
 crossterm = "0.27.0"
+home = "0.5.9"
 ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_derive = "1.0.197"
+toml = "0.8.12"

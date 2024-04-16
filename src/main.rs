@@ -7,7 +7,7 @@ fn main() -> Result<()> {
 
     let mut terminal = tui::init()?;
 
-    let mut app = App::default();
+    let mut app = App::new();
     app.run(&mut terminal)?;
 
     tui::restore()?;

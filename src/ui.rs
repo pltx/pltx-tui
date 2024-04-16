@@ -1,17 +1,14 @@
-use std::str::FromStr;
-
-use color_eyre::owo_colors::OwoColorize;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Style, Stylize},
+    style::{Style, Stylize},
     text::{Line, Span},
     widgets::{block::*, Block, BorderType, Borders, Paragraph},
     Frame,
 };
 
-pub fn render(frame: &mut Frame) {
-    let primary_color = Color::from_str("#AF5FFF").unwrap();
+use crate::config::Config;
 
+pub fn render(frame: &mut Frame, config: &Config) {
     // Root layout
     let layout = Layout::default()
         .constraints([
@@ -27,7 +24,7 @@ pub fn render(frame: &mut Frame) {
     )];
     let title_bar = Paragraph::new(title_bar_content)
         .alignment(Alignment::Center)
-        .style(Style::new().bg(primary_color));
+        .style(Style::new().bg(config.colors.primary));
     frame.render_widget(title_bar, layout[0]);
 
     // Navigation and editor layout
@@ -38,14 +35,17 @@ pub fn render(frame: &mut Frame) {
 
     // Navigation
     let navigation_options = vec![
-        Line::styled(" Option #1 ", Style::new().bold().fg(Color::Blue)),
-        Line::styled(" Option #2 ", Style::new().bold().fg(Color::Gray)),
+        Line::styled(" Option #1 ", Style::new().bold().fg(config.colors.primary)),
+        Line::styled(
+            " Option #2 ",
+            Style::new().bold().fg(config.colors.secondary),
+        ),
     ];
     let navigation = Paragraph::new(navigation_options).block(
         Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(primary_color))
+            .border_style(Style::new().fg(config.colors.primary))
             .padding(Padding::symmetric(1, 0))
             .style(Style::new().on_black()),
     );
@@ -56,7 +56,7 @@ pub fn render(frame: &mut Frame) {
         Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().dark_gray())
+            .border_style(Style::new().fg(config.colors.border))
             .padding(Padding::horizontal(1))
             .style(Style::new().on_black()),
     );
@@ -66,6 +66,10 @@ pub fn render(frame: &mut Frame) {
     let status_bar_content = vec![Line::from(vec![Span::from("Status bar")])];
     let status_bar = Paragraph::new(status_bar_content)
         .alignment(Alignment::Center)
-        .style(Style::new().on_dark_gray());
+        .style(
+            Style::new()
+                .fg(config.colors.status_bar_text)
+                .bg(config.colors.status_bar_bg),
+        );
     frame.render_widget(status_bar, layout[2]);
 }

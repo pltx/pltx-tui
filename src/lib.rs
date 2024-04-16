@@ -1,19 +1,37 @@
 use color_eyre::{eyre::WrapErr, Result};
+use config::Config;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::Frame;
 
+pub mod config;
 pub mod errors;
 pub mod tui;
 pub mod ui;
 
 use ui::render;
 
-#[derive(Debug, Default)]
+use crate::config::get_config;
+
 pub struct App {
     exit: bool,
+    config: Config,
+}
+
+impl Default for App {
+    fn default() -> App {
+        App::new()
+    }
 }
 
 impl App {
+    // Create a new instance App
+    pub fn new() -> App {
+        App {
+            exit: false,
+            config: get_config(),
+        }
+    }
+
     /// Runs the application's main loop until the user quits
     pub fn run(&mut self, terminal: &mut tui::Tui) -> Result<()> {
         while !self.exit {
@@ -24,7 +42,7 @@ impl App {
     }
 
     fn render_frame(&self, frame: &mut Frame) {
-        render(frame);
+        render(frame, &self.config);
     }
 
     /// Updates the application's state based on user input
