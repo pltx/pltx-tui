@@ -1,27 +1,33 @@
 use color_eyre::{eyre::WrapErr, Result};
 use config::Config;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event, KeyEventKind};
+use database::database_connection;
+use keybinds::handle_key_event;
 use ratatui::{layout::Rect, Frame};
 
 pub mod config;
+pub mod database;
 pub mod errors;
+pub mod keybinds;
 pub mod screens;
 pub mod state;
 pub mod tui;
 pub mod ui;
 
+use rusqlite::Connection;
+use state::{Screen, Mode, State, Window};
 use ui::render;
 
 use crate::config::get_config;
-use state::{Mode, Screen, State};
 
 type ScreenRenderFn = &'static dyn Fn(&mut Frame, &App, Rect);
 
 pub struct App {
     exit: bool,
     config: Config,
-    state: State,
+    db: Connection,
     screen_list: Vec<(Screen, &'static str, ScreenRenderFn)>,
+    state: State,
 }
 
 impl Default for App {
@@ -36,10 +42,7 @@ impl App {
         App {
             exit: false,
             config: get_config(),
-            state: State {
-                mode: Mode::Navigation,
-                screen: Screen::Dashboard,
-            },
+            db: database_connection(),
             screen_list: vec![
                 (
                     Screen::Dashboard,
@@ -53,6 +56,11 @@ impl App {
                     &screens::settings::render_settings,
                 ),
             ],
+            state: State {
+                mode: Mode::Navigation,
+                screen: Screen::Dashboard,
+                window: Window::Navigation,
+            },
         }
     }
 
@@ -72,44 +80,12 @@ impl App {
     /// Updates the application's state based on user input
     fn handle_events(&mut self) -> Result<()> {
         match event::read()? {
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => self
-                .handle_key_event(key_event)
-                .wrap_err_with(|| format!("handling key event failed:\n{key_event:#?}")),
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                handle_key_event(self, key_event)
+                    .wrap_err_with(|| format!("handling key event failed:\n{key_event:#?}"))
+            }
             _ => Ok(()),
         }
-    }
-
-    // Makes keybinds by handing key events
-    fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        let screen_index = self
-            .screen_list
-            .iter()
-            .position(|s| s.0 == self.state.screen)
-            .unwrap();
-
-        match key_event.code {
-            KeyCode::Char('q') | KeyCode::Char('Q') => self.exit(),
-            KeyCode::Char('j') => {
-                if self.state.mode == Mode::Navigation {
-                    if screen_index == self.screen_list.len() - 1 {
-                        self.state.screen = self.screen_list[0].0.clone();
-                    } else {
-                        self.state.screen = self.screen_list[screen_index + 1].0.clone();
-                    }
-                };
-            }
-            KeyCode::Char('k') => {
-                if self.state.mode == Mode::Navigation {
-                    if screen_index == 0 {
-                        self.state.screen = self.screen_list[self.screen_list.len() - 1].0.clone();
-                    } else {
-                        self.state.screen = self.screen_list[screen_index - 1].0.clone();
-                    }
-                };
-            }
-            _ => {}
-        }
-        Ok(())
     }
 
     fn exit(&mut self) {

@@ -3,7 +3,8 @@ use std::{fs, path::PathBuf, str::FromStr};
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
-// File config structs with all properties optional, as the user might not provide them
+// File config structs with all properties optional, as the user might not
+// provide them
 #[derive(Deserialize, Serialize)]
 struct ColorsConfigFile {
     primary: Option<String>,
@@ -76,7 +77,7 @@ fn read_config_file() -> Option<ConfigFile> {
     let home_dir = match home::home_dir() {
         Some(path) => path,
         None => {
-            panic!("Failed to find home directory");
+            panic!("failed to find home directory");
         }
     };
 
@@ -112,7 +113,8 @@ fn get_color(color: &str) -> Color {
     Color::from_str(color).unwrap()
 }
 
-/// Call the `get_color()` function if provided (from user config), otherwise return `Err`
+/// Call the `get_color()` function if provided (from user config), otherwise
+/// return `Err`
 fn get_color_op(color_op: Option<String>) -> Result<Color, ()> {
     match color_op {
         Some(color) => Ok(get_color(&color)),

@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::App;
+use crate::{state::Window, App};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let colors = &app.config.colors;
@@ -57,7 +57,10 @@ pub fn render(frame: &mut Frame, app: &App) {
         Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(colors.primary))
+            .border_style(Style::new().fg(match app.state.window {
+                Window::Navigation => colors.primary,
+                _ => colors.border,
+            }))
             .padding(Padding::symmetric(1, 0))
             .bg(colors.bg),
     );
@@ -67,7 +70,10 @@ pub fn render(frame: &mut Frame, app: &App) {
     let screen_window = Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::new().fg(colors.border))
+        .border_style(Style::new().fg(match app.state.window {
+            Window::Screen => colors.primary,
+            _ => colors.border,
+        }))
         .padding(Padding::horizontal(1))
         .bg(colors.bg);
     frame.render_widget(screen_window, window_layout[1]);
