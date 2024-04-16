@@ -2,6 +2,7 @@
 name = "pltx-tui"
 description = "Private Life Tracker X TUI"
 version = "0.0.1"
+edition = "2021"
 authors = ["Slekup <opensource@slekup.com>"]
 keywords = ["tui", "privacy", "tracker"]
 categories = ["tui", "privacy", "tracker"]
@@ -10,7 +11,7 @@ homepage = "https://github.com/pltx/tui"
 repository = "https://github.com/pltx/tui"
 license = "GPL-3.0"
 
-[features]
-default = ["application"]
-
 [dependencies]
+color-eyre = "0.6.3"
+crossterm = "0.27.0"
+ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
