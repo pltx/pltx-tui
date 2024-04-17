@@ -2,19 +2,19 @@ use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::{
-    state::{Mode, Popup, Window},
+    state::{Mode, Popup, State, Window},
     App,
 };
 
 // Makes keybinds by handing key events
-pub fn handle_key_event(app: &mut App, key_event: KeyEvent) -> Result<()> {
+pub fn handle_key_event(app: &mut App, key_event: KeyEvent, event_state: &State) -> Result<()> {
     let screen_index = app
         .screen_list
         .iter()
-        .position(|s| s.0 == app.state.screen)
+        .position(|s| s.0 == event_state.screen)
         .unwrap();
 
-    if app.state.mode == Mode::Navigation {
+    if event_state.mode == Mode::Navigation {
         match key_event.code {
             // Show the help menu
             KeyCode::Char('?') => {
@@ -41,13 +41,13 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) -> Result<()> {
             }
             // Focus on the previous window
             KeyCode::Char('h') => {
-                if app.state.window == Window::Screen {
+                if event_state.window == Window::Screen {
                     app.state.window = Window::Navigation;
                 }
             }
             // Focus on the next window
             KeyCode::Char('l') => {
-                if app.state.window == Window::Navigation {
+                if event_state.window == Window::Navigation {
                     app.state.window = Window::Screen;
                 }
             }
@@ -55,10 +55,11 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) -> Result<()> {
         }
     }
 
-    if app.state.mode == Mode::Popup {
+    if event_state.mode == Mode::Popup {
+        // Global popup keybinds
         match key_event.code {
             // Close the popup
-            KeyCode::Char('q') | KeyCode::Char('Q') => {
+            KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
                 app.state.mode = Mode::Navigation;
                 app.state.popup = Popup::None;
             }

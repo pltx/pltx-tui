@@ -1,12 +1,15 @@
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    layout::{Alignment, Constraint, Layout},
+    layout::{Constraint, Layout},
     style::{Style, Stylize},
-    widgets::{block::Title, Block, BorderType, Borders, Cell, Row, Table},
+    widgets::{block::Title, Block, Cell, Clear, Row, Table},
     Frame,
 };
 
 use crate::{
-    utils::{centered_rect, RenderPopup},
+    components,
+    state::{Mode, Popup, State},
+    utils::{centered_rect_absolute, PopupKeyEventHandler, RenderPopup},
     App,
 };
 
@@ -18,8 +21,17 @@ pub struct Help {
 impl Help {
     pub fn init() -> Help {
         Help {
-            width: 40,
-            height: 30,
+            width: 60,
+            height: 15,
+        }
+    }
+}
+
+impl PopupKeyEventHandler for Help {
+    fn key_event_handler(app: &mut App, key_event: KeyEvent, _: &State) {
+        if key_event.code == KeyCode::Char('?') {
+            app.state.mode = Mode::Navigation;
+            app.state.popup = Popup::None;
         }
     }
 }
@@ -27,23 +39,17 @@ impl Help {
 impl RenderPopup for Help {
     fn render(self, frame: &mut Frame, app: &App) {
         let colors = &app.config.colors;
+        let popup = components::Popup::new(app);
 
-        let popup_block = Block::default()
-            .title(Title::from(" Help Menu ").alignment(Alignment::Center))
-            .title_style(Style::new().fg(colors.fg))
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(colors.popup_border))
-            .bg(colors.popup_bg);
-
-        let popup_area = centered_rect(self.width, self.height, frame.size());
-        frame.render_widget(popup_block, popup_area);
+        let area = centered_rect_absolute(self.width, self.height, frame.size());
+        frame.render_widget(Clear, area);
+        frame.render_widget(popup.block, area);
 
         let popup_layout = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(3)
             .constraints([Constraint::Min(1)])
-            .split(popup_area);
+            .split(area);
 
         let rows = [
             Row::new(vec![Cell::new("?").bold(), Cell::new("Show the help menu")]),

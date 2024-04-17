@@ -94,9 +94,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     // Popup
     if app.state.mode == Mode::Popup {
         match app.state.popup {
-            Popup::Help => {
-                popups::Help::init().render(frame, app);
-            }
+            Popup::Help => popups::Help::init().render(frame, app),
             Popup::None => {}
         }
     }

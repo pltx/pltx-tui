@@ -4,7 +4,7 @@ use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
 // File config structs with all properties optional, as the user might not
-// provide them
+// provide them.
 #[derive(Deserialize, Serialize)]
 struct ColorsConfigFile {
     primary: Option<String>,
@@ -32,7 +32,7 @@ struct ConfigFile {
     colors: Option<ColorsConfigFile>,
 }
 
-// Config structs with all properties provided
+// Config structs with all properties provided.
 pub struct ColorsConfig {
     pub primary: Color,
     pub active: Color,
@@ -84,7 +84,7 @@ fn get_base_config() -> Config {
     }
 }
 
-/// Read the config file if it exists
+/// Read the config file if it exists.
 fn read_config_file() -> Option<ConfigFile> {
     let home_dir = match home::home_dir() {
         Some(path) => path,
@@ -119,14 +119,14 @@ fn read_config_file() -> Option<ConfigFile> {
     config_file
 }
 
-/// Get the ratatui compatible color from a hex color
+/// Get the ratatui compatible color from a hex color.
 fn get_color(color: &str) -> Color {
     // TODO: Add color validation
     Color::from_str(color).unwrap()
 }
 
 /// Call the `get_color()` function if provided (from user config), otherwise
-/// return `Err`
+/// return `Err`.
 fn get_color_op(color_op: Option<String>) -> Result<Color, ()> {
     match color_op {
         Some(color) => Ok(get_color(&color)),
@@ -134,7 +134,7 @@ fn get_color_op(color_op: Option<String>) -> Result<Color, ()> {
     }
 }
 
-/// Merge the user config with the base config
+/// Merge the user config with the base config.
 fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
     Config {
         colors: match user_config.colors {

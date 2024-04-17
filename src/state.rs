@@ -1,11 +1,11 @@
-/// The current mode
-#[derive(Eq, PartialEq)]
+/// The current mode.
+#[derive(Eq, PartialEq, Clone)]
 pub enum Mode {
     Navigation,
     Popup,
 }
 
-/// The current screen (page)
+/// The current screen (page).
 #[derive(Eq, PartialEq, Clone)]
 pub enum Screen {
     Dashboard,
@@ -13,20 +13,22 @@ pub enum Screen {
     Settings,
 }
 
-/// The current window
+/// The currently focused window.
 #[derive(Eq, PartialEq, Clone)]
 pub enum Window {
     Navigation,
     Screen,
 }
 
-/// The current popup
+/// The current popup that is showing or none.
 #[derive(Eq, PartialEq, Clone)]
 pub enum Popup {
     Help,
     None,
 }
 
+/// Collection of states for the application.
+#[derive(Clone)]
 pub struct State {
     pub mode: Mode,
     pub screen: Screen,
