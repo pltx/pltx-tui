@@ -6,7 +6,7 @@ pub struct Dashboard;
 
 impl RenderScreen for Dashboard {
     fn render(frame: &mut Frame, _: &App, area: Rect) {
-        let text = Paragraph::new("Dashboard");
+        let text = Paragraph::new(format!("{}", area.height));
         frame.render_widget(text, area);
     }
 }

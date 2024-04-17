@@ -33,6 +33,7 @@ struct ConfigFile {
 }
 
 // Config structs with all properties provided.
+#[derive(Clone)]
 pub struct ColorsConfig {
     pub primary: Color,
     pub active: Color,
@@ -55,6 +56,7 @@ pub struct ColorsConfig {
 }
 
 /// The main config struct where all properties are provided.
+#[derive(Clone)]
 pub struct Config {
     pub colors: ColorsConfig,
 }

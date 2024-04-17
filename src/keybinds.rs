@@ -63,6 +63,12 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent, event_state: &State)
                 app.state.mode = Mode::Navigation;
                 app.state.popup = Popup::None;
             }
+            KeyCode::Char('j') => app.scroll_view_state.scroll_down(),
+            KeyCode::Char('k') => app.scroll_view_state.scroll_up(),
+            KeyCode::Char('J') => app.scroll_view_state.scroll_page_down(),
+            KeyCode::Char('K') => app.scroll_view_state.scroll_page_up(),
+            KeyCode::Char('g') => app.scroll_view_state.scroll_to_top(),
+            KeyCode::Char('G') => app.scroll_view_state.scroll_to_bottom(),
             _ => {}
         }
     }

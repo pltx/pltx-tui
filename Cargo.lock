@@ -302,6 +302,7 @@ version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c10584274047cb335c23d3e61bcef8e323adae7c5c8c760540f73610177fc3f"
 dependencies = [
+ "cc",
  "pkg-config",
  "vcpkg",
 ]
@@ -447,6 +448,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "toml",
+ "tui-scrollview",
 ]
 
 [[package]]
@@ -780,6 +782,16 @@ dependencies = [
  "sharded-slab",
  "thread_local",
  "tracing-core",
+]
+
+[[package]]
+name = "tui-scrollview"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf21fd52e27875c6634a03b5918f0ea61dfd42226866882e464b85901a8f0df5"
+dependencies = [
+ "indoc",
+ "ratatui",
 ]
 
 [[package]]

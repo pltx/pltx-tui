@@ -13,8 +13,8 @@ use crate::{
     App, Popup,
 };
 
-pub fn render(frame: &mut Frame, app: &App) {
-    let colors = &app.config.colors;
+pub fn render(frame: &mut Frame, app: &mut App) {
+    let colors = &app.config.colors.clone();
 
     // Root layout
     let layout = Layout::default()

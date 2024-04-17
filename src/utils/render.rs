@@ -1,5 +1,5 @@
 use crossterm::event::{Event, KeyEvent};
-use ratatui::{layout::Rect, Frame};
+use ratatui::{buffer::Buffer, layout::Rect, Frame};
 
 use crate::{state::State, App};
 
@@ -8,7 +8,8 @@ pub trait RenderScreen {
 }
 
 pub trait RenderPopup {
-    fn render(self, frame: &mut Frame, app: &App);
+    fn render(&mut self, frame: &mut Frame, app: &mut App);
+    fn render_widgets_into_scrollview(&self, buf: &mut Buffer, app: &App);
 }
 
 pub trait PopupEventHandler {

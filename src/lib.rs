@@ -20,7 +20,8 @@ pub mod tui;
 pub mod ui;
 
 use rusqlite::Connection;
-use state::{Mode, Popup, Screen, State, Pane};
+use state::{Mode, Pane, Popup, Screen, State};
+use tui_scrollview::ScrollViewState;
 use ui::render;
 use utils::PopupKeyEventHandler;
 
@@ -34,6 +35,7 @@ pub struct App {
     db: Connection,
     screen_list: Vec<(Screen, &'static str, ScreenRenderFn)>,
     state: State,
+    scroll_view_state: ScrollViewState,
 }
 
 impl Default for App {
@@ -65,6 +67,7 @@ impl App {
                 pane: Pane::Navigation,
                 popup: Popup::None,
             },
+            scroll_view_state: ScrollViewState::new(),
         }
     }
 
@@ -77,7 +80,7 @@ impl App {
         Ok(())
     }
 
-    fn render_frame(&self, frame: &mut Frame) {
+    fn render_frame(&mut self, frame: &mut Frame) {
         render(frame, self);
     }
 
