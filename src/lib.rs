@@ -51,6 +51,11 @@ impl App {
             db: database_connection(),
             screen_list: vec![
                 (Screen::Dashboard, "Dashboard", &screens::Dashboard::render),
+                (
+                    Screen::ProjectManagement,
+                    "Project Management",
+                    &screens::ProjectManagement::render,
+                ),
                 (Screen::Sleep, "Sleep", &screens::Sleep::render),
                 (Screen::Settings, "Settings", &screens::Settings::render),
             ],

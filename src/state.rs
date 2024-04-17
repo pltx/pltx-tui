@@ -9,6 +9,7 @@ pub enum Mode {
 #[derive(Eq, PartialEq, Clone)]
 pub enum Screen {
     Dashboard,
+    ProjectManagement,
     Sleep,
     Settings,
 }
