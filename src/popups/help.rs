@@ -54,10 +54,10 @@ impl RenderPopup for Help {
         let rows = [
             Row::new(vec![Cell::new("?").bold(), Cell::new("Show the help menu")]),
             Row::new(vec!["q", "Quit the application"]),
-            Row::new(vec!["h", "Focus on the previous window"]),
+            Row::new(vec!["h", "Focus on the previous pane"]),
             Row::new(vec!["j", "Navigate down to the next option"]),
             Row::new(vec!["k", "Navigate up to the previous option"]),
-            Row::new(vec!["l", "Focus on the next window"]),
+            Row::new(vec!["l", "Focus on the next pane"]),
         ];
         let widths = [Constraint::Length(10), Constraint::Min(1)];
         let table = Table::new(rows, widths)

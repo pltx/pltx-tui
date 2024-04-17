@@ -20,7 +20,7 @@ pub mod tui;
 pub mod ui;
 
 use rusqlite::Connection;
-use state::{Mode, Popup, Screen, State, Window};
+use state::{Mode, Popup, Screen, State, Pane};
 use ui::render;
 use utils::PopupKeyEventHandler;
 
@@ -62,7 +62,7 @@ impl App {
             state: State {
                 mode: Mode::Navigation,
                 screen: Screen::Dashboard,
-                window: Window::Navigation,
+                pane: Pane::Navigation,
                 popup: Popup::None,
             },
         }

@@ -14,9 +14,9 @@ pub enum Screen {
     Settings,
 }
 
-/// The currently focused window.
+/// The currently focused pane.
 #[derive(Eq, PartialEq, Clone)]
-pub enum Window {
+pub enum Pane {
     Navigation,
     Screen,
 }
@@ -33,6 +33,6 @@ pub enum Popup {
 pub struct State {
     pub mode: Mode,
     pub screen: Screen,
-    pub window: Window,
+    pub pane: Pane,
     pub popup: Popup,
 }

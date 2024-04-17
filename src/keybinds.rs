@@ -2,7 +2,7 @@ use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::{
-    state::{Mode, Popup, State, Window},
+    state::{Mode, Pane, Popup, State},
     App,
 };
 
@@ -39,16 +39,16 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent, event_state: &State)
                     app.state.screen = app.screen_list[screen_index - 1].0.clone();
                 }
             }
-            // Focus on the previous window
+            // Focus on the previous pane
             KeyCode::Char('h') => {
-                if event_state.window == Window::Screen {
-                    app.state.window = Window::Navigation;
+                if event_state.pane == Pane::Screen {
+                    app.state.pane = Pane::Navigation;
                 }
             }
-            // Focus on the next window
+            // Focus on the next pane
             KeyCode::Char('l') => {
-                if event_state.window == Window::Navigation {
-                    app.state.window = Window::Screen;
+                if event_state.pane == Pane::Navigation {
+                    app.state.pane = Pane::Screen;
                 }
             }
             _ => {}

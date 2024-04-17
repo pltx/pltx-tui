@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::{
     popups,
-    state::{Mode, Window},
+    state::{Mode, Pane},
     utils::RenderPopup,
     App, Popup,
 };
@@ -35,7 +35,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     frame.render_widget(title_bar, layout[0]);
 
     // Navigation and editor layout
-    let window_layout = Layout::default()
+    let panes_layout = Layout::default()
         .constraints([Constraint::Length(30), Constraint::Min(1)])
         .direction(Direction::Horizontal)
         .split(layout[1]);
@@ -54,30 +54,30 @@ pub fn render(frame: &mut Frame, app: &App) {
             Line::from(s.1).style(style)
         })
         .collect::<Vec<Line>>();
-    let navigation = Paragraph::new(navigation_options.clone()).block(
+    let navigation_pane = Paragraph::new(navigation_options.clone()).block(
         Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(match (&app.state.mode, &app.state.window) {
-                (Mode::Navigation, Window::Navigation) => colors.primary,
+            .border_style(Style::new().fg(match (&app.state.mode, &app.state.pane) {
+                (Mode::Navigation, Pane::Navigation) => colors.primary,
                 _ => colors.border,
             }))
             .padding(Padding::symmetric(1, 0))
             .bg(colors.bg),
     );
-    frame.render_widget(navigation, window_layout[0]);
+    frame.render_widget(navigation_pane, panes_layout[0]);
 
     // Screen content
-    let screen_window = Block::new()
+    let screen_pane = Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::new().fg(match (&app.state.mode, &app.state.window) {
-            (Mode::Navigation, Window::Screen) => colors.primary,
+        .border_style(Style::new().fg(match (&app.state.mode, &app.state.pane) {
+            (Mode::Navigation, Pane::Screen) => colors.primary,
             _ => colors.border,
         }))
         .padding(Padding::horizontal(1))
         .bg(colors.bg);
-    frame.render_widget(screen_window, window_layout[1]);
+    frame.render_widget(screen_pane, panes_layout[1]);
 
     let screen_index = app
         .screen_list
@@ -88,7 +88,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         .vertical_margin(1)
         .horizontal_margin(2)
         .constraints([Constraint::Min(1)])
-        .split(window_layout[1]);
+        .split(panes_layout[1]);
     app.screen_list[screen_index].2(frame, app, screen_layout[0]);
 
     // Popup
