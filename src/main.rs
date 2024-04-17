@@ -1,6 +1,5 @@
 use color_eyre::Result;
-
-use pltx_tui::{errors, tui, App};
+use pltx::{errors, tui, App};
 
 fn main() -> Result<()> {
     errors::install_hooks()?;

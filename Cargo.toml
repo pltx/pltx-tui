@@ -11,6 +11,16 @@ homepage = "https://github.com/pltx/tui"
 repository = "https://github.com/pltx/tui"
 license = "GPL-3.0"
 
+[[bin]]
+name = "pltx"
+path = "src/main.rs"
+
+[lib]
+name = "pltx"
+
+[profile.release]
+panic = "abort"
+
 [dependencies]
 color-eyre = "0.6.3"
 crossterm = "0.27.0"
