@@ -48,6 +48,7 @@ impl App {
             state: State {
                 mode: Mode::Navigation,
                 screen: Screen::Dashboard,
+                hover_screen: Screen::Dashboard,
                 pane: Pane::Navigation,
                 popup: Popup::None,
             },
@@ -76,21 +77,31 @@ impl App {
         self.exit = true
     }
 
+    fn get_mode_text(&self, mode: Mode) -> &str {
+        match mode {
+            Mode::Navigation => "Navigation",
+            Mode::Popup => "Popup",
+        }
+    }
+
     /// Returns (text, fg, bg).
-    fn get_mode(&self) -> (&str, Color, Color) {
+    fn get_mode_colors(&self) -> (&str, Color, Color) {
         let colors = &self.config.colors;
-        match self.state.mode {
+        let get_mode_colors = || match self.state.mode {
             Mode::Navigation => (
-                "Navigation",
                 colors.status_bar_navigation_mode_fg,
                 colors.status_bar_navigation_mode_bg,
             ),
             Mode::Popup => (
-                "Popup",
                 colors.status_bar_popup_mode_fg,
                 colors.status_bar_popup_mode_bg,
             ),
-        }
+        };
+        (
+            self.get_mode_text(self.state.mode.clone()),
+            get_mode_colors().0,
+            get_mode_colors().1,
+        )
     }
 
     pub fn get_screen_list<'a>(&self) -> Vec<(Screen, &'a str)> {

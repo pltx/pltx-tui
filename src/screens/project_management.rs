@@ -22,6 +22,7 @@ enum Tab {
 
 pub struct ProjectManagement {
     tab: Tab,
+    hover_tab: Tab,
 }
 
 impl ProjectManagement {
@@ -46,14 +47,14 @@ impl KeyEventHandler for ProjectManagement {
             let tabs = self.get_tabs();
             let tab_index = tabs.iter().position(|t| t.0 == self.tab).unwrap();
             match key_event.code {
-                KeyCode::Char('k') => {
+                KeyCode::Char('l') => {
                     if tab_index == tabs.len() - 1 {
                         self.tab = tabs[0].0.clone();
                     } else {
                         self.tab = tabs[tab_index + 1].0.clone();
                     }
                 }
-                KeyCode::Char('j') => {
+                KeyCode::Char('h') => {
                     if tab_index == 0 {
                         self.tab = tabs[tabs.len() - 1].0.clone();
                     } else {
@@ -68,7 +69,10 @@ impl KeyEventHandler for ProjectManagement {
 
 impl RenderScreen for ProjectManagement {
     fn init() -> ProjectManagement {
-        ProjectManagement { tab: Tab::Planned }
+        ProjectManagement {
+            tab: Tab::Planned,
+            hover_tab: Tab::Planned,
+        }
     }
 
     fn render(&mut self, frame: &mut Frame, app: &App, area: Rect) {
@@ -86,7 +90,7 @@ impl RenderScreen for ProjectManagement {
                 .map(|t| {
                     let mut style = Style::new();
                     if t.0 == self.tab {
-                        style = style.fg(colors.active).bold()
+                        style = style.fg(colors.active_fg).bg(colors.active_bg).bold()
                     } else {
                         style = style.fg(colors.secondary)
                     };
@@ -100,7 +104,7 @@ impl RenderScreen for ProjectManagement {
                 .padding(Padding::horizontal(1))
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::new().fg(colors.border)),
+                .border_style(Style::new().fg(colors.primary)),
         );
 
         frame.render_widget(navigation, navigation_layout);

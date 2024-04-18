@@ -7,10 +7,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize)]
 struct ColorsConfigFile {
     primary: Option<String>,
-    active: Option<String>,
     secondary: Option<String>,
     bg: Option<String>,
     fg: Option<String>,
+    active_fg: Option<String>,
+    active_bg: Option<String>,
+    hover_fg: Option<String>,
+    hover_bg: Option<String>,
     border: Option<String>,
     popup_bg: Option<String>,
     popup_border: Option<String>,
@@ -37,10 +40,13 @@ struct ConfigFile {
 #[derive(Clone)]
 pub struct ColorsConfig {
     pub primary: Color,
-    pub active: Color,
     pub secondary: Color,
     pub bg: Color,
     pub fg: Color,
+    pub active_fg: Color,
+    pub active_bg: Color,
+    pub hover_fg: Color,
+    pub hover_bg: Color,
     pub border: Color,
     pub popup_bg: Color,
     pub popup_border: Color,
@@ -68,10 +74,13 @@ fn get_base_config() -> Config {
     Config {
         colors: ColorsConfig {
             primary: get_color("#AF5FFF"),
-            active: get_color("#00FFFF"),
-            secondary: get_color("#999999"),
+            secondary: get_color("#AAAAAA"),
             fg: get_color("#FFFFFF"),
             bg: get_color("#000000"),
+            active_fg: get_color("#000000"),
+            active_bg: get_color("#00FFFF"),
+            hover_fg: get_color("#00FFFF"),
+            hover_bg: get_color("#000000"),
             border: get_color("#777777"),
             popup_bg: get_color("#000000"),
             popup_border: get_color("#AF5FFF"),
@@ -147,10 +156,13 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
         colors: match user_config.colors {
             Some(colors) => ColorsConfig {
                 primary: get_color_op(colors.primary).unwrap_or(base_config.colors.primary),
-                active: get_color_op(colors.active).unwrap_or(base_config.colors.active),
                 secondary: get_color_op(colors.secondary).unwrap_or(base_config.colors.secondary),
                 fg: get_color_op(colors.fg).unwrap_or(base_config.colors.fg),
                 bg: get_color_op(colors.bg).unwrap_or(base_config.colors.bg),
+                active_fg: get_color_op(colors.active_fg).unwrap_or(base_config.colors.active_fg),
+                active_bg: get_color_op(colors.active_bg).unwrap_or(base_config.colors.active_bg),
+                hover_fg: get_color_op(colors.hover_fg).unwrap_or(base_config.colors.hover_fg),
+                hover_bg: get_color_op(colors.hover_bg).unwrap_or(base_config.colors.hover_bg),
                 border: get_color_op(colors.border).unwrap_or(base_config.colors.border),
                 popup_bg: get_color_op(colors.popup_bg).unwrap_or(base_config.colors.popup_bg),
                 popup_border: get_color_op(colors.popup_border)

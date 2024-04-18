@@ -1,5 +1,5 @@
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{block::*, Block, BorderType, Borders, Paragraph},
@@ -67,7 +67,10 @@ impl Interface {
             .direction(Direction::Horizontal)
             .areas(main_layout);
 
-        frame.render_widget(self.navigation_pane(app), navigation_layout);
+        frame.render_widget(
+            self.navigation_pane(app, navigation_layout),
+            navigation_layout,
+        );
         frame.render_widget(self.status_bar(app), status_bar_layout);
 
         // Screen content
@@ -123,20 +126,31 @@ impl Interface {
             .style(Style::new().fg(colors.title_bar_fg).bg(colors.title_bar_bg))
     }
 
-    fn navigation_pane(&self, app: &App) -> Paragraph {
+    fn navigation_pane(&self, app: &App, rect: Rect) -> Paragraph {
         let screen_list = app.get_screen_list();
         let colors = &app.config.colors;
 
         let navigation_options = screen_list
             .iter()
             .map(|s| {
-                let mut style = Style::new();
                 if s.0 == app.state.screen {
-                    style = style.fg(colors.active).bold()
+                    Line::from(format!(
+                        " {} {}",
+                        s.1,
+                        " ".repeat(rect.as_size().width as usize - s.1.len() - 4)
+                    ))
+                    .style(
+                        Style::new()
+                            .fg(colors.active_fg)
+                            .bg(colors.active_bg)
+                            .bold(),
+                    )
+                } else if s.0 == app.state.hover_screen {
+                    Line::from(format!(" {} ", s.1))
+                        .style(Style::new().fg(colors.hover_fg).bg(colors.hover_bg))
                 } else {
-                    style = style.fg(colors.secondary)
-                };
-                Line::from(s.1).style(style)
+                    Line::from(format!(" {} ", s.1)).style(Style::new().fg(colors.secondary))
+                }
             })
             .collect::<Vec<Line>>();
         Paragraph::new(navigation_options.clone()).block(
@@ -147,14 +161,14 @@ impl Interface {
                     (Mode::Navigation, Pane::Navigation) => colors.primary,
                     _ => colors.border,
                 }))
-                .padding(Padding::symmetric(1, 0))
+                // .padding(Padding::symmetric(1, 0))
                 .bg(colors.bg),
         )
     }
 
     fn status_bar(&self, app: &App) -> Paragraph {
         let colors = &app.config.colors;
-        let mode = app.get_mode();
+        let mode = app.get_mode_colors();
         let status_bar_content = vec![Line::from(vec![
             Span::from(format!(" {} ", mode.0.to_uppercase()))
                 .bold()

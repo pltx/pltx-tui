@@ -55,7 +55,7 @@ impl EventHandler {
         let screen_list = &app.get_screen_list();
         let screen_index = screen_list
             .iter()
-            .position(|s| s.0 == event_state.screen)
+            .position(|s| s.0 == event_state.hover_screen)
             .unwrap();
 
         // TODO: Convert to match statements when adding more poups
@@ -76,14 +76,17 @@ impl EventHandler {
                 // Quit the application
                 KeyCode::Char('q') | KeyCode::Char('Q') => app.exit(),
                 // Focus on the previous pane
-                KeyCode::Char('h') => {
-                    if event_state.pane == Pane::Screen {
-                        app.state.pane = Pane::Navigation;
-                    }
-                }
-                // Focus on the next pane
-                KeyCode::Char('l') => {
+                // TODO: Remove this when functionality is added per screen
+                // Commented out for functionality to be managed per screen
+                // KeyCode::Backspace => {
+                //     if event_state.pane == Pane::Screen {
+                //         app.state.pane = Pane::Navigation;
+                //     }
+                // }
+                // Select and focus on the screen
+                KeyCode::Enter => {
                     if event_state.pane == Pane::Navigation {
+                        app.state.screen = app.state.hover_screen.clone();
                         app.state.pane = Pane::Screen;
                     }
                 }
@@ -94,17 +97,17 @@ impl EventHandler {
                     // Go down an option
                     KeyCode::Char('j') => {
                         if screen_index == screen_list.len() - 1 {
-                            app.state.screen = screen_list[0].0.clone();
+                            app.state.hover_screen = screen_list[0].0.clone();
                         } else {
-                            app.state.screen = screen_list[screen_index + 1].0.clone();
+                            app.state.hover_screen = screen_list[screen_index + 1].0.clone();
                         }
                     }
                     // Go up an option
                     KeyCode::Char('k') => {
                         if screen_index == 0 {
-                            app.state.screen = screen_list[screen_list.len() - 1].0.clone();
+                            app.state.hover_screen = screen_list[screen_list.len() - 1].0.clone();
                         } else {
-                            app.state.screen = screen_list[screen_index - 1].0.clone();
+                            app.state.hover_screen = screen_list[screen_index - 1].0.clone();
                         }
                     }
                     _ => {}

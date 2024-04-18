@@ -3,14 +3,14 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Size},
     style::{Style, Stylize},
-    widgets::{block::Title, Block, Cell, Clear, Row, StatefulWidget, Table, Widget},
+    text::{Line, Span, Text},
+    widgets::{Block, Clear, Paragraph, StatefulWidget, Widget},
     Frame,
 };
 use tui_scrollview::ScrollView;
 
 use crate::{
     components,
-    config::ColorsConfig,
     state::{Mode, Popup, State},
     utils::{centered_rect_absolute, KeyEventHandler, RenderPopup},
     App,
@@ -61,7 +61,6 @@ impl RenderPopup for Help {
 
     fn render_widgets_into_scrollview(&self, buf: &mut Buffer, app: &App) {
         let area = buf.area;
-        let colors = &app.config.colors;
 
         let [content, spacing] = Layout::default()
             .direction(Direction::Horizontal)
@@ -74,13 +73,15 @@ impl RenderPopup for Help {
             .vertical_margin(1)
             .horizontal_margin(3)
             .constraints([
-                Constraint::Length((self.get_keybinds(Mode::Navigation).len() + 3) as u16),
-                Constraint::Length((self.get_keybinds(Mode::Popup).len() + 3) as u16),
+                Constraint::Length((self.get_keybinds(Mode::Navigation).len() + 2) as u16),
+                Constraint::Length((self.get_keybinds(Mode::Popup).len() + 2) as u16),
             ])
             .areas(content);
 
-        self.navigation_table(colors).render(navigation_layout, buf);
-        self.popup_table(colors).render(popup_layout, buf);
+        self.keybinds_paragraph(app, Mode::Navigation)
+            .render(navigation_layout, buf);
+        self.keybinds_paragraph(app, Mode::Popup)
+            .render(popup_layout, buf);
     }
 }
 
@@ -90,24 +91,26 @@ impl Help {
     fn get_keybinds<'a>(&self, mode: Mode) -> Vec<(&'a str, &'a str)> {
         match mode {
             Mode::Navigation => vec![
-                ("?", "Show the help menu"),
-                ("q", "Quit the application"),
-                ("h", "Focus on the previous pane"),
-                ("j", "Navigate down to the next option"),
-                ("k", "Navigate up to the previous option"),
-                ("l", "Focus on the next pane"),
+                ("?", "Show help menu"),
+                ("q", "Quit application"),
+                ("h", "Select next horizontal option"),
+                ("j", "Select next vertical option"),
+                ("k", "Select previous vertical option"),
+                ("l", "Select previous horizontal option"),
+                ("<enter>", "Open selected option + Next navigation pane"),
+                ("<bs>", "Previous navigation pane"),
             ],
             Mode::Popup => vec![
-                ("q", "Close the popup"),
-                ("?", "Close the help menu (if open)"),
-                ("h", "Navigate to the previous page"),
-                ("j", "Scroll down a line"),
-                ("k", "Scroll up a line"),
-                ("J", "Scroll down a page"),
-                ("K", "Scroll up a page"),
-                ("g", "scroll to the top of the page"),
-                ("G", "Scroll to the bottom of the page"),
-                ("l", "Navigate to the next page"),
+                ("q", "Close popup"),
+                ("?", "Close help menu (if open)"),
+                ("l", "Next page"),
+                ("h", "Previous page"),
+                ("k", "Scroll up"),
+                ("j", "Scroll down"),
+                ("J", "Page up"),
+                ("K", "Page down"),
+                ("g", "Scroll top"),
+                ("G", "Scroll bottom"),
             ],
         }
     }
@@ -117,41 +120,41 @@ impl Help {
             + ((self.get_keybinds(Mode::Navigation).len() + 4) as u16)
     }
 
-    fn navigation_table(&self, colors: &ColorsConfig) -> impl Widget {
-        let navigation_rows = self
-            .get_keybinds(Mode::Navigation)
-            .iter()
-            .map(|k| Row::new(vec![Cell::new(k.0).bold(), Cell::new(k.1)]))
-            .collect::<Vec<Row>>();
-        let navigation_widths = [Constraint::Length(12), Constraint::Min(1)];
-        Table::new(navigation_rows, navigation_widths)
-            .column_spacing(1)
-            .style(Style::new().fg(colors.secondary))
-            .header(Row::new(vec!["Keybind", "Description"]).style(Style::new().fg(colors.fg)))
-            .block(
-                Block::new()
-                    .title(Title::from("Navigation Mode"))
-                    .title_style(Style::new().bold().fg(colors.status_bar_navigation_mode_bg)),
-            )
-            .highlight_style(Style::new().reversed())
-    }
-
-    fn popup_table(&self, colors: &ColorsConfig) -> impl Widget {
-        let popup_rows = self
-            .get_keybinds(Mode::Popup)
-            .iter()
-            .map(|k| Row::new(vec![Cell::new(k.0).bold(), Cell::new(k.1)]))
-            .collect::<Vec<Row>>();
-        let popup_widths = [Constraint::Length(12), Constraint::Min(1)];
-        Table::new(popup_rows, popup_widths)
-            .column_spacing(1)
-            .style(Style::new().fg(colors.secondary))
-            .header(Row::new(vec!["Keybind", "Description"]).style(Style::new().fg(colors.fg)))
-            .block(
-                Block::new()
-                    .title(Title::from("Popup Mode"))
-                    .title_style(Style::new().bold().fg(colors.status_bar_popup_mode_bg)),
-            )
-            .highlight_style(Style::new().reversed())
+    fn keybinds_paragraph(&self, app: &App, mode: Mode) -> impl Widget {
+        let colors = &app.config.colors;
+        let text = Text::from(
+            [
+                vec![Line::from(vec![
+                    Span::from(format!(" {} Mode ", app.get_mode_text(mode.clone()))).style(
+                        Style::new()
+                            .bold()
+                            .fg(match mode {
+                                Mode::Navigation => colors.status_bar_navigation_mode_fg,
+                                Mode::Popup => colors.status_bar_popup_mode_fg,
+                            })
+                            .bg(match mode {
+                                Mode::Navigation => colors.status_bar_navigation_mode_bg,
+                                Mode::Popup => colors.status_bar_popup_mode_bg,
+                            }),
+                    ),
+                    Span::from("").style(Style::new().fg(match mode {
+                        Mode::Navigation => colors.status_bar_navigation_mode_bg,
+                        Mode::Popup => colors.status_bar_popup_mode_bg,
+                    })),
+                ])],
+                self.get_keybinds(mode)
+                    .iter()
+                    .map(|k| {
+                        Line::from(vec![
+                            Span::from(k.0).bold().fg(colors.keybind_key),
+                            Span::from(" ➜ ").fg(colors.secondary),
+                            Span::from(k.1).fg(colors.keybind_fg),
+                        ])
+                    })
+                    .collect::<Vec<Line>>(),
+            ]
+            .concat(),
+        );
+        Paragraph::new(text)
     }
 }
