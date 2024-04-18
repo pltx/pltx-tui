@@ -11,13 +11,18 @@ Edit the configuration in `~/.config/pltx/config.toml`.
 ```toml
 [colors]
 primary = "#AF5FFF"
-active = "#00FFFF"
-secondary = "#999999"
+secondary = "#AAAAAA"
+fg = "#FFFFFF"
 bg = "#000000"
-text = "#FFFFFF"
+active_fg = "#000000"
+active_bg = "#00FFFF"
+hover_fg = "#00FFFF"
+hover_bg = "#000000"
 border = "#777777"
 popup_bg = "#000000"
 popup_border = "#AF5FFF"
+keybind_key = "#AF5FFF"
+keybind_fg = "#6698FF"
 
 title_bar_bg = "#AF5FFF"
 title_bar_text = "#FFFFFF"

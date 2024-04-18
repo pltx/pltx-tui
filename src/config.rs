@@ -84,17 +84,17 @@ fn get_base_config() -> Config {
             border: get_color("#777777"),
             popup_bg: get_color("#000000"),
             popup_border: get_color("#AF5FFF"),
-            keybind_key: get_color("#af5fff"),
-            keybind_fg: get_color("#6698ff"),
+            keybind_key: get_color("#AF5FFF"),
+            keybind_fg: get_color("#6698FF"),
 
             title_bar_bg: get_color("#AF5FFF"),
             title_bar_fg: get_color("#FFFFFF"),
 
             status_bar_bg: get_color("#333333"),
             status_bar_fg: get_color("#CCCCCC"),
-            status_bar_navigation_mode_bg: get_color("#99ce48"),
+            status_bar_navigation_mode_bg: get_color("#99CE48"),
             status_bar_navigation_mode_fg: get_color("#000000"),
-            status_bar_popup_mode_bg: get_color("#8d91ff"),
+            status_bar_popup_mode_bg: get_color("#8D91FF"),
             status_bar_popup_mode_fg: get_color("#000000"),
         },
     }
