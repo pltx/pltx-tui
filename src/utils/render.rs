@@ -1,5 +1,11 @@
 use crossterm::event::{Event, KeyEvent};
-use ratatui::{buffer::Buffer, layout::Rect, text::Line, Frame};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::Stylize,
+    text::{Line, Span},
+    Frame,
+};
 
 use crate::{state::State, App};
 
@@ -23,6 +29,25 @@ pub trait KeyEventHandler {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State);
 }
 
-pub trait PaneTitleBottom {
-    fn pane_title_bottom(&mut self, app: &mut App) -> Line;
+pub trait ScreenKeybinds {
+    /// Returns a list of keybinds to be shown as the bottom title of the screen
+    fn screen_keybinds<'a>(&mut self) -> [(&'a str, &'a str); 3];
+}
+
+/// Creates the title that shows the available keybinds for a screen
+pub fn pane_title_bottom<'a>(app: &mut App, hints: [(&'a str, &'a str); 3]) -> Line<'a> {
+    let colors = &app.config.colors;
+    let separator = "──";
+    let hints_line = hints
+        .iter()
+        .flat_map(|h| {
+            vec![
+                Span::from(format!("{} ", separator)).fg(colors.border),
+                Span::from(h.0).bold().fg(colors.keybind_key),
+                Span::from(" ➜ ").fg(colors.secondary),
+                Span::from(format!("{} ", h.1)).fg(colors.keybind_fg),
+            ]
+        })
+        .collect::<Vec<Span>>();
+    Line::from([hints_line, vec![Span::from(separator).fg(colors.border)]].concat())
 }

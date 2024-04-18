@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     state::{Mode, Pane, State},
-    utils::{KeyEventHandler, PaneTitleBottom, RenderScreen},
+    utils::{KeyEventHandler, RenderScreen, ScreenKeybinds},
     App,
 };
 
@@ -34,24 +34,9 @@ impl ProjectManagement {
     }
 }
 
-impl PaneTitleBottom for ProjectManagement {
-    /// Creates the title that shows the available keybinds
-    fn pane_title_bottom(&mut self, app: &mut App) -> Line {
-        let colors = &app.config.colors;
-        let separator = "──";
-        let hints = [("n", "New"), ("e", "Edit"), ("d", "Delete")];
-        let hints_line = hints
-            .iter()
-            .flat_map(|h| {
-                vec![
-                    Span::from(format!("{} ", separator)).fg(colors.border),
-                    Span::from(h.0).bold().fg(colors.keybind_key),
-                    Span::from(" ➜ ").fg(colors.secondary),
-                    Span::from(format!("{} ", h.1)).fg(colors.keybind_fg),
-                ]
-            })
-            .collect::<Vec<Span>>();
-        Line::from([hints_line, vec![Span::from(separator).fg(colors.border)]].concat())
+impl ScreenKeybinds for ProjectManagement {
+    fn screen_keybinds<'a>(&mut self) -> [(&'a str, &'a str); 3] {
+        [("n", "New"), ("e", "Edit"), ("d", "Delete")]
     }
 }
 

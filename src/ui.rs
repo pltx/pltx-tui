@@ -10,7 +10,7 @@ use crate::{
     config::ColorsConfig,
     popups, screens,
     state::{Mode, Pane, Screen},
-    utils::{PaneTitleBottom, RenderPopup, RenderScreen},
+    utils::{pane_title_bottom, RenderPopup, RenderScreen, ScreenKeybinds},
     App, Popup,
 };
 
@@ -82,8 +82,10 @@ impl Interface {
             .bg(colors.bg);
         // Custom title for a screen
         if app.state.screen == Screen::ProjectManagement {
-            screen_pane =
-                screen_pane.title_bottom(self.screens.project_management.pane_title_bottom(app))
+            screen_pane = screen_pane.title_bottom(pane_title_bottom(
+                app,
+                self.screens.project_management.screen_keybinds(),
+            ))
         }
         frame.render_widget(screen_pane, screen_layout);
 
