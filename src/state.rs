@@ -1,12 +1,12 @@
 /// The current mode.
-#[derive(Eq, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Mode {
     Navigation,
     Popup,
 }
 
 /// The current screen (page).
-#[derive(Eq, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Screen {
     Dashboard,
     ProjectManagement,
@@ -15,14 +15,14 @@ pub enum Screen {
 }
 
 /// The currently focused pane.
-#[derive(Eq, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Pane {
     Navigation,
     Screen,
 }
 
 /// The current popup that is showing or none.
-#[derive(Eq, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Popup {
     Help,
     None,

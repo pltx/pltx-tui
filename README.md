@@ -1,6 +1,12 @@
-# pltx (TUI)
+# pltx TUI
+
+Press **`?`** in navigation mode for the full list of keybinds and for help.
+
+- Vim-like navigation and operations
 
 ## Default Config
+
+Edit the configuration in `~/.config/pltx/config.toml`.
 
 ```toml
 [colors]

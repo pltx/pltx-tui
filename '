@@ -8,67 +8,42 @@ use ratatui::{
 
 use crate::{
     config::ColorsConfig,
-    popups, screens,
-    state::{Mode, Pane, Screen},
-    utils::{RenderPopup, RenderScreen},
+    popups,
+    state::{Mode, Pane},
+    utils::RenderPopup,
     App, Popup,
 };
 
-/// States for each screen
-pub struct ScreenState {
-    pub dashboard: screens::Dashboard,
-    pub project_management: screens::ProjectManagement,
-    pub sleep: screens::Sleep,
-    pub settings: screens::Settings,
-}
-
-/// States for each popup
-pub struct PopupState {
-    pub help: popups::Help,
-}
-
-pub struct Interface {
-    pub screens: ScreenState,
-    pub popups: PopupState,
-}
+pub struct Interface {}
 
 impl Interface {
-    pub fn init() -> Interface {
-        Interface {
-            screens: ScreenState {
-                dashboard: screens::Dashboard::init(),
-                project_management: screens::ProjectManagement::init(),
-                sleep: screens::Sleep::init(),
-                settings: screens::Settings::init(),
-            },
-            popups: PopupState {
-                help: popups::Help::init(),
-            },
-        }
+    pub fn new() -> Interface {
+        Interface {}
     }
 
-    pub fn render(&mut self, frame: &mut Frame, app: &mut App) {
+    pub fn render(&self, frame: &mut Frame, app: &mut App) {
         let colors = &app.config.colors.clone();
+        let screen_list = app.get_screen_list();
 
         // Root layout
-        let [title_bar_layout, main_layout, status_bar_layout] = Layout::default()
+        let layout = Layout::default()
             .constraints([
                 Constraint::Length(1),
                 Constraint::Min(1),
                 Constraint::Length(1),
             ])
-            .areas(frame.size());
+            .split(frame.size());
 
-        frame.render_widget(self.title_bar(colors), title_bar_layout);
+        frame.render_widget(self.title_bar(colors), layout[0]);
 
         // Navigation and editor layout
-        let [navigation_layout, screen_layout] = Layout::default()
+        let panes_layout = Layout::default()
             .constraints([Constraint::Length(30), Constraint::Min(1)])
             .direction(Direction::Horizontal)
-            .areas(main_layout);
+            .split(layout[1]);
 
-        frame.render_widget(self.navigation_pane(app), navigation_layout);
-        frame.render_widget(self.status_bar(app), status_bar_layout);
+        frame.render_widget(self.navigation_pane(app), panes_layout[0]);
+        frame.render_widget(self.status_bar(app), layout[2]);
 
         // Screen content
         let screen_pane = Block::new()
@@ -80,28 +55,23 @@ impl Interface {
             }))
             .padding(Padding::horizontal(1))
             .bg(colors.bg);
-        frame.render_widget(screen_pane, screen_layout);
+        frame.render_widget(screen_pane, panes_layout[1]);
 
-        let [screen_layout] = Layout::default()
+        let screen_index = screen_list
+            .iter()
+            .position(|s| s.0 == app.state.screen)
+            .unwrap();
+        let screen_layout = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(2)
             .constraints([Constraint::Min(1)])
-            .areas(screen_layout);
-        match app.state.screen {
-            Screen::Dashboard => self.screens.dashboard.render(frame, app, screen_layout),
-            Screen::ProjectManagement => {
-                self.screens
-                    .project_management
-                    .render(frame, app, screen_layout)
-            }
-            Screen::Sleep => self.screens.sleep.render(frame, app, screen_layout),
-            Screen::Settings => self.screens.settings.render(frame, app, screen_layout),
-        };
+            .split(panes_layout[1]);
+        screen_list[screen_index].2(frame, app, screen_layout[0]);
 
         // Popup
         if app.state.mode == Mode::Popup {
             match app.state.popup {
-                Popup::Help => self.popups.help.render(frame, app),
+                Popup::Help => popups::Help::init().render(frame, app),
                 Popup::None => {}
             }
         }
@@ -118,7 +88,7 @@ impl Interface {
 
     fn navigation_pane(&self, app: &App) -> Paragraph {
         let screen_list = app.get_screen_list();
-        let colors = &app.config.colors;
+        let colors = app.config.colors;
 
         let navigation_options = screen_list
             .iter()
@@ -146,7 +116,7 @@ impl Interface {
     }
 
     fn status_bar(&self, app: &App) -> Paragraph {
-        let colors = &app.config.colors;
+        let colors = app.config.colors;
         let mode = app.get_mode();
         let status_bar_content = vec![Line::from(vec![
             Span::from(format!(" {} ", mode.0.to_uppercase()))

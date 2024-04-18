@@ -4,7 +4,10 @@ use ratatui::{buffer::Buffer, layout::Rect, Frame};
 use crate::{state::State, App};
 
 pub trait RenderScreen {
-    fn render(frame: &mut Frame, app: &App, area: Rect);
+    fn init() -> Self
+    where
+        Self: Sized;
+    fn render(&mut self, frame: &mut Frame, app: &App, area: Rect);
 }
 
 pub trait RenderPopup {
@@ -12,10 +15,10 @@ pub trait RenderPopup {
     fn render_widgets_into_scrollview(&self, buf: &mut Buffer, app: &App);
 }
 
-pub trait PopupEventHandler {
+pub trait EventHandler {
     fn event_handler(event: &Event, app: &mut App);
 }
 
-pub trait PopupKeyEventHandler {
-    fn key_event_handler(app: &mut App, key_event: KeyEvent, event_state: &State);
+pub trait KeyEventHandler {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State);
 }

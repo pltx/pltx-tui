@@ -12,7 +12,7 @@ use crate::{
     components,
     config::ColorsConfig,
     state::{Mode, Popup, State},
-    utils::{centered_rect_absolute, PopupKeyEventHandler, RenderPopup},
+    utils::{centered_rect_absolute, KeyEventHandler, RenderPopup},
     App,
 };
 
@@ -30,8 +30,8 @@ impl Help {
     }
 }
 
-impl PopupKeyEventHandler for Help {
-    fn key_event_handler(app: &mut App, key_event: KeyEvent, _: &State) {
+impl KeyEventHandler for Help {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
         if key_event.code == KeyCode::Char('?') {
             app.state.mode = Mode::Navigation;
             app.state.popup = Popup::None;

@@ -5,7 +5,11 @@ use crate::{utils::RenderScreen, App};
 pub struct Sleep;
 
 impl RenderScreen for Sleep {
-    fn render(frame: &mut Frame, _: &App, area: Rect) {
+    fn init() -> Sleep {
+        Sleep {}
+    }
+
+    fn render(&mut self, frame: &mut Frame, _: &App, area: Rect) {
         let text = Paragraph::new("Sleep Module");
         frame.render_widget(text, area);
     }
