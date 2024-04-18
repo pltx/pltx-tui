@@ -2,66 +2,40 @@ use std::{fs, path::PathBuf, str::FromStr};
 
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
-// File config structs with all properties optional, as the user might not
-// provide them.
-#[derive(Deserialize, Serialize)]
-struct ColorsConfigFile {
-    primary: Option<String>,
-    secondary: Option<String>,
-    bg: Option<String>,
-    fg: Option<String>,
-    active_fg: Option<String>,
-    active_bg: Option<String>,
-    hover_fg: Option<String>,
-    hover_bg: Option<String>,
-    border: Option<String>,
-    popup_bg: Option<String>,
-    popup_border: Option<String>,
-    keybind_key: Option<String>,
-    keybind_fg: Option<String>,
 
-    title_bar_bg: Option<String>,
-    title_bar_fg: Option<String>,
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ConfigGeneric<T> {
+    pub primary: T,
+    pub secondary: T,
+    pub bg: T,
+    pub fg: T,
+    pub active_fg: T,
+    pub active_bg: T,
+    pub hover_fg: T,
+    pub hover_bg: T,
+    pub border: T,
+    pub popup_bg: T,
+    pub popup_border: T,
+    pub keybind_key: T,
+    pub keybind_fg: T,
 
-    status_bar_bg: Option<String>,
-    status_bar_fg: Option<String>,
-    status_bar_navigation_mode_bg: Option<String>,
-    status_bar_navigation_mode_fg: Option<String>,
-    status_bar_popup_mode_bg: Option<String>,
-    status_bar_popup_mode_fg: Option<String>,
+    pub title_bar_bg: T,
+    pub title_bar_fg: T,
+
+    pub status_bar_bg: T,
+    pub status_bar_fg: T,
+    pub status_bar_navigation_mode_bg: T,
+    pub status_bar_navigation_mode_fg: T,
+    pub status_bar_popup_mode_bg: T,
+    pub status_bar_popup_mode_fg: T,
 }
+
+type ColorsConfigFile = ConfigGeneric<Option<String>>;
+pub type ColorsConfig = ConfigGeneric<Color>;
 
 #[derive(Deserialize, Serialize)]
 struct ConfigFile {
     colors: Option<ColorsConfigFile>,
-}
-
-// Config structs with all properties provided.
-#[derive(Clone)]
-pub struct ColorsConfig {
-    pub primary: Color,
-    pub secondary: Color,
-    pub bg: Color,
-    pub fg: Color,
-    pub active_fg: Color,
-    pub active_bg: Color,
-    pub hover_fg: Color,
-    pub hover_bg: Color,
-    pub border: Color,
-    pub popup_bg: Color,
-    pub popup_border: Color,
-    pub keybind_key: Color,
-    pub keybind_fg: Color,
-
-    pub title_bar_bg: Color,
-    pub title_bar_fg: Color,
-
-    pub status_bar_bg: Color,
-    pub status_bar_fg: Color,
-    pub status_bar_navigation_mode_bg: Color,
-    pub status_bar_navigation_mode_fg: Color,
-    pub status_bar_popup_mode_bg: Color,
-    pub status_bar_popup_mode_fg: Color,
 }
 
 /// The main config struct where all properties are provided.
