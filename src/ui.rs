@@ -82,12 +82,9 @@ impl Interface {
                     let primary_border = match &app.state.screen {
                         // `true` to have the border primary color by default
                         // Otherwise the color will be the border color
-                        Screen::Dashboard => true,
-                        Screen::Sleep => true,
-                        Screen::ProjectManagement => {
-                            self.screens.project_management.primary_screen_border
-                        }
-                        Screen::Settings => true,
+                        Screen::Dashboard => false,
+                        Screen::ProjectManagement => false,
+                        _ => true,
                     };
                     if primary_border {
                         colors.primary
@@ -121,6 +118,7 @@ impl Interface {
             }
             Screen::Sleep => self.screens.sleep.render(app, frame, screen_layout),
             Screen::Settings => self.screens.settings.render(app, frame, screen_layout),
+            Screen::None => {}
         };
 
         // Popup

@@ -14,7 +14,7 @@ impl InitScreen for Settings {
 }
 
 impl RenderScreen for Settings {
-    fn render(&mut self, _: &App, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, _: &mut App, frame: &mut Frame, area: Rect) {
         let text = Paragraph::new("Version: 0.0.1");
         frame.render_widget(text, area);
     }

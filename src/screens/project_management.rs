@@ -34,7 +34,6 @@ pub struct ProjectManagement {
     tab: Tab,
     hover_tab: Tab,
     screen_pane: ScreenPane,
-    pub primary_screen_border: bool,
 }
 
 impl ProjectManagement {
@@ -84,12 +83,12 @@ impl KeyEventHandler for ProjectManagement {
                     }
                 }
                 KeyCode::Enter => match self.screen_pane {
+                    ScreenPane::None => self.screen_pane = ScreenPane::Tabs,
                     ScreenPane::Tabs => {
                         self.tab = self.hover_tab.clone();
                         self.screen_pane = ScreenPane::Main;
                     }
                     ScreenPane::Main => {}
-                    ScreenPane::None => self.screen_pane = ScreenPane::Tabs,
                 },
                 KeyCode::Backspace => match self.screen_pane {
                     ScreenPane::Main => self.screen_pane = ScreenPane::Tabs,
@@ -113,13 +112,12 @@ impl InitScreen for ProjectManagement {
             tab: Tab::Planned,
             hover_tab: Tab::Planned,
             screen_pane: ScreenPane::None,
-            primary_screen_border: false,
         }
     }
 }
 
 impl RenderScreen for ProjectManagement {
-    fn render(&mut self, app: &App, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
         let text = Paragraph::new("Project Management");
         frame.render_widget(text, area);

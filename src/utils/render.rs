@@ -17,7 +17,7 @@ pub trait InitScreen {
         Self: Sized;
 }
 pub trait RenderScreen {
-    fn render(&mut self, app: &App, frame: &mut Frame, area: Rect);
+    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect);
 }
 
 pub trait RenderPopup {

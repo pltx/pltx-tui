@@ -14,7 +14,7 @@ impl InitScreen for Sleep {
 }
 
 impl RenderScreen for Sleep {
-    fn render(&mut self, _: &App, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, _: &mut App, frame: &mut Frame, area: Rect) {
         let text = Paragraph::new("Sleep Module");
         frame.render_widget(text, area);
     }

@@ -108,11 +108,20 @@ impl EventHandler {
             }
         }
 
-        if app.state.screen == Screen::ProjectManagement {
-            interface
-                .screens
-                .project_management
-                .key_event_handler(app, key_event, event_state);
+        match app.state.screen {
+            Screen::Dashboard => {
+                interface
+                    .screens
+                    .dashboard
+                    .key_event_handler(app, key_event, event_state)
+            }
+            Screen::ProjectManagement => {
+                interface
+                    .screens
+                    .project_management
+                    .key_event_handler(app, key_event, event_state)
+            }
+            _ => {}
         }
 
         if event_state.mode == Mode::Popup {

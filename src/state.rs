@@ -12,6 +12,7 @@ pub enum Screen {
     ProjectManagement,
     Sleep,
     Settings,
+    None,
 }
 
 /// The currently focused pane.
