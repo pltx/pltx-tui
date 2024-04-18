@@ -10,7 +10,7 @@ use crate::{
     config::ColorsConfig,
     popups, screens,
     state::{Mode, Pane, Screen},
-    utils::{RenderPopup, RenderScreen},
+    utils::{PaneTitleBottom, RenderPopup, RenderScreen},
     App, Popup,
 };
 
@@ -71,7 +71,7 @@ impl Interface {
         frame.render_widget(self.status_bar(app), status_bar_layout);
 
         // Screen content
-        let screen_pane = Block::new()
+        let mut screen_pane = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(match (&app.state.mode, &app.state.pane) {
@@ -80,6 +80,11 @@ impl Interface {
             }))
             .padding(Padding::horizontal(1))
             .bg(colors.bg);
+        // Custom title for a screen
+        if app.state.screen == Screen::ProjectManagement {
+            screen_pane =
+                screen_pane.title_bottom(self.screens.project_management.pane_title_bottom(app))
+        }
         frame.render_widget(screen_pane, screen_layout);
 
         let [screen_layout] = Layout::default()

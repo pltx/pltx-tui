@@ -1,5 +1,5 @@
 use crossterm::event::{Event, KeyEvent};
-use ratatui::{buffer::Buffer, layout::Rect, Frame};
+use ratatui::{buffer::Buffer, layout::Rect, text::Line, Frame};
 
 use crate::{state::State, App};
 
@@ -21,4 +21,8 @@ pub trait EventHandler {
 
 pub trait KeyEventHandler {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State);
+}
+
+pub trait PaneTitleBottom {
+    fn pane_title_bottom(&mut self, app: &mut App) -> Line;
 }

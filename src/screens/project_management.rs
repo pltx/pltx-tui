@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     state::{Mode, Pane, State},
-    utils::{KeyEventHandler, RenderScreen},
+    utils::{KeyEventHandler, PaneTitleBottom, RenderScreen},
     App,
 };
 
@@ -31,6 +31,27 @@ impl ProjectManagement {
             (Tab::Projects, "Projects"),
             (Tab::Important, "Important"),
         ]
+    }
+}
+
+impl PaneTitleBottom for ProjectManagement {
+    /// Creates the title that shows the available keybinds
+    fn pane_title_bottom(&mut self, app: &mut App) -> Line {
+        let colors = &app.config.colors;
+        let separator = "──";
+        let hints = [("n", "New"), ("e", "Edit"), ("d", "Delete")];
+        let hints_line = hints
+            .iter()
+            .flat_map(|h| {
+                vec![
+                    Span::from(format!("{} ", separator)).fg(colors.border),
+                    Span::from(h.0).bold().fg(colors.keybind_key),
+                    Span::from(" ➜ ").fg(colors.secondary),
+                    Span::from(format!("{} ", h.1)).fg(colors.keybind_fg),
+                ]
+            })
+            .collect::<Vec<Span>>();
+        Line::from([hints_line, vec![Span::from(separator).fg(colors.border)]].concat())
     }
 }
 
@@ -88,8 +109,7 @@ impl RenderScreen for ProjectManagement {
                 })
                 .collect::<Vec<Span>>(),
         )];
-        // let navigation_line: Vec<Line> =
-        //     vec![Line::from(vec![Span::from("hello"), Span::from("world")])];
+
         let navigation = Paragraph::new(navigation_line).block(
             Block::new()
                 .padding(Padding::horizontal(1))

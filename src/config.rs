@@ -2,7 +2,6 @@ use std::{fs, path::PathBuf, str::FromStr};
 
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
-
 // File config structs with all properties optional, as the user might not
 // provide them.
 #[derive(Deserialize, Serialize)]
@@ -15,6 +14,8 @@ struct ColorsConfigFile {
     border: Option<String>,
     popup_bg: Option<String>,
     popup_border: Option<String>,
+    keybind_key: Option<String>,
+    keybind_fg: Option<String>,
 
     title_bar_bg: Option<String>,
     title_bar_fg: Option<String>,
@@ -43,6 +44,8 @@ pub struct ColorsConfig {
     pub border: Color,
     pub popup_bg: Color,
     pub popup_border: Color,
+    pub keybind_key: Color,
+    pub keybind_fg: Color,
 
     pub title_bar_bg: Color,
     pub title_bar_fg: Color,
@@ -72,6 +75,8 @@ fn get_base_config() -> Config {
             border: get_color("#777777"),
             popup_bg: get_color("#000000"),
             popup_border: get_color("#AF5FFF"),
+            keybind_key: get_color("#af5fff"),
+            keybind_fg: get_color("#6698ff"),
 
             title_bar_bg: get_color("#AF5FFF"),
             title_bar_fg: get_color("#FFFFFF"),
@@ -150,6 +155,10 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                 popup_bg: get_color_op(colors.popup_bg).unwrap_or(base_config.colors.popup_bg),
                 popup_border: get_color_op(colors.popup_border)
                     .unwrap_or(base_config.colors.popup_border),
+                keybind_key: get_color_op(colors.keybind_key)
+                    .unwrap_or(base_config.colors.keybind_key),
+                keybind_fg: get_color_op(colors.keybind_fg)
+                    .unwrap_or(base_config.colors.keybind_fg),
 
                 title_bar_bg: get_color_op(colors.title_bar_bg)
                     .unwrap_or(base_config.colors.title_bar_bg),
