@@ -1,6 +1,5 @@
 use color_eyre::{eyre::WrapErr, Result};
 use ratatui::style::Color;
-use rusqlite::Connection;
 use tui_scrollview::ScrollViewState;
 
 pub mod components;
@@ -17,7 +16,7 @@ pub mod tui;
 pub mod ui;
 
 use config::Config;
-use database::database_connection;
+use database::Database;
 use keybinds::EventHandler;
 use state::{Mode, Pane, Popup, Screen, State};
 use ui::Interface;
@@ -27,7 +26,7 @@ use crate::config::get_config;
 pub struct App {
     exit: bool,
     config: Config,
-    db: Connection,
+    db: Database,
     state: State,
     scroll_view_state: ScrollViewState,
 }
@@ -44,7 +43,7 @@ impl App {
         App {
             exit: false,
             config: get_config(),
-            db: database_connection(),
+            db: Database::init(),
             state: State {
                 mode: Mode::Navigation,
                 screen: Screen::Dashboard,
@@ -58,7 +57,9 @@ impl App {
 
     /// Runs the application's main loop until the user quits.
     pub fn run(&mut self, terminal: &mut tui::Tui) -> Result<()> {
-        let mut interface = Interface::init();
+        self.db.ensure_tables().unwrap();
+        self.db.insert_session().unwrap();
+        let mut interface = Interface::init(self);
         let mut event_handler = EventHandler::init();
 
         while !self.exit {

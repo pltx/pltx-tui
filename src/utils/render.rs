@@ -9,11 +9,15 @@ use ratatui::{
 
 use crate::{state::State, App};
 
-pub trait RenderScreen {
+pub trait InitScreen {
+    /// Any data which should only be fetched once should be done in the
+    /// `init()` function, as the `render()` function runs in a loop.
     fn init() -> Self
     where
         Self: Sized;
-    fn render(&mut self, frame: &mut Frame, app: &App, area: Rect);
+}
+pub trait RenderScreen {
+    fn render(&mut self, app: &App, frame: &mut Frame, area: Rect);
 }
 
 pub trait RenderPopup {
@@ -32,6 +36,11 @@ pub trait KeyEventHandler {
 pub trait ScreenKeybinds {
     /// Returns a list of keybinds to be shown as the bottom title of the screen
     fn screen_keybinds<'a>(&mut self) -> [(&'a str, &'a str); 3];
+}
+
+pub trait ScreenKeybindsTitle {
+    /// Return the title for the keybinds
+    fn screen_keybinds_title(&mut self, app: &mut App) -> Line;
 }
 
 /// Creates the title that shows the available keybinds for a screen

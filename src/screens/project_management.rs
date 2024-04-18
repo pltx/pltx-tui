@@ -9,7 +9,10 @@ use ratatui::{
 
 use crate::{
     state::{Mode, Pane, State},
-    utils::{KeyEventHandler, RenderScreen, ScreenKeybinds},
+    utils::{
+        pane_title_bottom, InitScreen, KeyEventHandler, RenderScreen, ScreenKeybinds,
+        ScreenKeybindsTitle,
+    },
     App,
 };
 
@@ -20,9 +23,18 @@ enum Tab {
     Important,
 }
 
+#[derive(PartialEq)]
+enum ScreenPane {
+    Tabs,
+    Main,
+    None,
+}
+
 pub struct ProjectManagement {
     tab: Tab,
     hover_tab: Tab,
+    screen_pane: ScreenPane,
+    pub primary_screen_border: bool,
 }
 
 impl ProjectManagement {
@@ -41,41 +53,73 @@ impl ScreenKeybinds for ProjectManagement {
     }
 }
 
+impl ScreenKeybindsTitle for ProjectManagement {
+    fn screen_keybinds_title(&mut self, app: &mut App) -> Line {
+        pane_title_bottom(app, self.screen_keybinds())
+    }
+}
+
 impl KeyEventHandler for ProjectManagement {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
         if app.state.mode == Mode::Navigation && app.state.pane == Pane::Screen {
             let tabs = self.get_tabs();
-            let tab_index = tabs.iter().position(|t| t.0 == self.tab).unwrap();
+            let tab_index = tabs.iter().position(|t| t.0 == self.hover_tab).unwrap();
             match key_event.code {
                 KeyCode::Char('l') => {
-                    if tab_index == tabs.len() - 1 {
-                        self.tab = tabs[0].0.clone();
-                    } else {
-                        self.tab = tabs[tab_index + 1].0.clone();
+                    if self.screen_pane == ScreenPane::Tabs {
+                        if tab_index == tabs.len() - 1 {
+                            self.hover_tab = tabs[0].0.clone();
+                        } else {
+                            self.hover_tab = tabs[tab_index + 1].0.clone();
+                        }
                     }
                 }
                 KeyCode::Char('h') => {
-                    if tab_index == 0 {
-                        self.tab = tabs[tabs.len() - 1].0.clone();
-                    } else {
-                        self.tab = tabs[tab_index - 1].0.clone();
+                    if self.screen_pane == ScreenPane::Tabs {
+                        if tab_index == 0 {
+                            self.hover_tab = tabs[tabs.len() - 1].0.clone();
+                        } else {
+                            self.hover_tab = tabs[tab_index - 1].0.clone();
+                        }
                     }
                 }
+                KeyCode::Enter => match self.screen_pane {
+                    ScreenPane::Tabs => {
+                        self.tab = self.hover_tab.clone();
+                        self.screen_pane = ScreenPane::Main;
+                    }
+                    ScreenPane::Main => {}
+                    ScreenPane::None => self.screen_pane = ScreenPane::Tabs,
+                },
+                KeyCode::Backspace => match self.screen_pane {
+                    ScreenPane::Main => self.screen_pane = ScreenPane::Tabs,
+                    ScreenPane::Tabs => {
+                        if event_state.pane == Pane::Screen {
+                            self.screen_pane = ScreenPane::None;
+                            app.state.pane = Pane::Navigation;
+                        }
+                    }
+                    ScreenPane::None => {}
+                },
                 _ => {}
             }
         }
     }
 }
 
-impl RenderScreen for ProjectManagement {
+impl InitScreen for ProjectManagement {
     fn init() -> ProjectManagement {
         ProjectManagement {
             tab: Tab::Planned,
             hover_tab: Tab::Planned,
+            screen_pane: ScreenPane::None,
+            primary_screen_border: false,
         }
     }
+}
 
-    fn render(&mut self, frame: &mut Frame, app: &App, area: Rect) {
+impl RenderScreen for ProjectManagement {
+    fn render(&mut self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
         let text = Paragraph::new("Project Management");
         frame.render_widget(text, area);
@@ -91,6 +135,8 @@ impl RenderScreen for ProjectManagement {
                     let mut style = Style::new();
                     if t.0 == self.tab {
                         style = style.fg(colors.active_fg).bg(colors.active_bg).bold()
+                    } else if t.0 == self.hover_tab {
+                        style = style.fg(colors.hover_fg).bg(colors.hover_bg)
                     } else {
                         style = style.fg(colors.secondary)
                     };
@@ -104,7 +150,11 @@ impl RenderScreen for ProjectManagement {
                 .padding(Padding::horizontal(1))
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::new().fg(colors.primary)),
+                .border_style(Style::new().fg(if self.screen_pane == ScreenPane::Tabs {
+                    colors.primary
+                } else {
+                    colors.border
+                })),
         );
 
         frame.render_widget(navigation, navigation_layout);

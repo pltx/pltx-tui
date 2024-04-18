@@ -10,7 +10,7 @@ use crate::{
     config::ColorsConfig,
     popups, screens,
     state::{Mode, Pane, Screen},
-    utils::{pane_title_bottom, RenderPopup, RenderScreen, ScreenKeybinds},
+    utils::{InitScreen, RenderPopup, RenderScreen, ScreenKeybindsTitle},
     App, Popup,
 };
 
@@ -33,10 +33,10 @@ pub struct Interface {
 }
 
 impl Interface {
-    pub fn init() -> Interface {
+    pub fn init(app: &mut App) -> Interface {
         Interface {
             screens: ScreenState {
-                dashboard: screens::Dashboard::init(),
+                dashboard: screens::Dashboard::init(app),
                 project_management: screens::ProjectManagement::init(),
                 sleep: screens::Sleep::init(),
                 settings: screens::Settings::init(),
@@ -77,18 +77,33 @@ impl Interface {
         let mut screen_pane = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(match (&app.state.mode, &app.state.pane) {
-                (Mode::Navigation, Pane::Screen) => colors.primary,
-                _ => colors.border,
-            }))
+            .border_style(Style::new().fg(
+                if app.state.mode == Mode::Navigation && app.state.pane == Pane::Screen {
+                    let primary_border = match &app.state.screen {
+                        // `true` to have the border primary color by default
+                        // Otherwise the color will be the border color
+                        Screen::Dashboard => true,
+                        Screen::Sleep => true,
+                        Screen::ProjectManagement => {
+                            self.screens.project_management.primary_screen_border
+                        }
+                        Screen::Settings => true,
+                    };
+                    if primary_border {
+                        colors.primary
+                    } else {
+                        colors.border
+                    }
+                } else {
+                    colors.border
+                },
+            ))
             .padding(Padding::horizontal(1))
             .bg(colors.bg);
         // Custom title for a screen
         if app.state.screen == Screen::ProjectManagement {
-            screen_pane = screen_pane.title_bottom(pane_title_bottom(
-                app,
-                self.screens.project_management.screen_keybinds(),
-            ))
+            let keybinds = self.screens.project_management.screen_keybinds_title(app);
+            screen_pane = screen_pane.title_bottom(keybinds)
         }
         frame.render_widget(screen_pane, screen_layout);
 
@@ -98,14 +113,14 @@ impl Interface {
             .constraints([Constraint::Min(1)])
             .areas(screen_layout);
         match app.state.screen {
-            Screen::Dashboard => self.screens.dashboard.render(frame, app, screen_layout),
+            Screen::Dashboard => self.screens.dashboard.render(app, frame, screen_layout),
             Screen::ProjectManagement => {
                 self.screens
                     .project_management
-                    .render(frame, app, screen_layout)
+                    .render(app, frame, screen_layout)
             }
-            Screen::Sleep => self.screens.sleep.render(frame, app, screen_layout),
-            Screen::Settings => self.screens.settings.render(frame, app, screen_layout),
+            Screen::Sleep => self.screens.sleep.render(app, frame, screen_layout),
+            Screen::Settings => self.screens.settings.render(app, frame, screen_layout),
         };
 
         // Popup

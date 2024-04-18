@@ -1,6 +1,12 @@
 use std::{fs, path::PathBuf};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, Result};
+
+pub struct Session {
+    pub id: i32,
+    pub started: String,
+    pub ended: Option<String>,
+}
 
 fn get_db_path() -> PathBuf {
     let home_dir = home::home_dir().unwrap_or_else(|| panic!("failed to find home directory"));
@@ -19,7 +25,35 @@ fn get_db_path() -> PathBuf {
     data_dir.join("data.db")
 }
 
-pub fn database_connection() -> Connection {
-    let db_path = get_db_path();
-    Connection::open(db_path).unwrap()
+pub struct Database {
+    pub conn: Connection,
+}
+
+impl Database {
+    pub fn init() -> Database {
+        let db_path = get_db_path();
+        let conn = Connection::open(db_path).unwrap();
+        Database { conn }
+    }
+
+    /// Ensure that the tables needed in the database are created here. If they
+    /// don't, then create them.
+    pub fn ensure_tables(&mut self) -> Result<()> {
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS session (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                started DATETIME DEFAULT CURRENT_TIMESTAMP,
+                ended DATETIME
+            )",
+            (),
+        )?;
+
+        Ok(())
+    }
+
+    pub fn insert_session(&mut self) -> Result<()> {
+        self.conn
+            .execute("INSERT INTO session (id) VALUES (NULL)", ())?;
+        Ok(())
+    }
 }

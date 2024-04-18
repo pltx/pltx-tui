@@ -75,15 +75,8 @@ impl EventHandler {
                 }
                 // Quit the application
                 KeyCode::Char('q') | KeyCode::Char('Q') => app.exit(),
-                // Focus on the previous pane
-                // TODO: Remove this when functionality is added per screen
-                // Commented out for functionality to be managed per screen
-                // KeyCode::Backspace => {
-                //     if event_state.pane == Pane::Screen {
-                //         app.state.pane = Pane::Navigation;
-                //     }
-                // }
-                // Select and focus on the screen
+                // Select and focus on the screen. Each screen must handle it's own keybinds to go
+                // back to the navigation pane.
                 KeyCode::Enter => {
                     if event_state.pane == Pane::Navigation {
                         app.state.screen = app.state.hover_screen.clone();
