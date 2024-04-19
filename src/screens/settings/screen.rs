@@ -1,13 +1,13 @@
 use ratatui::{layout::Rect, widgets::Paragraph, Frame};
 
 use crate::{
-    utils::{get_version, InitScreen, RenderScreen},
+    utils::{get_version, Init, RenderScreen},
     App,
 };
 
 pub struct Settings;
 
-impl InitScreen for Settings {
+impl Init for Settings {
     fn init(_: &mut App) -> Settings {
         Settings {}
     }

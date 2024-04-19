@@ -10,7 +10,7 @@ use ratatui::{
 use crate::{
     state::{Mode, Pane, State},
     utils::{
-        pane_title_bottom, InitData, InitScreen, KeyEventHandler, RenderScreen, ScreenKeybinds,
+        pane_title_bottom, InitData, Init, KeyEventHandler, RenderScreen, ScreenKeybinds,
         ScreenKeybindsTitle,
     },
     App,
@@ -113,7 +113,7 @@ impl KeyEventHandler for ProjectManagement {
     }
 }
 
-impl InitScreen for ProjectManagement {
+impl Init for ProjectManagement {
     fn init(_: &mut App) -> ProjectManagement {
         ProjectManagement {
             tab: Tab::Planned,

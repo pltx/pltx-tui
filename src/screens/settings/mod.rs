@@ -1,1 +1,1 @@
-pub mod settings;
+pub mod screen;

@@ -1,13 +1,13 @@
 use ratatui::{layout::Rect, widgets::Paragraph, Frame};
 
 use crate::{
-    utils::{InitScreen, RenderScreen},
+    utils::{Init, RenderScreen},
     App,
 };
 
 pub struct Sleep;
 
-impl InitScreen for Sleep {
+impl Init for Sleep {
     fn init(_: &mut App) -> Sleep {
         Sleep {}
     }

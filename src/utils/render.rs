@@ -14,7 +14,7 @@ pub trait InitData {
     fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()>;
 }
 
-pub trait InitScreen {
+pub trait Init {
     /// Any data which should only be fetched once should be done in the
     /// `init()` function, as the `render()` function runs in a loop.
     fn init(app: &mut App) -> Self
