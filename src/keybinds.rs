@@ -1,4 +1,4 @@
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::Context;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 
 use crate::{
@@ -19,7 +19,11 @@ impl EventHandler {
     }
 
     /// Updates the application's state based on user input.
-    pub fn handle_events(&mut self, app: &mut App, interface: &mut Interface) -> Result<()> {
+    pub fn handle_events(
+        &mut self,
+        app: &mut App,
+        interface: &mut Interface,
+    ) -> color_eyre::eyre::Result<()> {
         let e = event::read()?;
         // A copy of the application state at the start of the event. Since there are
         // seperate global and component-specific functions that handle events,
@@ -51,7 +55,7 @@ impl EventHandler {
         interface: &mut Interface,
         key_event: KeyEvent,
         event_state: &State,
-    ) -> Result<()> {
+    ) -> color_eyre::eyre::Result<()> {
         let screen_list = &app.get_screen_list();
         let screen_index = screen_list
             .iter()

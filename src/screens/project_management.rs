@@ -10,7 +10,7 @@ use ratatui::{
 use crate::{
     state::{Mode, Pane, State},
     utils::{
-        pane_title_bottom, InitScreen, KeyEventHandler, RenderScreen, ScreenKeybinds,
+        pane_title_bottom, InitData, InitScreen, KeyEventHandler, RenderScreen, ScreenKeybinds,
         ScreenKeybindsTitle,
     },
     App,
@@ -107,12 +107,85 @@ impl KeyEventHandler for ProjectManagement {
 }
 
 impl InitScreen for ProjectManagement {
-    fn init() -> ProjectManagement {
+    fn init(_: &mut App) -> ProjectManagement {
         ProjectManagement {
             tab: Tab::Planned,
             hover_tab: Tab::Planned,
             screen_pane: ScreenPane::None,
         }
+    }
+}
+
+impl InitData for ProjectManagement {
+    fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()> {
+        app.db.conn.execute(
+            "CREATE TABLE IF NOT EXISTS project (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+                position INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        )?;
+
+        app.db.conn.execute(
+            "CREATE TABLE IF NOT EXISTS project_label (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                color TEXT,
+                position INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id)
+                    REFERENCES project (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE
+            )",
+            (),
+        )?;
+
+        app.db.conn.execute(
+            "CREATE TABLE IF NOT EXISTS project_list (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                color TEXT,
+                position INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id)
+                    REFERENCES project (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE
+            )",
+            (),
+        )?;
+
+        app.db.conn.execute(
+            "CREATE TABLE IF NOT EXISTS project_card (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                list_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                important BOOLEAN NOT NULL CHECK (important IN (0, 1)),
+                due_date DATETIME,
+                reminder BOOLEAN NOT NULL CHECK (important IN (0, 1)),
+                labels
+                checklist
+                position INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (list_id)
+                    REFERENCES project_list (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE
+            )",
+            (),
+        )?;
+        Ok(())
     }
 }
 

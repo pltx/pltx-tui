@@ -10,7 +10,7 @@ use crate::{
     config::ColorsConfig,
     popups, screens,
     state::{Mode, Pane, Screen},
-    utils::{InitScreen, RenderPopup, RenderScreen, ScreenKeybindsTitle},
+    utils::{InitData, InitScreen, RenderPopup, RenderScreen, ScreenKeybindsTitle},
     App, Popup,
 };
 
@@ -37,14 +37,22 @@ impl Interface {
         Interface {
             screens: ScreenState {
                 dashboard: screens::Dashboard::init(app),
-                project_management: screens::ProjectManagement::init(),
-                sleep: screens::Sleep::init(),
-                settings: screens::Settings::init(),
+                project_management: screens::ProjectManagement::init(app),
+                sleep: screens::Sleep::init(app),
+                settings: screens::Settings::init(app),
             },
             popups: PopupState {
                 help: popups::Help::init(),
             },
         }
+    }
+
+    /// Call the `init_data()` functions for popups and screens. The
+    /// `init_data()` functions ensure that the tables required exist, and
+    /// if not, are created.
+    pub fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()> {
+        self.screens.project_management.init_data(app)?;
+        Ok(())
     }
 
     pub fn render(&mut self, frame: &mut Frame, app: &mut App) {

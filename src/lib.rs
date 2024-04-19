@@ -1,4 +1,4 @@
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::eyre::WrapErr;
 use ratatui::style::Color;
 use tui_scrollview::ScrollViewState;
 
@@ -56,10 +56,11 @@ impl App {
     }
 
     /// Runs the application's main loop until the user quits.
-    pub fn run(&mut self, terminal: &mut tui::Tui) -> Result<()> {
-        self.db.ensure_tables().unwrap();
-        self.db.insert_session().unwrap();
+    pub fn run(&mut self, terminal: &mut tui::Tui) -> color_eyre::eyre::Result<()> {
+        self.db.ensure_tables().unwrap_or_else(|e| panic!("{e}"));
+        self.db.insert_session().unwrap_or_else(|e| panic!("{e}"));
         let mut interface = Interface::init(self);
+        interface.init_data(self).unwrap_or_else(|e| panic!("{e}"));
         let mut event_handler = EventHandler::init();
 
         while !self.exit {

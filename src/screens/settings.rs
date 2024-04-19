@@ -8,7 +8,7 @@ use crate::{
 pub struct Settings;
 
 impl InitScreen for Settings {
-    fn init() -> Settings {
+    fn init(_: &mut App) -> Settings {
         Settings {}
     }
 }

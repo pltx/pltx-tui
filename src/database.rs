@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use rusqlite::{Connection, Result};
+use rusqlite::Connection;
 
 pub struct Session {
     pub id: i32,
@@ -38,7 +38,9 @@ impl Database {
 
     /// Ensure that the tables needed in the database are created here. If they
     /// don't, then create them.
-    pub fn ensure_tables(&mut self) -> Result<()> {
+    /// For screens and popups, they should implement the `InitData` trait and
+    /// call the `init_data()` method in `init()`.
+    pub fn ensure_tables(&mut self) -> rusqlite::Result<()> {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS session (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +53,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn insert_session(&mut self) -> Result<()> {
+    pub fn insert_session(&mut self) -> rusqlite::Result<()> {
         self.conn
             .execute("INSERT INTO session (id) VALUES (NULL)", ())?;
         Ok(())

@@ -8,7 +8,7 @@ use crate::{
 pub struct Sleep;
 
 impl InitScreen for Sleep {
-    fn init() -> Sleep {
+    fn init(_: &mut App) -> Sleep {
         Sleep {}
     }
 }

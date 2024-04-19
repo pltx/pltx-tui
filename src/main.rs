@@ -1,7 +1,6 @@
-use color_eyre::Result;
 use pltx::{errors, tui, App};
 
-fn main() -> Result<()> {
+fn main() -> color_eyre::eyre::Result<()> {
     errors::install_hooks()?;
 
     let mut terminal = tui::init()?;
