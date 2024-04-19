@@ -2,7 +2,9 @@
 #[derive(PartialEq, Clone)]
 pub enum Mode {
     Navigation,
+    Insert,
     Popup,
+    PopupInsert,
 }
 
 /// The current screen (page).

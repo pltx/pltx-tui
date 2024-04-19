@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Size},
-    style::{Style, Stylize},
+    style::{Color, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, Clear, Paragraph, StatefulWidget, Widget},
     Frame,
@@ -11,8 +11,9 @@ use tui_scrollview::ScrollView;
 
 use crate::{
     components,
+    config::ColorsConfig,
     state::{Mode, Popup, State},
-    utils::{centered_rect_absolute, KeyEventHandler, RenderPopup},
+    utils::{centered_rect_absolute, Init, KeyEventHandler, RenderScrollPopup},
     App,
 };
 
@@ -21,8 +22,8 @@ pub struct Help {
     pub height: u16,
 }
 
-impl Help {
-    pub fn init() -> Help {
+impl Init for Help {
+    fn init(_: &mut App) -> Help {
         Help {
             width: 70,
             height: 20,
@@ -39,7 +40,7 @@ impl KeyEventHandler for Help {
     }
 }
 
-impl RenderPopup for Help {
+impl RenderScrollPopup for Help {
     fn render(&mut self, frame: &mut Frame, app: &mut App) {
         let popup = components::Popup::new(app);
 
@@ -59,7 +60,7 @@ impl RenderPopup for Help {
         scroll_view.render(sub_area, frame.buffer_mut(), &mut app.scroll_view_state);
     }
 
-    fn render_widgets_into_scrollview(&self, buf: &mut Buffer, app: &App) {
+    fn render_widgets_into_scrollview(&mut self, buf: &mut Buffer, app: &App) {
         let area = buf.area;
 
         let [content, spacing] = Layout::default()
@@ -100,6 +101,7 @@ impl Help {
                 ("<enter>", "Open selected option + Next navigation pane"),
                 ("<bs>", "Previous navigation pane"),
             ],
+            Mode::Insert => vec![("<esc>", "Exit insert mode")],
             Mode::Popup => vec![
                 ("q", "Close popup"),
                 ("?", "Close help menu (if open)"),
@@ -112,15 +114,39 @@ impl Help {
                 ("g", "Scroll top"),
                 ("G", "Scroll bottom"),
             ],
+            Mode::PopupInsert => vec![("<esc>", "Exit popup insert mode")],
         }
     }
 
     fn total_height(&self) -> u16 {
         ((self.get_keybinds(Mode::Navigation).len() + 4) as u16)
-            + ((self.get_keybinds(Mode::Navigation).len() + 4) as u16)
+            + ((self.get_keybinds(Mode::Insert).len() + 4) as u16)
+            + ((self.get_keybinds(Mode::Popup).len() + 4) as u16)
+            + ((self.get_keybinds(Mode::PopupInsert).len() + 4) as u16)
     }
 
-    fn keybinds_paragraph(&self, app: &App, mode: Mode) -> impl Widget {
+    /// Returns (fg, bg).
+    /// TODO: There is another function similar to this
+    /// (`App::get_mode_colors()`). Merge them into one and refactor
+    /// accordingly.
+    fn get_mode_color(&mut self, colors: &ColorsConfig, mode: &Mode) -> (Color, Color) {
+        (
+            match mode {
+                Mode::Navigation => colors.status_bar_navigation_mode_fg,
+                Mode::Insert => colors.status_bar_insert_mode_fg,
+                Mode::Popup => colors.status_bar_popup_mode_fg,
+                Mode::PopupInsert => colors.status_bar_popup_insert_mode_fg,
+            },
+            match mode {
+                Mode::Navigation => colors.status_bar_navigation_mode_bg,
+                Mode::Insert => colors.status_bar_insert_mode_bg,
+                Mode::Popup => colors.status_bar_popup_mode_bg,
+                Mode::PopupInsert => colors.status_bar_popup_insert_mode_bg,
+            },
+        )
+    }
+
+    fn keybinds_paragraph(&mut self, app: &App, mode: Mode) -> impl Widget {
         let colors = &app.config.colors;
         let text = Text::from(
             [
@@ -128,19 +154,10 @@ impl Help {
                     Span::from(format!(" {} Mode ", app.get_mode_text(mode.clone()))).style(
                         Style::new()
                             .bold()
-                            .fg(match mode {
-                                Mode::Navigation => colors.status_bar_navigation_mode_fg,
-                                Mode::Popup => colors.status_bar_popup_mode_fg,
-                            })
-                            .bg(match mode {
-                                Mode::Navigation => colors.status_bar_navigation_mode_bg,
-                                Mode::Popup => colors.status_bar_popup_mode_bg,
-                            }),
+                            .fg(self.get_mode_color(colors, &mode).0)
+                            .bg(self.get_mode_color(colors, &mode).1),
                     ),
-                    Span::from("").style(Style::new().fg(match mode {
-                        Mode::Navigation => colors.status_bar_navigation_mode_bg,
-                        Mode::Popup => colors.status_bar_popup_mode_bg,
-                    })),
+                    Span::from("").style(Style::new().fg(self.get_mode_color(colors, &mode).1)),
                 ])],
                 self.get_keybinds(mode)
                     .iter()

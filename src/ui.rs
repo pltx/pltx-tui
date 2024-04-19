@@ -10,7 +10,7 @@ use crate::{
     config::ColorsConfig,
     popups, screens,
     state::{Mode, Pane, Screen},
-    utils::{InitData, Init, RenderPopup, RenderScreen, ScreenKeybindsTitle},
+    utils::{Init, InitData, RenderScrollPopup, RenderScreen, ScreenKeybindsTitle},
     App, Popup,
 };
 
@@ -29,6 +29,8 @@ pub struct PopupState {
 
 pub struct Interface {
     pub screens: ScreenState,
+    /// These are only global popups. Screen popups should be contained within
+    /// the screen's own directory.
     pub popups: PopupState,
 }
 
@@ -42,7 +44,7 @@ impl Interface {
                 settings: screens::Settings::init(app),
             },
             popups: PopupState {
-                help: popups::Help::init(),
+                help: popups::Help::init(app),
             },
         }
     }

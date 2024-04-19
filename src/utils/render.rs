@@ -25,9 +25,13 @@ pub trait RenderScreen {
     fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect);
 }
 
+pub trait RenderScrollPopup {
+    fn render(&mut self, frame: &mut Frame, app: &mut App);
+    fn render_widgets_into_scrollview(&mut self, buf: &mut Buffer, app: &App);
+}
+
 pub trait RenderPopup {
     fn render(&mut self, frame: &mut Frame, app: &mut App);
-    fn render_widgets_into_scrollview(&self, buf: &mut Buffer, app: &App);
 }
 
 pub trait EventHandler {

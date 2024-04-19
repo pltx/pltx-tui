@@ -82,7 +82,9 @@ impl App {
     fn get_mode_text(&self, mode: Mode) -> &str {
         match mode {
             Mode::Navigation => "Navigation",
+            Mode::Insert => "Insert",
             Mode::Popup => "Popup",
+            Mode::PopupInsert => "PopupInsert",
         }
     }
 
@@ -94,9 +96,17 @@ impl App {
                 colors.status_bar_navigation_mode_fg,
                 colors.status_bar_navigation_mode_bg,
             ),
+            Mode::Insert => (
+                colors.status_bar_insert_mode_fg,
+                colors.status_bar_insert_mode_bg,
+            ),
             Mode::Popup => (
                 colors.status_bar_popup_mode_fg,
                 colors.status_bar_popup_mode_bg,
+            ),
+            Mode::PopupInsert => (
+                colors.status_bar_popup_insert_mode_fg,
+                colors.status_bar_popup_insert_mode_bg,
             ),
         };
         (
