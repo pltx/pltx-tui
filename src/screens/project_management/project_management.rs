@@ -60,7 +60,11 @@ impl ScreenKeybindsTitle for ProjectManagement {
 
 impl KeyEventHandler for ProjectManagement {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
-        if app.state.mode == Mode::Navigation && app.state.pane == Pane::Screen {
+        if app.state.pane != Pane::Screen {
+            return;
+        };
+
+        if app.state.mode == Mode::Navigation {
             let tabs = self.get_tabs();
             let tab_index = tabs.iter().position(|t| t.0 == self.hover_tab).unwrap();
             match key_event.code {
@@ -100,6 +104,9 @@ impl KeyEventHandler for ProjectManagement {
                     }
                     ScreenPane::None => {}
                 },
+                KeyCode::Char('n') => {
+                    // TODO: Create project
+                }
                 _ => {}
             }
         }
