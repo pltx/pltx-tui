@@ -3,15 +3,17 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Padding, Paragraph},
+    widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
     Frame,
 };
 
+use super::create_project::CreateProject;
 use crate::{
+    config::ColorsConfig,
     state::{Mode, Pane, State},
     utils::{
-        pane_title_bottom, InitData, Init, KeyEventHandler, RenderScreen, ScreenKeybinds,
-        ScreenKeybindsTitle,
+        pane_title_bottom, Init, InitData, KeyEventHandler, RenderPopup, RenderScreen,
+        ScreenKeybinds, ScreenKeybindsTitle,
     },
     App,
 };
@@ -30,10 +32,15 @@ enum ScreenPane {
     None,
 }
 
+pub struct Popups {
+    create_project: CreateProject,
+}
+
 pub struct ProjectManagement {
     tab: Tab,
     hover_tab: Tab,
     screen_pane: ScreenPane,
+    popups: Popups,
 }
 
 impl ProjectManagement {
@@ -114,11 +121,14 @@ impl KeyEventHandler for ProjectManagement {
 }
 
 impl Init for ProjectManagement {
-    fn init(_: &mut App) -> ProjectManagement {
+    fn init(app: &mut App) -> ProjectManagement {
         ProjectManagement {
             tab: Tab::Planned,
             hover_tab: Tab::Planned,
             screen_pane: ScreenPane::None,
+            popups: Popups {
+                create_project: CreateProject::init(app),
+            },
         }
     }
 }
@@ -199,13 +209,21 @@ impl InitData for ProjectManagement {
 impl RenderScreen for ProjectManagement {
     fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
-        let text = Paragraph::new("Project Management");
-        frame.render_widget(text, area);
 
         let [navigation_layout, content_layout] = Layout::default()
             .constraints([Constraint::Length(3), Constraint::Min(1)])
             .areas(area);
+        frame.render_widget(self.navigation(colors), navigation_layout);
 
+        self.popups.create_project.render(frame, app);
+
+        let content = Block::new();
+        frame.render_widget(content, content_layout)
+    }
+}
+
+impl ProjectManagement {
+    fn navigation(&mut self, colors: &ColorsConfig) -> impl Widget {
         let navigation_line = vec![Line::from(
             self.get_tabs()
                 .iter()
@@ -222,8 +240,7 @@ impl RenderScreen for ProjectManagement {
                 })
                 .collect::<Vec<Span>>(),
         )];
-
-        let navigation = Paragraph::new(navigation_line).block(
+        Paragraph::new(navigation_line).block(
             Block::new()
                 .padding(Padding::horizontal(1))
                 .borders(Borders::ALL)
@@ -233,11 +250,6 @@ impl RenderScreen for ProjectManagement {
                 } else {
                     colors.border
                 })),
-        );
-
-        frame.render_widget(navigation, navigation_layout);
-
-        let content = Block::new();
-        frame.render_widget(content, content_layout)
+        )
     }
 }

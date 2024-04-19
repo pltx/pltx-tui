@@ -10,7 +10,7 @@ use crate::{
     config::ColorsConfig,
     popups, screens,
     state::{Mode, Pane, Screen},
-    utils::{Init, InitData, RenderScrollPopup, RenderScreen, ScreenKeybindsTitle},
+    utils::{Init, InitData, RenderScreen, RenderScrollPopup, ScreenKeybindsTitle},
     App, Popup,
 };
 

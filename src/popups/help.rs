@@ -4,7 +4,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Size},
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Clear, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, Paragraph, StatefulWidget, Widget},
     Frame,
 };
 use tui_scrollview::ScrollView;
@@ -13,7 +13,7 @@ use crate::{
     components,
     config::ColorsConfig,
     state::{Mode, Popup, State},
-    utils::{centered_rect_absolute, Init, KeyEventHandler, RenderScrollPopup},
+    utils::{Init, KeyEventHandler, RenderScrollPopup},
     App,
 };
 
@@ -42,22 +42,17 @@ impl KeyEventHandler for Help {
 
 impl RenderScrollPopup for Help {
     fn render(&mut self, frame: &mut Frame, app: &mut App) {
-        let popup = components::Popup::new(app);
-
-        let area = centered_rect_absolute(self.width, self.height, frame.size());
-        frame.render_widget(Clear, area);
-        frame.render_widget(popup.block, area);
-
-        let [sub_area] = Layout::default()
-            .vertical_margin(1)
-            .horizontal_margin(2)
-            .constraints([Constraint::Fill(1)])
-            .areas(area);
-
+        let popup = components::Popup::new(app, frame.size())
+            .set_title("Help Menu")
+            .render(frame);
         // TODO: Fix height being twice as much as it needs to be
-        let mut scroll_view = ScrollView::new(Size::new(area.width, self.total_height()));
+        let mut scroll_view = ScrollView::new(Size::new(popup.area.width, self.total_height()));
         self.render_widgets_into_scrollview(scroll_view.buf_mut(), app);
-        scroll_view.render(sub_area, frame.buffer_mut(), &mut app.scroll_view_state);
+        scroll_view.render(
+            popup.sub_area,
+            frame.buffer_mut(),
+            &mut app.scroll_view_state,
+        );
     }
 
     fn render_widgets_into_scrollview(&mut self, buf: &mut Buffer, app: &App) {

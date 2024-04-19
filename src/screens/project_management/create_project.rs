@@ -1,8 +1,11 @@
 use crossterm::event::KeyEvent;
+use ratatui::Frame;
 
 use crate::{
+    components,
     state::State,
-    utils::{Init, KeyEventHandler, RenderPopup, RenderScrollPopup},
+    utils::{Init, KeyEventHandler, RenderPopup},
+    App,
 };
 
 pub struct CreateProject {
@@ -20,15 +23,13 @@ impl Init for CreateProject {
 }
 
 impl KeyEventHandler for CreateProject {
-    fn key_event_handler(
-        &mut self,
-        app: &mut crate::App,
-        key_event: KeyEvent,
-        event_state: &State,
-    ) {
-    }
+    fn key_event_handler(&mut self, _: &mut crate::App, _: KeyEvent, _: &State) {}
 }
 
 impl RenderPopup for CreateProject {
-    fn render(&mut self, frame: &mut ratatui::prelude::Frame, app: &mut crate::App) {}
+    fn render(&mut self, frame: &mut Frame, app: &mut App) {
+        components::Popup::new(app, frame.size())
+            .set_title("Create Project")
+            .render(frame);
+    }
 }
