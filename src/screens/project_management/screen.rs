@@ -26,21 +26,28 @@ enum Tab {
 }
 
 #[derive(PartialEq)]
+enum Popup {
+    CreateProject,
+    None,
+}
+
+#[derive(PartialEq)]
 enum ScreenPane {
     Tabs,
     Main,
     None,
 }
 
-pub struct Popups {
+pub struct ScreenPopups {
     create_project: CreateProject,
 }
 
 pub struct ProjectManagement {
     tab: Tab,
     hover_tab: Tab,
+    popup: Popup,
     screen_pane: ScreenPane,
-    popups: Popups,
+    screen_popups: ScreenPopups,
 }
 
 impl ProjectManagement {
@@ -112,7 +119,10 @@ impl KeyEventHandler for ProjectManagement {
                     ScreenPane::None => {}
                 },
                 KeyCode::Char('n') => {
-                    // TODO: Create project
+                    if self.tab == Tab::Projects {
+                        app.state.mode = Mode::Popup;
+                        self.popup = Popup::CreateProject;
+                    }
                 }
                 _ => {}
             }
@@ -125,8 +135,9 @@ impl Init for ProjectManagement {
         ProjectManagement {
             tab: Tab::Planned,
             hover_tab: Tab::Planned,
+            popup: Popup::None,
             screen_pane: ScreenPane::None,
-            popups: Popups {
+            screen_popups: ScreenPopups {
                 create_project: CreateProject::init(app),
             },
         }
@@ -215,7 +226,12 @@ impl RenderScreen for ProjectManagement {
             .areas(area);
         frame.render_widget(self.navigation(colors), navigation_layout);
 
-        self.popups.create_project.render(frame, app);
+        if app.state.mode == Mode::Popup {
+            match self.popup {
+                Popup::CreateProject => self.screen_popups.create_project.render(frame, app),
+                Popup::None => {}
+            }
+        }
 
         let content = Block::new();
         frame.render_widget(content, content_layout)

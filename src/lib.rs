@@ -84,7 +84,7 @@ impl App {
             Mode::Navigation => "Navigation",
             Mode::Insert => "Insert",
             Mode::Popup => "Popup",
-            Mode::PopupInsert => "PopupInsert",
+            Mode::PopupInsert => "Popup Insert",
         }
     }
 
