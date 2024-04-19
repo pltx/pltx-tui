@@ -1,7 +1,7 @@
 use ratatui::{layout::Rect, widgets::Paragraph, Frame};
 
 use crate::{
-    utils::{InitScreen, RenderScreen},
+    utils::{get_version, InitScreen, RenderScreen},
     App,
 };
 
@@ -15,7 +15,7 @@ impl InitScreen for Settings {
 
 impl RenderScreen for Settings {
     fn render(&mut self, _: &mut App, frame: &mut Frame, area: Rect) {
-        let text = Paragraph::new("Version: 0.0.1");
+        let text = Paragraph::new(format!("Version: {}", get_version()));
         frame.render_widget(text, area);
     }
 }
