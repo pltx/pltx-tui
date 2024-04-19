@@ -18,10 +18,8 @@ pub struct ConfigGeneric<T> {
     pub popup_border: T,
     pub keybind_key: T,
     pub keybind_fg: T,
-
     pub title_bar_bg: T,
     pub title_bar_fg: T,
-
     pub status_bar_bg: T,
     pub status_bar_fg: T,
     pub status_bar_navigation_mode_bg: T,
@@ -32,7 +30,6 @@ pub struct ConfigGeneric<T> {
 
 type ColorsConfigFile = ConfigGeneric<Option<String>>;
 pub type ColorsConfig = ConfigGeneric<Color>;
-
 #[derive(Deserialize, Serialize)]
 struct ConfigFile {
     colors: Option<ColorsConfigFile>,
@@ -60,10 +57,8 @@ fn get_base_config() -> Config {
             popup_border: get_color("#AF5FFF"),
             keybind_key: get_color("#AF5FFF"),
             keybind_fg: get_color("#6698FF"),
-
             title_bar_bg: get_color("#AF5FFF"),
             title_bar_fg: get_color("#FFFFFF"),
-
             status_bar_bg: get_color("#333333"),
             status_bar_fg: get_color("#CCCCCC"),
             status_bar_navigation_mode_bg: get_color("#99CE48"),
@@ -117,52 +112,52 @@ fn get_color(color: &str) -> Color {
 
 /// Call the `get_color()` function if provided (from user config), otherwise
 /// return `Err`.
-fn get_color_op(color_op: Option<String>) -> Result<Color, ()> {
+fn get_color_op(color_op: Option<String>, base_config_color: Color) -> Color {
     match color_op {
-        Some(color) => Ok(get_color(&color)),
-        None => Err(()),
+        Some(color) => get_color(&color),
+        None => base_config_color,
     }
 }
 
 /// Merge the user config with the base config.
 fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
+    let bc = &base_config;
     Config {
         colors: match user_config.colors {
             Some(colors) => ColorsConfig {
-                primary: get_color_op(colors.primary).unwrap_or(base_config.colors.primary),
-                secondary: get_color_op(colors.secondary).unwrap_or(base_config.colors.secondary),
-                fg: get_color_op(colors.fg).unwrap_or(base_config.colors.fg),
-                bg: get_color_op(colors.bg).unwrap_or(base_config.colors.bg),
-                active_fg: get_color_op(colors.active_fg).unwrap_or(base_config.colors.active_fg),
-                active_bg: get_color_op(colors.active_bg).unwrap_or(base_config.colors.active_bg),
-                hover_fg: get_color_op(colors.hover_fg).unwrap_or(base_config.colors.hover_fg),
-                hover_bg: get_color_op(colors.hover_bg).unwrap_or(base_config.colors.hover_bg),
-                border: get_color_op(colors.border).unwrap_or(base_config.colors.border),
-                popup_bg: get_color_op(colors.popup_bg).unwrap_or(base_config.colors.popup_bg),
-                popup_border: get_color_op(colors.popup_border)
-                    .unwrap_or(base_config.colors.popup_border),
-                keybind_key: get_color_op(colors.keybind_key)
-                    .unwrap_or(base_config.colors.keybind_key),
-                keybind_fg: get_color_op(colors.keybind_fg)
-                    .unwrap_or(base_config.colors.keybind_fg),
-
-                title_bar_bg: get_color_op(colors.title_bar_bg)
-                    .unwrap_or(base_config.colors.title_bar_bg),
-                title_bar_fg: get_color_op(colors.title_bar_fg)
-                    .unwrap_or(base_config.colors.title_bar_fg),
-
-                status_bar_bg: get_color_op(colors.status_bar_bg)
-                    .unwrap_or(base_config.colors.status_bar_bg),
-                status_bar_fg: get_color_op(colors.status_bar_fg)
-                    .unwrap_or(base_config.colors.status_bar_fg),
-                status_bar_navigation_mode_bg: get_color_op(colors.status_bar_navigation_mode_bg)
-                    .unwrap_or(base_config.colors.status_bar_navigation_mode_bg),
-                status_bar_navigation_mode_fg: get_color_op(colors.status_bar_navigation_mode_fg)
-                    .unwrap_or(base_config.colors.status_bar_navigation_mode_fg),
-                status_bar_popup_mode_bg: get_color_op(colors.status_bar_popup_mode_bg)
-                    .unwrap_or(base_config.colors.status_bar_popup_mode_bg),
-                status_bar_popup_mode_fg: get_color_op(colors.status_bar_popup_mode_fg)
-                    .unwrap_or(base_config.colors.status_bar_popup_mode_fg),
+                primary: get_color_op(colors.primary, bc.colors.primary),
+                secondary: get_color_op(colors.secondary, bc.colors.secondary),
+                fg: get_color_op(colors.fg, bc.colors.fg),
+                bg: get_color_op(colors.bg, bc.colors.bg),
+                active_fg: get_color_op(colors.active_fg, bc.colors.active_fg),
+                active_bg: get_color_op(colors.active_bg, bc.colors.active_bg),
+                hover_fg: get_color_op(colors.hover_fg, bc.colors.hover_fg),
+                hover_bg: get_color_op(colors.hover_bg, bc.colors.hover_bg),
+                border: get_color_op(colors.border, bc.colors.border),
+                popup_bg: get_color_op(colors.popup_bg, bc.colors.popup_bg),
+                popup_border: get_color_op(colors.popup_border, bc.colors.popup_border),
+                keybind_key: get_color_op(colors.keybind_key, bc.colors.keybind_key),
+                keybind_fg: get_color_op(colors.keybind_fg, bc.colors.keybind_fg),
+                title_bar_bg: get_color_op(colors.title_bar_bg, bc.colors.title_bar_bg),
+                title_bar_fg: get_color_op(colors.title_bar_fg, bc.colors.title_bar_fg),
+                status_bar_bg: get_color_op(colors.status_bar_bg, bc.colors.status_bar_bg),
+                status_bar_fg: get_color_op(colors.status_bar_fg, bc.colors.status_bar_fg),
+                status_bar_navigation_mode_bg: get_color_op(
+                    colors.status_bar_navigation_mode_bg,
+                    bc.colors.status_bar_navigation_mode_bg,
+                ),
+                status_bar_navigation_mode_fg: get_color_op(
+                    colors.status_bar_navigation_mode_fg,
+                    bc.colors.status_bar_navigation_mode_fg,
+                ),
+                status_bar_popup_mode_bg: get_color_op(
+                    colors.status_bar_popup_mode_bg,
+                    bc.colors.status_bar_popup_mode_bg,
+                ),
+                status_bar_popup_mode_fg: get_color_op(
+                    colors.status_bar_popup_mode_fg,
+                    bc.colors.status_bar_popup_mode_fg,
+                ),
             },
             None => base_config.colors,
         },

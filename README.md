@@ -23,10 +23,8 @@ popup_bg = "#000000"
 popup_border = "#AF5FFF"
 keybind_key = "#AF5FFF"
 keybind_fg = "#6698FF"
-
 title_bar_bg = "#AF5FFF"
 title_bar_text = "#FFFFFF"
-
 status_bar_bg = "#333333"
 status_bar_text = "#CCCCCC"
 status_bar_navigation_mode_bg = "#99ce48"
