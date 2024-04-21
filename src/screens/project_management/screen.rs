@@ -11,10 +11,7 @@ use super::projects::{Projects, ProjectsState};
 use crate::{
     config::ColorsConfig,
     state::{Mode, Pane, State},
-    utils::{
-        pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, RenderScreen,
-        ScreenKeybinds, ScreenKeybindsTitle,
-    },
+    utils::{Init, InitData, KeyEventHandler, RenderPage, RenderScreen},
     App,
 };
 
@@ -114,6 +111,7 @@ impl InitData for ProjectManagement {
         app.db.conn.execute(
             "CREATE TABLE IF NOT EXISTS project_card (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
                 list_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 description TEXT,
@@ -125,6 +123,10 @@ impl InitData for ProjectManagement {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (list_id)
                     REFERENCES project_list (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE,
+                FOREIGN KEY (project_id)
+                    REFERENCES project (id)
                         ON DELETE CASCADE
                         ON UPDATE CASCADE
             )",
@@ -166,6 +168,8 @@ impl InitData for ProjectManagement {
             (),
         )?;
 
+        self.pages.projects.init_data(app)?;
+
         Ok(())
     }
 }
@@ -177,18 +181,6 @@ impl ProjectManagement {
             (Tab::Projects, "Projects"),
             (Tab::Important, "Important"),
         ]
-    }
-}
-
-impl ScreenKeybinds for ProjectManagement {
-    fn screen_keybinds<'a>(&mut self) -> [(&'a str, &'a str); 3] {
-        [("n", "New"), ("e", "Edit"), ("d", "Delete")]
-    }
-}
-
-impl ScreenKeybindsTitle for ProjectManagement {
-    fn screen_keybinds_title(&mut self, app: &mut App) -> Line {
-        pane_title_bottom(app, self.screen_keybinds())
     }
 }
 
