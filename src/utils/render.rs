@@ -47,6 +47,10 @@ pub trait KeyEventHandler {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State);
 }
 
+pub trait KeyEventHandlerReturn<T> {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) -> T;
+}
+
 pub trait ScreenKeybinds {
     /// Returns a list of keybinds to be shown as the bottom title of the screen
     fn screen_keybinds<'a>(&mut self) -> [(&'a str, &'a str); 3];

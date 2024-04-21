@@ -10,7 +10,7 @@ use ratatui::{
 use super::{new_project::NewProject, screen::ScreenPane};
 use crate::{
     state::{Mode, State},
-    utils::{Init, KeyEventHandler, RenderPage},
+    utils::{Init, KeyEventHandler, KeyEventHandlerReturn, RenderPage},
     App,
 };
 
@@ -63,13 +63,17 @@ impl KeyEventHandler for Projects {
         match self.page {
             Page::ListProjects => {}
             Page::CreateProject => {
-                self.pages
+                if self
+                    .pages
                     .create_project
                     .key_event_handler(app, key_event, event_state)
+                {
+                    self.page = Page::ListProjects;
+                }
             }
             Page::EditProject => {}
             Page::OpenProject => {}
-        }
+        };
     }
 }
 

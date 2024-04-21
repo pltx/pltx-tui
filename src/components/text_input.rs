@@ -26,6 +26,11 @@ impl TextInput {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.input = String::new();
+        self.cursor_position = 0;
+    }
+
     pub fn set_title(mut self, title: &str) -> Self {
         self.title = Some(title.to_string());
         self
@@ -97,7 +102,7 @@ impl TextInput {
         self.cursor_position = next_word[0];
     }
 
-    fn reset_cursor(&mut self) {
+    fn cursor_start_line(&mut self) {
         self.cursor_position = 0;
     }
 
@@ -129,12 +134,12 @@ impl TextInput {
                 KeyCode::Char('l') => self.move_cursor_right(),
                 KeyCode::Char('w') => self.cursor_next_word(),
                 KeyCode::Char('b') => {}
-                KeyCode::Char('0') => self.reset_cursor(),
+                KeyCode::Char('0') => self.cursor_start_line(),
                 KeyCode::Char('$') => self.cursor_end_line(),
                 KeyCode::Char('i') => app.state.mode = Mode::Insert,
                 KeyCode::Char('I') => {
                     app.state.mode = Mode::Insert;
-                    self.reset_cursor()
+                    self.cursor_start_line()
                 }
                 KeyCode::Char('a') => {
                     app.state.mode = Mode::Insert;

@@ -12,7 +12,7 @@ use crate::{
     components::TextInput,
     config::ColorsConfig,
     state::{Mode, State},
-    utils::{Init, KeyEventHandler, RenderPage},
+    utils::{Init, KeyEventHandlerReturn, RenderPage},
     App,
 };
 
@@ -53,8 +53,38 @@ impl Init for NewProject {
     }
 }
 
-impl KeyEventHandler for NewProject {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
+impl NewProject {
+    fn db_new_project(&self, app: &mut App) -> rusqlite::Result<()> {
+        struct ProjectQuery {
+            position: i32,
+        }
+        let mut stmt = app.db.conn.prepare("SELECT position from project")?;
+        let project_iter = stmt.query_map([], |r| {
+            Ok(ProjectQuery {
+                position: r.get(0)?,
+            })
+        })?;
+        let mut highest_position = 0;
+        for project in project_iter {
+            let project_pos = project.unwrap().position;
+            if project_pos > highest_position {
+                highest_position = project_pos;
+            }
+        }
+        app.db.conn.execute(
+            "INSERT INTO project (title, description, position) VALUES (?1, ?2, ?3)",
+            (
+                &self.inputs.title.input,
+                &self.inputs.description.input,
+                highest_position,
+            ),
+        )?;
+        Ok(())
+    }
+}
+
+impl KeyEventHandlerReturn<bool> for NewProject {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
         match self.focused_pane {
             FocusedPane::Title => self.inputs.title.handle_key_event(app, key_event),
             FocusedPane::Description => self.inputs.description.handle_key_event(app, key_event),
@@ -78,14 +108,26 @@ impl KeyEventHandler for NewProject {
                     FocusedPane::Actions => {
                         if self.action == Action::Create {
                             self.focused_pane = FocusedPane::Description;
-                        } else {
+                        } else if self.action == Action::Cancel {
                             self.action = Action::Create;
                         }
                     }
                 },
+                KeyCode::Enter => {
+                    if self.focused_pane == FocusedPane::Actions {
+                        if self.action == Action::Create {
+                            self.db_new_project(app).unwrap_or_else(|e| panic!("{e}"));
+                        } else if self.action == Action::Cancel {
+                            self.inputs.title.reset();
+                            self.inputs.description.reset();
+                        }
+                        return true;
+                    }
+                }
                 _ => {}
             }
         }
+        false
     }
 }
 
