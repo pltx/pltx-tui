@@ -21,8 +21,13 @@ pub trait Init {
     where
         Self: Sized;
 }
+
 pub trait RenderScreen {
     fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect);
+}
+
+pub trait RenderPage<T> {
+    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect, state: T);
 }
 
 pub trait RenderScrollPopup {
@@ -31,7 +36,7 @@ pub trait RenderScrollPopup {
 }
 
 pub trait RenderPopup {
-    fn render(&mut self, frame: &mut Frame, app: &mut App);
+    fn render(&mut self, frame: &mut Frame, app: &App);
 }
 
 pub trait EventHandler {

@@ -112,6 +112,10 @@ impl EventHandler {
             }
         }
 
+        if event_state.mode == Mode::Insert && key_event.code == KeyCode::Esc {
+            app.state.mode = Mode::Navigation
+        }
+
         match app.state.screen {
             Screen::Dashboard => {
                 interface

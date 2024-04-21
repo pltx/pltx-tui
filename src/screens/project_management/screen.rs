@@ -7,12 +7,12 @@ use ratatui::{
     Frame,
 };
 
-use super::create_project::CreateProject;
+use super::projects::{Projects, ProjectsState};
 use crate::{
     config::ColorsConfig,
     state::{Mode, Pane, State},
     utils::{
-        pane_title_bottom, Init, InitData, KeyEventHandler, RenderPopup, RenderScreen,
+        pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, RenderScreen,
         ScreenKeybinds, ScreenKeybindsTitle,
     },
     App,
@@ -27,107 +27,26 @@ enum Tab {
 
 #[derive(PartialEq)]
 enum Popup {
-    CreateProject,
     None,
 }
 
-#[derive(PartialEq)]
-enum ScreenPane {
+#[derive(PartialEq, Clone)]
+pub enum ScreenPane {
     Tabs,
     Main,
     None,
 }
 
-pub struct ScreenPopups {
-    create_project: CreateProject,
+struct Pages {
+    projects: Projects,
 }
 
 pub struct ProjectManagement {
     tab: Tab,
     hover_tab: Tab,
     popup: Popup,
-    screen_pane: ScreenPane,
-    screen_popups: ScreenPopups,
-}
-
-impl ProjectManagement {
-    fn get_tabs<'a>(&self) -> Vec<(Tab, &'a str)> {
-        vec![
-            (Tab::Planned, "Planned"),
-            (Tab::Projects, "Projects"),
-            (Tab::Important, "Important"),
-        ]
-    }
-}
-
-impl ScreenKeybinds for ProjectManagement {
-    fn screen_keybinds<'a>(&mut self) -> [(&'a str, &'a str); 3] {
-        [("n", "New"), ("e", "Edit"), ("d", "Delete")]
-    }
-}
-
-impl ScreenKeybindsTitle for ProjectManagement {
-    fn screen_keybinds_title(&mut self, app: &mut App) -> Line {
-        pane_title_bottom(app, self.screen_keybinds())
-    }
-}
-
-impl KeyEventHandler for ProjectManagement {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
-        if app.state.pane != Pane::Screen {
-            return;
-        };
-
-        if app.state.mode == Mode::Navigation {
-            let tabs = self.get_tabs();
-            let tab_index = tabs.iter().position(|t| t.0 == self.hover_tab).unwrap();
-            match key_event.code {
-                KeyCode::Char('l') => {
-                    if self.screen_pane == ScreenPane::Tabs {
-                        if tab_index == tabs.len() - 1 {
-                            self.hover_tab = tabs[0].0.clone();
-                        } else {
-                            self.hover_tab = tabs[tab_index + 1].0.clone();
-                        }
-                    }
-                }
-                KeyCode::Char('h') => {
-                    if self.screen_pane == ScreenPane::Tabs {
-                        if tab_index == 0 {
-                            self.hover_tab = tabs[tabs.len() - 1].0.clone();
-                        } else {
-                            self.hover_tab = tabs[tab_index - 1].0.clone();
-                        }
-                    }
-                }
-                KeyCode::Enter => match self.screen_pane {
-                    ScreenPane::None => self.screen_pane = ScreenPane::Tabs,
-                    ScreenPane::Tabs => {
-                        self.tab = self.hover_tab.clone();
-                        self.screen_pane = ScreenPane::Main;
-                    }
-                    ScreenPane::Main => {}
-                },
-                KeyCode::Backspace => match self.screen_pane {
-                    ScreenPane::Main => self.screen_pane = ScreenPane::Tabs,
-                    ScreenPane::Tabs => {
-                        if event_state.pane == Pane::Screen {
-                            self.screen_pane = ScreenPane::None;
-                            app.state.pane = Pane::Navigation;
-                        }
-                    }
-                    ScreenPane::None => {}
-                },
-                KeyCode::Char('n') => {
-                    if self.tab == Tab::Projects {
-                        app.state.mode = Mode::Popup;
-                        self.popup = Popup::CreateProject;
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
+    pub screen_pane: ScreenPane,
+    pages: Pages,
 }
 
 impl Init for ProjectManagement {
@@ -137,8 +56,8 @@ impl Init for ProjectManagement {
             hover_tab: Tab::Planned,
             popup: Popup::None,
             screen_pane: ScreenPane::None,
-            screen_popups: ScreenPopups {
-                create_project: CreateProject::init(app),
+            pages: Pages {
+                projects: Projects::init(app),
             },
         }
     }
@@ -201,8 +120,6 @@ impl InitData for ProjectManagement {
                 important BOOLEAN NOT NULL CHECK (important IN (0, 1)),
                 due_date DATETIME,
                 reminder BOOLEAN NOT NULL CHECK (important IN (0, 1)),
-                labels
-                checklist
                 position INTEGER NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -213,7 +130,150 @@ impl InitData for ProjectManagement {
             )",
             (),
         )?;
+
+        app.db.conn.execute(
+            "CREATE TABLE IF NOT EXISTS card_label (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id INTEGER NOT NULL,
+                label_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (card_id)
+                    REFERENCES project_card (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE,
+                FOREIGN KEY (label_id)
+                    REFERENCES project_label (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE
+            )",
+            (),
+        )?;
+
+        app.db.conn.execute(
+            "CREATE TABLE IF NOT EXISTS card_subtask (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id INTEGER NOT NULL,
+                value TEXT NOT NULL,
+                completed BOOLEAN NOT NULL CHECK (completed IN (0, 1)),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (card_id)
+                    REFERENCES project_card (id)
+                        ON DELETE CASCADE
+                        ON UPDATE CASCADE
+            )",
+            (),
+        )?;
+
         Ok(())
+    }
+}
+
+impl ProjectManagement {
+    fn get_tabs<'a>(&self) -> Vec<(Tab, &'a str)> {
+        vec![
+            (Tab::Planned, "Planned"),
+            (Tab::Projects, "Projects"),
+            (Tab::Important, "Important"),
+        ]
+    }
+}
+
+impl ScreenKeybinds for ProjectManagement {
+    fn screen_keybinds<'a>(&mut self) -> [(&'a str, &'a str); 3] {
+        [("n", "New"), ("e", "Edit"), ("d", "Delete")]
+    }
+}
+
+impl ScreenKeybindsTitle for ProjectManagement {
+    fn screen_keybinds_title(&mut self, app: &mut App) -> Line {
+        pane_title_bottom(app, self.screen_keybinds())
+    }
+}
+
+impl KeyEventHandler for ProjectManagement {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
+        if app.state.pane != Pane::Screen {
+            return;
+        };
+
+        // Page key event handlers should run before anything for the entire screen
+        if self.screen_pane == ScreenPane::Main {
+            match self.tab {
+                Tab::Planned => {}
+                Tab::Projects => self
+                    .pages
+                    .projects
+                    .key_event_handler(app, key_event, event_state),
+                Tab::Important => {}
+            }
+        }
+
+        if app.state.mode == Mode::Navigation {
+            let tabs = self.get_tabs();
+            let tab_index = tabs.iter().position(|t| t.0 == self.hover_tab).unwrap();
+            match key_event.code {
+                KeyCode::Char('l') => {
+                    if self.screen_pane == ScreenPane::Tabs {
+                        if tab_index == tabs.len() - 1 {
+                            self.hover_tab = tabs[0].0.clone();
+                        } else {
+                            self.hover_tab = tabs[tab_index + 1].0.clone();
+                        }
+                    }
+                }
+                KeyCode::Char('h') => {
+                    if self.screen_pane == ScreenPane::Tabs {
+                        if tab_index == 0 {
+                            self.hover_tab = tabs[tabs.len() - 1].0.clone();
+                        } else {
+                            self.hover_tab = tabs[tab_index - 1].0.clone();
+                        }
+                    }
+                }
+                // NOTE: Number keybinds are not listed in the menu
+                KeyCode::Char('1') => {
+                    if self.screen_pane == ScreenPane::Tabs {
+                        self.hover_tab = Tab::Planned
+                    }
+                }
+                KeyCode::Char('2') => {
+                    if self.screen_pane == ScreenPane::Tabs {
+                        self.hover_tab = Tab::Projects
+                    }
+                }
+                KeyCode::Char('3') => {
+                    if self.screen_pane == ScreenPane::Tabs {
+                        self.hover_tab = Tab::Important
+                    }
+                }
+                KeyCode::Enter => match self.screen_pane {
+                    ScreenPane::None => self.screen_pane = ScreenPane::Tabs,
+                    ScreenPane::Tabs => {
+                        self.tab = self.hover_tab.clone();
+                        self.screen_pane = ScreenPane::Main;
+                    }
+                    ScreenPane::Main => {}
+                },
+                KeyCode::Backspace => match self.screen_pane {
+                    ScreenPane::Main => self.screen_pane = ScreenPane::Tabs,
+                    ScreenPane::Tabs => {
+                        if event_state.pane == Pane::Screen {
+                            self.screen_pane = ScreenPane::None;
+                            app.state.pane = Pane::Navigation;
+                        }
+                    }
+                    ScreenPane::None => {}
+                },
+                // KeyCode::Char('n') => {
+                //     if self.tab == Tab::Projects && self.screen_pane == ScreenPane::Main {
+                //         app.state.mode = Mode::Popup;
+                //     }
+                // }
+                _ => {}
+            }
+        }
     }
 }
 
@@ -226,15 +286,24 @@ impl RenderScreen for ProjectManagement {
             .areas(area);
         frame.render_widget(self.navigation(colors), navigation_layout);
 
+        match self.tab {
+            Tab::Planned => {}
+            Tab::Projects => self.pages.projects.render(
+                app,
+                frame,
+                content_layout,
+                ProjectsState {
+                    screen_pane: self.screen_pane.clone(),
+                },
+            ),
+            Tab::Important => {}
+        }
+
         if app.state.mode == Mode::Popup {
             match self.popup {
-                Popup::CreateProject => self.screen_popups.create_project.render(frame, app),
                 Popup::None => {}
             }
         }
-
-        let content = Block::new();
-        frame.render_widget(content, content_layout)
     }
 }
 
@@ -243,7 +312,8 @@ impl ProjectManagement {
         let navigation_line = vec![Line::from(
             self.get_tabs()
                 .iter()
-                .map(|t| {
+                .enumerate()
+                .flat_map(|(i, t)| {
                     let mut style = Style::new();
                     if t.0 == self.tab {
                         style = style.fg(colors.active_fg).bg(colors.active_bg).bold()
@@ -252,7 +322,11 @@ impl ProjectManagement {
                     } else {
                         style = style.fg(colors.secondary)
                     };
-                    Span::from(format!(" {} ", t.1)).style(style)
+                    let mut span = vec![Span::from(format!(" {} ", t.1)).style(style)];
+                    if i != self.get_tabs().len() - 1 {
+                        span.push(Span::styled(" | ", Style::new().fg(colors.border)))
+                    }
+                    span
                 })
                 .collect::<Vec<Span>>(),
         )];

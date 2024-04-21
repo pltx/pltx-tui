@@ -8,26 +8,26 @@ use crate::{
     App,
 };
 
-pub struct CreateProject {
+pub struct DeleteProject {
     pub width: u16,
     pub height: u16,
 }
 
-impl Init for CreateProject {
-    fn init(_: &mut crate::App) -> CreateProject {
-        CreateProject {
+impl Init for DeleteProject {
+    fn init(_: &mut crate::App) -> DeleteProject {
+        DeleteProject {
             width: 70,
             height: 20,
         }
     }
 }
 
-impl KeyEventHandler for CreateProject {
+impl KeyEventHandler for DeleteProject {
     fn key_event_handler(&mut self, _: &mut crate::App, _: KeyEvent, _: &State) {}
 }
 
-impl RenderPopup for CreateProject {
-    fn render(&mut self, frame: &mut Frame, app: &mut App) {
+impl RenderPopup for DeleteProject {
+    fn render(&mut self, frame: &mut Frame, app: &App) {
         components::Popup::new(app, frame.size())
             .set_title("Create Project")
             .render(frame);
