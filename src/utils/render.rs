@@ -53,18 +53,13 @@ pub trait KeyEventHandlerReturn<T> {
 
 pub trait ScreenKeybinds {
     /// Returns a list of keybinds to be shown as the bottom title of the screen
-    fn screen_keybinds<'a>(&self) -> [(&'a str, &'a str); 3];
-}
-
-pub trait ScreenKeybindsTitle {
-    /// Return the title for the keybinds
-    fn screen_keybinds_title(&self, colors: &ColorsConfig, focused: bool) -> Line;
+    fn screen_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)>;
 }
 
 /// Creates the title that shows the available keybinds for a screen
 pub fn pane_title_bottom<'a>(
     colors: &ColorsConfig,
-    hints: [(&'a str, &'a str); 3],
+    hints: Vec<(&'a str, &'a str)>,
     focused: bool,
 ) -> Line<'a> {
     let separator = "──";

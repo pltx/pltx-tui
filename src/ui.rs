@@ -81,7 +81,8 @@ impl Interface {
             self.navigation_pane(app, navigation_layout),
             navigation_layout,
         );
-        frame.render_widget(self.status_bar(app), status_bar_layout);
+
+        self.status_bar(app, frame, status_bar_layout);
 
         // Screen content
         let screen_pane = Block::new()
@@ -163,14 +164,12 @@ impl Interface {
                             .bg(colors.active_bg)
                             .bold(),
                     )
-                } else if s.0 == app.state.hover_screen {
-                    Line::from(format!(" {} ", s.1))
-                        .style(Style::new().fg(colors.hover_fg).bg(colors.hover_bg))
                 } else {
                     Line::from(format!(" {} ", s.1)).style(Style::new().fg(colors.secondary))
                 }
             })
             .collect::<Vec<Line>>();
+
         Paragraph::new(navigation_options.clone()).block(
             Block::new()
                 .borders(Borders::ALL)
@@ -184,22 +183,51 @@ impl Interface {
         )
     }
 
-    fn status_bar(&self, app: &App) -> Paragraph {
+    fn status_bar(&self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
         let mode = app.get_mode_colors();
-        let status_bar_content = vec![Line::from(vec![
+
+        let [left_layout, center_layout, right_layout] = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Fill(1),
+                Constraint::Fill(1),
+                Constraint::Fill(1),
+            ])
+            .areas(area);
+
+        let left_text = vec![Line::from(vec![
             Span::from(format!(" {} ", mode.0.to_uppercase()))
                 .bold()
                 .fg(mode.1)
                 .bg(mode.2),
             Span::from("").fg(mode.2),
         ])];
-        Paragraph::new(status_bar_content)
-            .alignment(Alignment::Left)
+        let left_content = Paragraph::new(left_text).alignment(Alignment::Left).style(
+            Style::new()
+                .fg(colors.status_bar_fg)
+                .bg(colors.status_bar_bg),
+        );
+        frame.render_widget(left_content, left_layout);
+
+        let center_text = vec![Line::from(vec![Span::from("")])];
+        let center_content = Paragraph::new(center_text)
+            .alignment(Alignment::Center)
             .style(
                 Style::new()
                     .fg(colors.status_bar_fg)
                     .bg(colors.status_bar_bg),
-            )
+            );
+        frame.render_widget(center_content, center_layout);
+
+        let right_text = vec![Line::from(vec![Span::from("Press ? for help ")])];
+        let right_content = Paragraph::new(right_text)
+            .alignment(Alignment::Right)
+            .style(
+                Style::new()
+                    .fg(colors.status_bar_fg)
+                    .bg(colors.status_bar_bg),
+            );
+        frame.render_widget(right_content, right_layout);
     }
 }

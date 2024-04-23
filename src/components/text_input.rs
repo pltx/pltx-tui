@@ -110,6 +110,13 @@ impl TextInput {
         self.cursor_position = self.input.len()
     }
 
+    fn enter_insert_mode(&self, app: &mut App) {
+        app.state.mode = match app.state.mode {
+            Mode::Popup => Mode::PopupInsert,
+            _ => Mode::Insert,
+        }
+    }
+
     // TODO:
     // j = move up (if multiline)
     // k = move down (if multiline)
@@ -122,27 +129,27 @@ impl TextInput {
     // o = newline + insert mode
     pub fn handle_key_event(&mut self, app: &mut App, key_event: KeyEvent) {
         match app.state.mode {
-            Mode::Insert => match key_event.code {
+            Mode::Insert | Mode::PopupInsert => match key_event.code {
                 KeyCode::Char(to_insert) => self.enter_char(to_insert),
                 KeyCode::Backspace => self.delete_char(),
                 KeyCode::Left => self.move_cursor_left(),
                 KeyCode::Right => self.move_cursor_right(),
                 _ => {}
             },
-            Mode::Navigation => match key_event.code {
+            Mode::Navigation | Mode::Popup => match key_event.code {
                 KeyCode::Char('h') => self.move_cursor_left(),
                 KeyCode::Char('l') => self.move_cursor_right(),
                 KeyCode::Char('w') => self.cursor_next_word(),
                 KeyCode::Char('b') => {}
                 KeyCode::Char('0') => self.cursor_start_line(),
                 KeyCode::Char('$') => self.cursor_end_line(),
-                KeyCode::Char('i') => app.state.mode = Mode::Insert,
+                KeyCode::Char('i') => self.enter_insert_mode(app),
                 KeyCode::Char('I') => {
-                    app.state.mode = Mode::Insert;
+                    self.enter_insert_mode(app);
                     self.cursor_start_line()
                 }
                 KeyCode::Char('a') => {
-                    app.state.mode = Mode::Insert;
+                    self.enter_insert_mode(app);
                     self.move_cursor_right()
                 }
                 KeyCode::Char('A') => {
@@ -155,7 +162,7 @@ impl TextInput {
         }
     }
 
-    pub fn render(&self, app: &mut App, focused: bool) -> impl Widget {
+    pub fn render(&self, app: &App, focused: bool) -> impl Widget {
         let colors = &app.config.colors;
 
         let input = if focused && self.input.is_empty() && self.cursor_position == 0 {
@@ -207,7 +214,7 @@ impl TextInput {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::new().fg(if focused {
-                    if app.state.mode == Mode::Insert {
+                    if app.state.mode == Mode::Insert || app.state.mode == Mode::PopupInsert {
                         colors.status_bar_insert_mode_bg
                     } else {
                         colors.primary

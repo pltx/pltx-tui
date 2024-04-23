@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::Style,
+    style::{Style, Stylize},
     text::{Line, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
     Frame,
@@ -58,12 +58,14 @@ impl NewProject {
         struct ProjectQuery {
             position: i32,
         }
+
         let mut stmt = app.db.conn.prepare("SELECT position from project")?;
         let project_iter = stmt.query_map([], |r| {
             Ok(ProjectQuery {
                 position: r.get(0)?,
             })
         })?;
+
         let mut highest_position = 0;
         for project in project_iter {
             let project_pos = project.unwrap().position;
@@ -71,14 +73,16 @@ impl NewProject {
                 highest_position = project_pos;
             }
         }
+
         app.db.conn.execute(
             "INSERT INTO project (title, description, position) VALUES (?1, ?2, ?3)",
             (
                 &self.inputs.title.input,
                 &self.inputs.description.input,
-                highest_position,
+                highest_position + 1,
             ),
         )?;
+
         Ok(())
     }
 }
@@ -93,6 +97,8 @@ impl KeyEventHandlerReturn<bool> for NewProject {
 
         if app.state.mode == Mode::Navigation {
             match key_event.code {
+                // Reset the popup
+                KeyCode::Char('q') => self.reset(),
                 KeyCode::Char('j') => match self.focused_pane {
                     FocusedPane::Title => self.focused_pane = FocusedPane::Description,
                     FocusedPane::Description => self.focused_pane = FocusedPane::Actions,
@@ -117,9 +123,9 @@ impl KeyEventHandlerReturn<bool> for NewProject {
                     if self.focused_pane == FocusedPane::Actions {
                         if self.action == Action::Create {
                             self.db_new_project(app).unwrap_or_else(|e| panic!("{e}"));
+                            self.reset()
                         } else if self.action == Action::Cancel {
-                            self.inputs.title.reset();
-                            self.inputs.description.reset();
+                            self.reset()
                         }
                         return true;
                     }
@@ -197,7 +203,10 @@ impl NewProject {
                     " Create New Project ",
                     if self.focused_pane == FocusedPane::Actions {
                         if self.action == Action::Create {
-                            Style::new().fg(colors.hover_fg).bg(colors.hover_bg)
+                            Style::new()
+                                .bold()
+                                .fg(colors.active_fg)
+                                .bg(colors.active_bg)
                         } else {
                             Style::new().fg(colors.secondary)
                         }
@@ -209,7 +218,10 @@ impl NewProject {
                     " Cancel ",
                     if self.focused_pane == FocusedPane::Actions {
                         if self.action == Action::Cancel {
-                            Style::new().fg(colors.hover_fg).bg(colors.hover_bg)
+                            Style::new()
+                                .bold()
+                                .fg(colors.active_fg)
+                                .bg(colors.active_bg)
                         } else {
                             Style::new().fg(colors.secondary)
                         }
@@ -233,5 +245,12 @@ impl NewProject {
             ),
             (space_1, layout, space_2),
         )
+    }
+
+    fn reset(&mut self) {
+        self.focused_pane = FocusedPane::Title;
+        self.action = Action::Create;
+        self.inputs.title.reset();
+        self.inputs.description.reset();
     }
 }

@@ -59,7 +59,7 @@ impl EventHandler {
         let screen_list = &app.get_screen_list();
         let screen_index = screen_list
             .iter()
-            .position(|s| s.0 == event_state.hover_screen)
+            .position(|s| s.0 == event_state.screen)
             .unwrap();
 
         // TODO: Convert to match statements when adding more poups
@@ -81,9 +81,8 @@ impl EventHandler {
                 KeyCode::Char('q') | KeyCode::Char('Q') => app.exit(),
                 // Select and focus on the screen. Each screen must handle it's own keybinds to go
                 // back to the navigation pane.
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Char('L') => {
                     if event_state.pane == Pane::Navigation {
-                        app.state.screen = app.state.hover_screen.clone();
                         app.state.pane = Pane::Screen;
                     }
                 }
@@ -94,17 +93,17 @@ impl EventHandler {
                     // Go down an option
                     KeyCode::Char('j') => {
                         if screen_index == screen_list.len() - 1 {
-                            app.state.hover_screen = screen_list[0].0.clone();
+                            app.state.screen = screen_list[0].0.clone();
                         } else {
-                            app.state.hover_screen = screen_list[screen_index + 1].0.clone();
+                            app.state.screen = screen_list[screen_index + 1].0.clone();
                         }
                     }
                     // Go up an option
                     KeyCode::Char('k') => {
                         if screen_index == 0 {
-                            app.state.hover_screen = screen_list[screen_list.len() - 1].0.clone();
+                            app.state.screen = screen_list[screen_list.len() - 1].0.clone();
                         } else {
-                            app.state.hover_screen = screen_list[screen_index - 1].0.clone();
+                            app.state.screen = screen_list[screen_index - 1].0.clone();
                         }
                     }
                     _ => {}
@@ -113,7 +112,9 @@ impl EventHandler {
         }
 
         if event_state.mode == Mode::Insert && key_event.code == KeyCode::Esc {
-            app.state.mode = Mode::Navigation
+            app.state.mode = Mode::Navigation;
+        } else if event_state.mode == Mode::PopupInsert && key_event.code == KeyCode::Esc {
+            app.state.mode = Mode::Popup;
         }
 
         match app.state.screen {
@@ -136,7 +137,7 @@ impl EventHandler {
             // Global popup keybinds
             match key_event.code {
                 // Close the popup
-                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
+                KeyCode::Char('q') | KeyCode::Char('Q') => {
                     app.state.mode = Mode::Navigation;
                     app.state.popup = Popup::None;
                 }
@@ -149,6 +150,11 @@ impl EventHandler {
                 _ => {}
             }
         }
+
+        if event_state.mode == Mode::PopupInsert && key_event.code == KeyCode::Esc {
+            app.state.mode = Mode::Popup
+        }
+
         Ok(())
     }
 }

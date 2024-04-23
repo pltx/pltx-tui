@@ -10,7 +10,8 @@ use crate::{config::ColorsConfig, utils::centered_rect_absolute, App};
 /// Popup component.
 pub struct Popup<'a> {
     pub absolute: bool,
-    pub title: Option<&'a str>,
+    pub title_top: Option<&'a str>,
+    pub title_bottom: Option<&'a str>,
     pub width: u16,
     pub height: u16,
     pub area: Rect,
@@ -36,7 +37,8 @@ impl<'a> Popup<'a> {
 
         Popup {
             absolute: false,
-            title: None,
+            title_top: None,
+            title_bottom: None,
             width: default_width,
             height: default_height,
             rect,
@@ -56,13 +58,13 @@ impl<'a> Popup<'a> {
         self
     }
 
-    pub fn set_title(mut self, title: &'a str) -> Self {
-        self.title = Some(title);
+    pub fn set_title_top(mut self, title: &'a str) -> Self {
+        self.title_top = Some(title);
         self
     }
 
-    pub fn remove_title(mut self) -> Self {
-        self.title = None;
+    pub fn set_title_bottom(mut self, title: &'a str) -> Self {
+        self.title_bottom = Some(title);
         self
     }
 
@@ -74,7 +76,7 @@ impl<'a> Popup<'a> {
             .border_style(Style::new().fg(self.colors.popup_border))
             .bg(self.colors.popup_bg);
 
-        if let Some(title) = self.title {
+        if let Some(title) = self.title_top {
             block = block.title(Title::from(format!(" {title} ")).alignment(Alignment::Center))
         }
         frame.render_widget(Clear, self.area);

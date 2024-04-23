@@ -29,7 +29,7 @@ impl KeyEventHandler for DeleteProject {
 impl RenderPopup for DeleteProject {
     fn render(&mut self, frame: &mut Frame, app: &App) {
         components::Popup::new(app, frame.size())
-            .set_title("Create Project")
+            .set_title_top("Create Project")
             .render(frame);
     }
 }

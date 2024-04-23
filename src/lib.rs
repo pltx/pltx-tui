@@ -46,8 +46,7 @@ impl App {
             db: Database::init(),
             state: State {
                 mode: Mode::Navigation,
-                screen: Screen::None,
-                hover_screen: Screen::Dashboard,
+                screen: Screen::Dashboard,
                 pane: Pane::Navigation,
                 popup: Popup::None,
             },

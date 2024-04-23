@@ -8,12 +8,8 @@ use ratatui::{
 
 use super::{projects::ProjectsState, screen::ScreenPane};
 use crate::{
-    config::ColorsConfig,
     state::{Mode, State},
-    utils::{
-        pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds,
-        ScreenKeybindsTitle,
-    },
+    utils::{pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds},
     App,
 };
 
@@ -32,14 +28,14 @@ struct Project {
 
 pub struct ListProjects {
     projects: Vec<Project>,
-    selected: i32,
+    pub selected_id: i32,
 }
 
 impl Init for ListProjects {
     fn init(_: &mut App) -> ListProjects {
         ListProjects {
             projects: vec![],
-            selected: 0,
+            selected_id: 0,
         }
     }
 }
@@ -89,21 +85,21 @@ impl ListProjects {
             projects[index].cards.push(card);
         }
 
-        self.selected = projects[0].id;
+        if !projects.is_empty() {
+            self.selected_id = projects[0].id;
+        }
         self.projects = projects;
         Ok(())
     }
 }
 
 impl ScreenKeybinds for ListProjects {
-    fn screen_keybinds<'a>(&self) -> [(&'a str, &'a str); 3] {
-        [("n", "New"), ("e", "Edit"), ("d", "Delete")]
-    }
-}
-
-impl ScreenKeybindsTitle for ListProjects {
-    fn screen_keybinds_title(&self, colors: &ColorsConfig, focused: bool) -> Line {
-        pane_title_bottom(colors, self.screen_keybinds(), focused)
+    fn screen_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
+        vec![
+            ("n", "New Project"),
+            ("e", "Edit Project"),
+            ("d", "Delete Project"),
+        ]
     }
 }
 
@@ -113,22 +109,22 @@ impl KeyEventHandler for ListProjects {
             let selected_index = self
                 .projects
                 .iter()
-                .position(|p| p.id == self.selected)
+                .position(|p| p.id == self.selected_id)
                 .unwrap_or(0);
 
             match key_event.code {
                 KeyCode::Char('j') => {
                     if selected_index != self.projects.len() - 1 {
-                        self.selected = self.projects[selected_index + 1].id;
+                        self.selected_id = self.projects[selected_index + 1].id;
                     } else {
-                        self.selected = self.projects[0].id;
+                        self.selected_id = self.projects[0].id;
                     }
                 }
                 KeyCode::Char('k') => {
                     if selected_index != 0 {
-                        self.selected = self.projects[selected_index - 1].id;
+                        self.selected_id = self.projects[selected_index - 1].id;
                     } else {
-                        self.selected = self.projects[self.projects.len() - 1].id;
+                        self.selected_id = self.projects[self.projects.len() - 1].id;
                     }
                 }
                 _ => {}
@@ -147,7 +143,11 @@ impl RenderPage<ProjectsState> for ListProjects {
     ) {
         let colors = &app.config.colors.clone();
         let block = Block::new()
-            .title_bottom(self.screen_keybinds_title(colors, state.screen_pane == ScreenPane::Main))
+            .title_bottom(pane_title_bottom(
+                colors,
+                self.screen_keybinds(),
+                state.screen_pane == ScreenPane::Main,
+            ))
             .padding(Padding::horizontal(1))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
@@ -170,19 +170,18 @@ impl RenderPage<ProjectsState> for ListProjects {
                 .projects
                 .iter()
                 .enumerate()
-                .map(|(i, p)| {
+                .map(|(_, p)| {
                     Row::new(vec![
-                        Cell::new(format!(" {}", i)),
-                        Cell::new(p.id.to_string()),
+                        Cell::new(format!(" {}", p.position)),
                         Cell::new(p.title.clone()),
                         Cell::new(p.cards.len().to_string()),
-                        // TODO: Implement
+                        // TODO: Implement due soon
                         Cell::new("0"),
-                        // TODO: Implement
+                        // TODO: Implement overdue
                         Cell::new("0"),
                         Cell::new(p.created_at.clone()),
                     ])
-                    .style(if p.id == self.selected {
+                    .style(if p.id == self.selected_id {
                         Style::new()
                             .bold()
                             .fg(colors.active_fg)
@@ -194,8 +193,7 @@ impl RenderPage<ProjectsState> for ListProjects {
                 .collect::<Vec<Row>>();
             // let rows = vec![Row::new(vec![Cell::new("something")])];
             let widths = vec![
-                Constraint::Length(7),
-                Constraint::Length(4),
+                Constraint::Length(10),
                 Constraint::Max(50),
                 Constraint::Length(7),
                 Constraint::Length(9),
@@ -204,8 +202,7 @@ impl RenderPage<ProjectsState> for ListProjects {
             ];
             let table = Table::new(rows, widths).block(block).header(
                 Row::new(vec![
-                    Cell::new(" Index"),
-                    Cell::new("ID"),
+                    Cell::new(" Position"),
                     Cell::new("Title"),
                     Cell::new("Cards"),
                     Cell::new("Due Soon"),

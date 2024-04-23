@@ -2,8 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{layout::Rect, widgets::Paragraph, Frame};
 
 use super::{
-    list_projects::{self, ListProjects},
-    new_project::NewProject,
+    list_projects::ListProjects, new_project::NewProject, open_project::OpenProject,
     screen::ScreenPane,
 };
 use crate::{
@@ -15,7 +14,7 @@ use crate::{
 #[derive(PartialEq)]
 enum Page {
     ListProjects,
-    CreateProject,
+    NewProject,
     EditProject,
     OpenProject,
 }
@@ -23,6 +22,7 @@ enum Page {
 struct Pages {
     list_projects: ListProjects,
     create_project: NewProject,
+    open_project: OpenProject,
 }
 
 pub struct Projects {
@@ -37,6 +37,7 @@ impl Init for Projects {
             pages: Pages {
                 list_projects: ListProjects::init(app),
                 create_project: NewProject::init(app),
+                open_project: OpenProject::init(app),
             },
         }
     }
@@ -58,38 +59,55 @@ impl KeyEventHandler for Projects {
                         .list_projects
                         .key_event_handler(app, key_event, event_state);
                     match key_event.code {
+                        // Create a new project
                         KeyCode::Char('n') => {
-                            self.page = Page::CreateProject;
+                            self.page = Page::NewProject;
                         }
+                        // Edit the selected project
                         KeyCode::Char('e') => self.page = Page::EditProject,
+                        // Delete the selected project
                         KeyCode::Char('d') => {}
+                        // Open the selected project
+                        KeyCode::Enter => {
+                            self.pages
+                                .open_project
+                                .set_project_id(self.pages.list_projects.selected_id);
+                            self.pages
+                                .open_project
+                                .db_get_project(app)
+                                .unwrap_or_else(|e| panic!("{e}"));
+                            self.page = Page::OpenProject;
+                        }
                         _ => {}
                     }
                 }
-                Page::CreateProject => {}
+                Page::NewProject => {}
                 Page::EditProject => {}
                 Page::OpenProject => {}
             }
         }
 
-        match self.page {
-            Page::ListProjects => {}
-            Page::CreateProject => {
-                if self
-                    .pages
+        let result: bool = match self.page {
+            Page::ListProjects => false,
+            Page::NewProject => {
+                self.pages
                     .create_project
                     .key_event_handler(app, key_event, event_state)
-                {
-                    self.page = Page::ListProjects;
-                    self.pages
-                        .list_projects
-                        .db_get_projects(app)
-                        .unwrap_or_else(|e| panic!("{e}"));
-                }
             }
-            Page::EditProject => {}
-            Page::OpenProject => {}
+            Page::EditProject => false,
+            Page::OpenProject => {
+                self.pages
+                    .open_project
+                    .key_event_handler(app, key_event, event_state)
+            }
         };
+        if result {
+            self.page = Page::ListProjects;
+            self.pages
+                .list_projects
+                .db_get_projects(app)
+                .unwrap_or_else(|e| panic!("{e}"));
+        }
     }
 }
 
@@ -101,15 +119,12 @@ impl RenderPage<ProjectsState> for Projects {
     fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect, state: ProjectsState) {
         match self.page {
             Page::ListProjects => self.pages.list_projects.render(app, frame, area, state),
-            Page::CreateProject => self.pages.create_project.render(app, frame, area, state),
+            Page::NewProject => self.pages.create_project.render(app, frame, area, state),
             Page::EditProject => {
                 let content = Paragraph::new("Edit Project...");
                 frame.render_widget(content, area);
             }
-            Page::OpenProject => {
-                let content = Paragraph::new("Project...");
-                frame.render_widget(content, area);
-            }
+            Page::OpenProject => self.pages.open_project.render(app, frame, area, state),
         }
     }
 }

@@ -36,7 +36,6 @@ pub enum Popup {
 pub struct State {
     pub mode: Mode,
     pub screen: Screen,
-    pub hover_screen: Screen,
     pub pane: Pane,
     pub popup: Popup,
 }
