@@ -90,6 +90,12 @@ struct Popups {
     new_list: NewList,
 }
 
+enum FocusedPane {
+    List,
+    Card,
+    None,
+}
+
 pub struct OpenProject {
     project_id: Option<i32>,
     list_id: Option<i32>,
@@ -97,6 +103,7 @@ pub struct OpenProject {
     data: ProjectData,
     popup: Popup,
     popups: Popups,
+    focused_pane: FocusedPane,
 }
 
 impl Init for OpenProject {
@@ -110,6 +117,7 @@ impl Init for OpenProject {
             popups: Popups {
                 new_list: NewList::init(app),
             },
+            focused_pane: FocusedPane::Card,
         }
     }
 }
@@ -300,17 +308,21 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
             match key_event.code {
                 // Go back to the project list
                 KeyCode::Char('[') => return true,
-                // Create a new list
-                KeyCode::Char('N') => {
+                KeyCode::Char('n') => {
+                    // Create a new list
                     app.state.mode = Mode::Popup;
                     self.popup = Popup::NewList;
+                    app.state.mode = Mode::PopupInsert;
+                    // TODO: Create a new card
                 }
-                // Create a new card
-                KeyCode::Char('n') => {}
-                // Edit a card
-                KeyCode::Char('e') => {}
-                // Delete a card
-                KeyCode::Char('d') => {}
+                KeyCode::Char('e') => {
+                    // TODO: Edit a list
+                    // TODO: Edit a card
+                }
+                KeyCode::Char('d') => {
+                    // TODO: Delete a list
+                    // TODO: Delete a card
+                }
                 // Focus on the previous list
                 KeyCode::Char('h') => {
                     if let Some(list_id) = self.list_id {

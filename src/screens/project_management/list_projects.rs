@@ -9,7 +9,7 @@ use ratatui::{
 use super::{projects::ProjectsState, screen::ScreenPane};
 use crate::{
     state::{Mode, State},
-    utils::{pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds},
+    utils::{pane_title_bottom, Init, InitData, KeyEventHandlerReturn, RenderPage, ScreenKeybinds},
     App,
 };
 
@@ -93,6 +93,32 @@ impl ListProjects {
     }
 }
 
+impl ListProjects {
+    fn db_delete_project(&self, app: &App) -> rusqlite::Result<()> {
+        struct Select {
+            position: i32,
+        }
+        let select_query = "SELECT position FROM project WHERE id = ?1";
+        let mut select_stmt = app.db.conn.prepare(select_query)?;
+        let select = select_stmt.query_row([self.selected_id], |r| {
+            Ok(Select {
+                position: r.get(0)?,
+            })
+        })?;
+
+        let query = "DELETE FROM project WHERE id = ?1";
+        let mut stmt = app.db.conn.prepare(query)?;
+        stmt.execute([self.selected_id])?;
+
+        let update_position_query =
+            "UPDATE project SET position = position - 1 WHERE position > ?1";
+        let mut update_position_stmt = app.db.conn.prepare(update_position_query)?;
+        update_position_stmt.execute([select.position])?;
+
+        Ok(())
+    }
+}
+
 impl ScreenKeybinds for ListProjects {
     fn screen_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
         vec![
@@ -103,8 +129,8 @@ impl ScreenKeybinds for ListProjects {
     }
 }
 
-impl KeyEventHandler for ListProjects {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
+impl KeyEventHandlerReturn<bool> for ListProjects {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
         if app.state.mode == Mode::Navigation {
             let selected_index = self
                 .projects
@@ -113,6 +139,9 @@ impl KeyEventHandler for ListProjects {
                 .unwrap_or(0);
 
             match key_event.code {
+                KeyCode::Char('d') => {
+                    app.state.mode = Mode::Delete;
+                }
                 KeyCode::Char('j') => {
                     if selected_index != self.projects.len() - 1 {
                         self.selected_id = self.projects[selected_index + 1].id;
@@ -130,6 +159,23 @@ impl KeyEventHandler for ListProjects {
                 _ => {}
             }
         }
+
+        if app.state.mode == Mode::Delete {
+            match key_event.code {
+                KeyCode::Char('y') => {
+                    // TODO: Confirm deletion
+                    app.state.mode = Mode::Navigation;
+                    self.db_delete_project(app)
+                        .unwrap_or_else(|e| panic!("{e}"));
+                    self.db_get_projects(app).unwrap_or_else(|e| panic!("{e}"));
+                }
+                KeyCode::Char('n') => {
+                    app.state.mode = Mode::Navigation;
+                }
+                _ => {}
+            }
+        }
+        false
     }
 }
 

@@ -110,6 +110,7 @@ impl Help {
                 ("G", "Scroll bottom"),
             ],
             Mode::PopupInsert => vec![("<esc>", "Exit popup insert mode")],
+            Mode::Delete => vec![("y", "Yes (delete)"), ("n", "No (cancel)")],
         }
     }
 
@@ -131,12 +132,14 @@ impl Help {
                 Mode::Insert => colors.status_bar_insert_mode_fg,
                 Mode::Popup => colors.status_bar_popup_mode_fg,
                 Mode::PopupInsert => colors.status_bar_popup_insert_mode_fg,
+                Mode::Delete => colors.status_bar_delete_mode_fg,
             },
             match mode {
                 Mode::Navigation => colors.status_bar_navigation_mode_bg,
                 Mode::Insert => colors.status_bar_insert_mode_bg,
                 Mode::Popup => colors.status_bar_popup_mode_bg,
                 Mode::PopupInsert => colors.status_bar_popup_insert_mode_bg,
+                Mode::Delete => colors.status_bar_delete_mode_bg,
             },
         )
     }

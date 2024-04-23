@@ -84,6 +84,7 @@ impl App {
             Mode::Insert => "Insert",
             Mode::Popup => "Popup",
             Mode::PopupInsert => "Popup Insert",
+            Mode::Delete => "Delete",
         }
     }
 
@@ -106,6 +107,10 @@ impl App {
             Mode::PopupInsert => (
                 colors.status_bar_popup_insert_mode_fg,
                 colors.status_bar_popup_insert_mode_bg,
+            ),
+            Mode::Delete => (
+                colors.status_bar_delete_mode_fg,
+                colors.status_bar_delete_mode_bg,
             ),
         };
         (

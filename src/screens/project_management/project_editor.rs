@@ -25,7 +25,7 @@ enum FocusedPane {
 
 #[derive(PartialEq)]
 enum Action {
-    Create,
+    Save,
     Cancel,
 }
 
@@ -34,17 +34,27 @@ struct Inputs {
     description: TextInput,
 }
 
-pub struct NewProject {
+struct ProjectData {
+    id: i32,
+    title: String,
+    description: Option<String>,
+}
+
+pub struct ProjectEditor {
+    new: bool,
+    data: Option<ProjectData>,
     focused_pane: FocusedPane,
     action: Action,
     inputs: Inputs,
 }
 
-impl Init for NewProject {
-    fn init(_: &mut App) -> NewProject {
-        NewProject {
+impl Init for ProjectEditor {
+    fn init(_: &mut App) -> ProjectEditor {
+        ProjectEditor {
+            new: false,
+            data: None,
             focused_pane: FocusedPane::Title,
-            action: Action::Create,
+            action: Action::Save,
             inputs: Inputs {
                 title: TextInput::new().set_title("Title").set_max(100),
                 description: TextInput::new().set_title("Description").set_max(2000),
@@ -53,41 +63,53 @@ impl Init for NewProject {
     }
 }
 
-impl NewProject {
+impl ProjectEditor {
     fn db_new_project(&self, app: &mut App) -> rusqlite::Result<()> {
-        struct ProjectQuery {
+        struct Highest {
             position: i32,
         }
 
-        let mut stmt = app.db.conn.prepare("SELECT position from project")?;
-        let project_iter = stmt.query_map([], |r| {
-            Ok(ProjectQuery {
-                position: r.get(0)?,
+        let mut stmt = app.db.conn.prepare(
+            "SELECT position from project WHERE position = (SELECT MAX(position) FROM project)",
+        )?;
+        let highest = stmt
+            .query_row([], |r| {
+                Ok(Highest {
+                    position: r.get(0)?,
+                })
             })
-        })?;
-
-        let mut highest_position = 0;
-        for project in project_iter {
-            let project_pos = project.unwrap().position;
-            if project_pos > highest_position {
-                highest_position = project_pos;
-            }
-        }
+            .unwrap_or(Highest { position: -1 });
 
         app.db.conn.execute(
             "INSERT INTO project (title, description, position) VALUES (?1, ?2, ?3)",
             (
                 &self.inputs.title.input,
                 &self.inputs.description.input,
-                highest_position + 1,
+                highest.position + 1,
             ),
         )?;
 
         Ok(())
     }
+
+    fn db_edit_project(&self, app: &mut App) -> rusqlite::Result<()> {
+        if let Some(data) = &self.data {
+            let query = "UPDATE project SET title = ?1, description = ?2 WHERE id = ?3";
+            let mut stmt = app.db.conn.prepare(query)?;
+            stmt.execute(rusqlite::params![
+                &self.inputs.title.input,
+                &self.inputs.description.input,
+                data.id,
+            ])?;
+        } else {
+            panic!("project data was not set")
+        }
+
+        Ok(())
+    }
 }
 
-impl KeyEventHandlerReturn<bool> for NewProject {
+impl KeyEventHandlerReturn<bool> for ProjectEditor {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
         match self.focused_pane {
             FocusedPane::Title => self.inputs.title.handle_key_event(app, key_event),
@@ -97,36 +119,16 @@ impl KeyEventHandlerReturn<bool> for NewProject {
 
         if app.state.mode == Mode::Navigation {
             match key_event.code {
-                // Reset the popup
+                KeyCode::Char('n') | KeyCode::Char('e') => {
+                    if self.focused_pane == FocusedPane::Title {
+                        app.state.mode = Mode::Insert
+                    }
+                }
                 KeyCode::Char('q') => self.reset(),
-                KeyCode::Char('j') => match self.focused_pane {
-                    FocusedPane::Title => self.focused_pane = FocusedPane::Description,
-                    FocusedPane::Description => self.focused_pane = FocusedPane::Actions,
-                    FocusedPane::Actions => {
-                        if self.action == Action::Create {
-                            self.action = Action::Cancel;
-                        }
-                    }
-                },
-                KeyCode::Char('k') => match self.focused_pane {
-                    FocusedPane::Title => {}
-                    FocusedPane::Description => self.focused_pane = FocusedPane::Title,
-                    FocusedPane::Actions => {
-                        if self.action == Action::Create {
-                            self.focused_pane = FocusedPane::Description;
-                        } else if self.action == Action::Cancel {
-                            self.action = Action::Create;
-                        }
-                    }
-                },
+                KeyCode::Char('j') => self.prev_pane(),
+                KeyCode::Char('k') => self.next_pane(),
                 KeyCode::Enter => {
-                    if self.focused_pane == FocusedPane::Actions {
-                        if self.action == Action::Create {
-                            self.db_new_project(app).unwrap_or_else(|e| panic!("{e}"));
-                            self.reset()
-                        } else if self.action == Action::Cancel {
-                            self.reset()
-                        }
+                    if self.save_project(app) {
                         return true;
                     }
                 }
@@ -137,13 +139,62 @@ impl KeyEventHandlerReturn<bool> for NewProject {
     }
 }
 
-impl RenderPage<ProjectsState> for NewProject {
+impl ProjectEditor {
+    fn prev_pane(&mut self) {
+        match self.focused_pane {
+            FocusedPane::Title => self.focused_pane = FocusedPane::Description,
+            FocusedPane::Description => self.focused_pane = FocusedPane::Actions,
+            FocusedPane::Actions => {
+                if self.action == Action::Save {
+                    self.action = Action::Cancel;
+                }
+            }
+        }
+    }
+
+    fn next_pane(&mut self) {
+        match self.focused_pane {
+            FocusedPane::Title => {}
+            FocusedPane::Description => self.focused_pane = FocusedPane::Title,
+            FocusedPane::Actions => {
+                if self.action == Action::Save {
+                    self.focused_pane = FocusedPane::Description;
+                } else if self.action == Action::Cancel {
+                    self.action = Action::Save;
+                }
+            }
+        }
+    }
+
+    fn save_project(&mut self, app: &mut App) -> bool {
+        if self.focused_pane == FocusedPane::Actions {
+            if self.action == Action::Save {
+                if self.new {
+                    self.db_new_project(app).unwrap_or_else(|e| panic!("{e}"));
+                } else {
+                    self.db_edit_project(app).unwrap_or_else(|e| panic!("{e}"));
+                }
+                self.reset()
+            } else if self.action == Action::Cancel {
+                self.reset()
+            }
+            return true;
+        }
+        false
+    }
+}
+
+impl RenderPage<ProjectsState> for ProjectEditor {
     fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect, state: ProjectsState) {
         let colors = &app.config.colors.clone();
         let main_sp = state.screen_pane == ScreenPane::Main;
 
         let block = Block::new()
-            .title(" New Project ")
+            .title(if self.new {
+                " New Project "
+            } else {
+                " Edit Project "
+            })
             .padding(Padding::horizontal(1))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
@@ -169,7 +220,7 @@ impl RenderPage<ProjectsState> for NewProject {
     }
 }
 
-impl NewProject {
+impl ProjectEditor {
     fn title(&self, app: &mut App, main_sp: bool) -> impl Widget {
         let focused = self.focused_pane == FocusedPane::Title && main_sp;
         self.inputs.title.render(app, focused)
@@ -200,9 +251,13 @@ impl NewProject {
         (
             Paragraph::new(Text::from(vec![
                 Line::styled(
-                    " Create New Project ",
+                    if self.new {
+                        " Create New Project "
+                    } else {
+                        " Save Project "
+                    },
                     if self.focused_pane == FocusedPane::Actions {
-                        if self.action == Action::Create {
+                        if self.action == Action::Save {
                             Style::new()
                                 .bold()
                                 .fg(colors.active_fg)
@@ -247,9 +302,45 @@ impl NewProject {
         )
     }
 
+    pub fn set_new(mut self) -> Self {
+        self.new = true;
+        self
+    }
+
+    pub fn set_project(&mut self, app: &App, project_id: i32) -> rusqlite::Result<()> {
+        let project_query = "SELECT id, title, description FROM project WHERE id = ?1";
+        let mut project_stmt = app.db.conn.prepare(project_query)?;
+        let project = project_stmt.query_row([project_id], |r| {
+            Ok(ProjectData {
+                id: r.get(0)?,
+                title: r.get(1)?,
+                description: r.get(2)?,
+            })
+        })?;
+
+        self.data = Some(ProjectData {
+            id: project.id,
+            title: project.title.clone(),
+            description: project.description.clone(),
+        });
+
+        self.inputs.title.set_input(project.title.clone());
+        self.inputs.title.cursor_end_line();
+        self.inputs
+            .description
+            .set_input(if let Some(desc) = project.description.clone() {
+                desc
+            } else {
+                String::from("")
+            });
+        self.inputs.description.cursor_end_line();
+
+        Ok(())
+    }
+
     fn reset(&mut self) {
         self.focused_pane = FocusedPane::Title;
-        self.action = Action::Create;
+        self.action = Action::Save;
         self.inputs.title.reset();
         self.inputs.description.reset();
     }

@@ -26,6 +26,10 @@ impl TextInput {
         }
     }
 
+    pub fn set_input(&mut self, input: String) {
+        self.input = input;
+    }
+
     pub fn reset(&mut self) {
         self.input = String::new();
         self.cursor_position = 0;
@@ -106,7 +110,7 @@ impl TextInput {
         self.cursor_position = 0;
     }
 
-    fn cursor_end_line(&mut self) {
+    pub fn cursor_end_line(&mut self) {
         self.cursor_position = self.input.len()
     }
 

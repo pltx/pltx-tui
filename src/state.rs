@@ -5,6 +5,7 @@ pub enum Mode {
     Insert,
     Popup,
     PopupInsert,
+    Delete,
 }
 
 /// The current screen (page).

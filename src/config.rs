@@ -29,6 +29,8 @@ pub struct ConfigGeneric<T> {
     pub status_bar_popup_mode_fg: T,
     pub status_bar_popup_insert_mode_bg: T,
     pub status_bar_popup_insert_mode_fg: T,
+    pub status_bar_delete_mode_bg: T,
+    pub status_bar_delete_mode_fg: T,
 }
 
 type ColorsConfigFile = ConfigGeneric<Option<String>>;
@@ -71,6 +73,8 @@ fn get_base_config() -> Config {
             status_bar_popup_mode_fg: get_color("#000000"),
             status_bar_popup_insert_mode_bg: get_color("#ff85ff"),
             status_bar_popup_insert_mode_fg: get_color("#000000"),
+            status_bar_delete_mode_bg: get_color("#ff6069"),
+            status_bar_delete_mode_fg: get_color("#000000"),
         },
     }
 }
@@ -178,6 +182,14 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                 status_bar_popup_insert_mode_fg: get_color_op(
                     colors.status_bar_popup_insert_mode_fg,
                     bc.colors.status_bar_popup_insert_mode_fg,
+                ),
+                status_bar_delete_mode_bg: get_color_op(
+                    colors.status_bar_delete_mode_bg,
+                    bc.colors.status_bar_delete_mode_bg,
+                ),
+                status_bar_delete_mode_fg: get_color_op(
+                    colors.status_bar_delete_mode_fg,
+                    bc.colors.status_bar_delete_mode_fg,
                 ),
             },
             None => base_config.colors,

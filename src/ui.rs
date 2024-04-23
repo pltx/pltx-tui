@@ -196,38 +196,47 @@ impl Interface {
             ])
             .areas(area);
 
+        let mut mode_fg = mode.1;
+        let mut mode_bg = mode.2;
+        let mut status_bar_fg = colors.status_bar_fg;
+        let mut status_bar_bg = colors.status_bar_bg;
+        if app.state.mode == Mode::Delete {
+            mode_fg = colors.status_bar_fg;
+            mode_bg = colors.status_bar_bg;
+            status_bar_fg = mode.1;
+            status_bar_bg = mode.2;
+        }
         let left_text = vec![Line::from(vec![
             Span::from(format!(" {} ", mode.0.to_uppercase()))
                 .bold()
-                .fg(mode.1)
-                .bg(mode.2),
-            Span::from("").fg(mode.2),
+                .fg(mode_fg)
+                .bg(mode_bg),
+            Span::from("").fg(mode_bg),
+            if app.state.mode == Mode::Delete {
+                Span::from(" Confirm Deletion (y/n)").bold()
+            } else {
+                Span::from("")
+            },
         ])];
-        let left_content = Paragraph::new(left_text).alignment(Alignment::Left).style(
-            Style::new()
-                .fg(colors.status_bar_fg)
-                .bg(colors.status_bar_bg),
-        );
+        let left_content = Paragraph::new(left_text)
+            .alignment(Alignment::Left)
+            .style(Style::new().fg(status_bar_fg).bg(status_bar_bg));
         frame.render_widget(left_content, left_layout);
 
         let center_text = vec![Line::from(vec![Span::from("")])];
         let center_content = Paragraph::new(center_text)
             .alignment(Alignment::Center)
-            .style(
-                Style::new()
-                    .fg(colors.status_bar_fg)
-                    .bg(colors.status_bar_bg),
-            );
+            .style(Style::new().fg(status_bar_fg).bg(status_bar_bg));
         frame.render_widget(center_content, center_layout);
 
         let right_text = vec![Line::from(vec![Span::from("Press ? for help ")])];
-        let right_content = Paragraph::new(right_text)
-            .alignment(Alignment::Right)
-            .style(
-                Style::new()
-                    .fg(colors.status_bar_fg)
-                    .bg(colors.status_bar_bg),
-            );
+        let right_content = Paragraph::new(if app.state.mode == Mode::Delete {
+            vec![Line::from("")]
+        } else {
+            right_text
+        })
+        .alignment(Alignment::Right)
+        .style(Style::new().fg(status_bar_fg).bg(status_bar_bg));
         frame.render_widget(right_content, right_layout);
     }
 }
