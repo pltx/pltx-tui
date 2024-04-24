@@ -7,7 +7,7 @@ use ratatui::{
     Frame,
 };
 
-use super::{new_list::NewList, projects::ProjectsState, screen::ScreenPane};
+use super::{list_editor::ListEditor, projects::ProjectsState, screen::ScreenPane};
 use crate::{
     state::{Mode, State},
     utils::{
@@ -83,11 +83,13 @@ struct ProjectData {
 #[derive(PartialEq)]
 enum Popup {
     NewList,
+    EditList,
     None,
 }
 
 struct Popups {
-    new_list: NewList,
+    new_list: ListEditor,
+    edit_list: ListEditor,
 }
 
 enum FocusedPane {
@@ -115,7 +117,8 @@ impl Init for OpenProject {
             data: ProjectData::default(),
             popup: Popup::None,
             popups: Popups {
-                new_list: NewList::init(app),
+                new_list: ListEditor::init(app).set_new(),
+                edit_list: ListEditor::init(app),
             },
             focused_pane: FocusedPane::Card,
         }
@@ -278,6 +281,13 @@ impl OpenProject {
             self.list_id = Some(project.lists[0].id);
         }
 
+        if let Some(list_id) = self.list_id {
+            self.popups
+                .edit_list
+                .set_list(app, list_id)
+                .unwrap_or_else(|e| panic!("{e}"));
+        }
+
         self.data = project;
 
         Ok(())
@@ -290,12 +300,21 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
         key_event: KeyEvent,
         event_state: &State,
     ) -> bool {
-        if (app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert)
-            && self.popup == Popup::NewList
-            && self
-                .popups
-                .new_list
-                .key_event_handler(app, key_event, event_state)
+        if app.state.mode == Mode::Popup
+            || app.state.mode == Mode::PopupInsert
+                && match self.popup {
+                    Popup::NewList => {
+                        self.popups
+                            .new_list
+                            .key_event_handler(app, key_event, event_state)
+                    }
+                    Popup::EditList => {
+                        self.popups
+                            .edit_list
+                            .key_event_handler(app, key_event, event_state)
+                    }
+                    Popup::None => false,
+                }
         {
             self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"))
         }
@@ -306,16 +325,24 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
 
         if app.state.mode == Mode::Navigation {
             match key_event.code {
-                // Go back to the project list
                 KeyCode::Char('[') => return true,
                 KeyCode::Char('n') => {
-                    // Create a new list
                     app.state.mode = Mode::Popup;
                     self.popup = Popup::NewList;
                     app.state.mode = Mode::PopupInsert;
                     // TODO: Create a new card
                 }
                 KeyCode::Char('e') => {
+                    app.state.mode = Mode::Popup;
+                    self.popup = Popup::EditList;
+                    app.state.mode = Mode::PopupInsert;
+                    if let Some(list_id) = self.list_id {
+                        self.popups
+                            .edit_list
+                            .set_list(app, list_id)
+                            .unwrap_or_else(|e| panic! {"{e}"});
+                    }
+
                     // TODO: Edit a list
                     // TODO: Edit a card
                 }
@@ -323,7 +350,6 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
                     // TODO: Delete a list
                     // TODO: Delete a card
                 }
-                // Focus on the previous list
                 KeyCode::Char('h') => {
                     if let Some(list_id) = self.list_id {
                         let list_index = self
@@ -337,7 +363,6 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
                         }
                     }
                 }
-                // Focus on the next list
                 KeyCode::Char('l') => {
                     if let Some(list_id) = self.list_id {
                         let list_index = self
@@ -438,10 +463,12 @@ impl RenderPage<ProjectsState> for OpenProject {
             }
         }
 
-        if (app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert)
-            && self.popup == Popup::NewList
-        {
-            self.popups.new_list.render(frame, app)
+        if app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert {
+            match self.popup {
+                Popup::NewList => self.popups.new_list.render(frame, app),
+                Popup::EditList => self.popups.edit_list.render(frame, app),
+                Popup::None => {}
+            }
         }
     }
 }
@@ -449,6 +476,6 @@ impl RenderPage<ProjectsState> for OpenProject {
 impl OpenProject {
     pub fn set_project_id(&mut self, project_id: i32) {
         self.project_id = Some(project_id);
-        self.popups.new_list.set_project_id(project_id)
+        self.popups.new_list.set_project_id(project_id);
     }
 }

@@ -114,7 +114,7 @@ impl App {
             ),
         };
         (
-            self.get_mode_text(self.state.mode.clone()),
+            self.get_mode_text(self.state.mode),
             get_mode_colors().0,
             get_mode_colors().1,
         )

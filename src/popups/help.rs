@@ -65,26 +65,25 @@ impl RenderScrollPopup for Help {
 
         Block::new().render(spacing, buf);
 
-        let [navigation_layout, popup_layout] = Layout::default()
+        let layouts = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(3)
-            .constraints([
-                Constraint::Length((self.get_keybinds(Mode::Navigation).len() + 2) as u16),
-                Constraint::Length((self.get_keybinds(Mode::Popup).len() + 2) as u16),
-            ])
-            .areas(content);
+            .constraints(
+                self.get_modes()
+                    .map(|m| Constraint::Length((self.get_keybinds(&m).len() + 2) as u16)),
+            )
+            .split(content);
 
-        self.keybinds_paragraph(app, Mode::Navigation)
-            .render(navigation_layout, buf);
-        self.keybinds_paragraph(app, Mode::Popup)
-            .render(popup_layout, buf);
+        for (i, mode) in self.get_modes().iter().enumerate() {
+            self.keybinds_paragraph(app, mode).render(layouts[i], buf);
+        }
     }
 }
 
 impl Help {
     /// Used to get the list of keybinds for each mode. `.len()` is also used to
     /// calculate the vertical space needed for it in the layout exactly.
-    fn get_keybinds<'a>(&self, mode: Mode) -> Vec<(&'a str, &'a str)> {
+    fn get_keybinds<'a>(&self, mode: &Mode) -> Vec<(&'a str, &'a str)> {
         match mode {
             Mode::Navigation => vec![
                 ("?", "Show help menu"),
@@ -114,11 +113,21 @@ impl Help {
         }
     }
 
+    fn get_modes(&self) -> [Mode; 5] {
+        [
+            Mode::Navigation,
+            Mode::Insert,
+            Mode::Popup,
+            Mode::PopupInsert,
+            Mode::Delete,
+        ]
+    }
+
     fn total_height(&self) -> u16 {
-        ((self.get_keybinds(Mode::Navigation).len() + 4) as u16)
-            + ((self.get_keybinds(Mode::Insert).len() + 4) as u16)
-            + ((self.get_keybinds(Mode::Popup).len() + 4) as u16)
-            + ((self.get_keybinds(Mode::PopupInsert).len() + 4) as u16)
+        self.get_modes()
+            .iter()
+            .map(|m| (self.get_keybinds(m).len() + 4) as u16)
+            .sum()
     }
 
     /// Returns (fg, bg).
@@ -144,18 +153,18 @@ impl Help {
         )
     }
 
-    fn keybinds_paragraph(&mut self, app: &App, mode: Mode) -> impl Widget {
+    fn keybinds_paragraph(&mut self, app: &App, mode: &Mode) -> impl Widget {
         let colors = &app.config.colors;
         let text = Text::from(
             [
                 vec![Line::from(vec![
-                    Span::from(format!(" {} Mode ", app.get_mode_text(mode.clone()))).style(
+                    Span::from(format!(" {} Mode ", app.get_mode_text(*mode))).style(
                         Style::new()
                             .bold()
-                            .fg(self.get_mode_color(colors, &mode).0)
-                            .bg(self.get_mode_color(colors, &mode).1),
+                            .fg(self.get_mode_color(colors, mode).0)
+                            .bg(self.get_mode_color(colors, mode).1),
                     ),
-                    Span::from("").style(Style::new().fg(self.get_mode_color(colors, &mode).1)),
+                    Span::from("").style(Style::new().fg(self.get_mode_color(colors, mode).1)),
                 ])],
                 self.get_keybinds(mode)
                     .iter()

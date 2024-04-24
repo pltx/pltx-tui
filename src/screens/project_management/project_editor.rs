@@ -80,13 +80,14 @@ impl ProjectEditor {
             })
             .unwrap_or(Highest { position: -1 });
 
+        let mut description = Some(&self.inputs.description.input);
+        if self.inputs.description.input.chars().count() == 0 {
+            description = None;
+        }
+
         app.db.conn.execute(
             "INSERT INTO project (title, description, position) VALUES (?1, ?2, ?3)",
-            (
-                &self.inputs.title.input,
-                &self.inputs.description.input,
-                highest.position + 1,
-            ),
+            (&self.inputs.title.input, description, highest.position + 1),
         )?;
 
         Ok(())

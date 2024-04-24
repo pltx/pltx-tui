@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    layout::Constraint,
+    layout::{Constraint, Direction, Layout},
     style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table},
@@ -21,8 +21,10 @@ struct Card {
 struct Project {
     id: i32,
     title: String,
+    description: Option<String>,
     position: i32,
     created_at: String,
+    updated_at: String,
     cards: Vec<Card>,
 }
 
@@ -48,15 +50,18 @@ impl InitData for ListProjects {
 
 impl ListProjects {
     pub fn db_get_projects(&mut self, app: &mut App) -> rusqlite::Result<()> {
-        let project_query = "SELECT id, title, position, created_at FROM project ORDER BY position";
+        let project_query = "SELECT id, title, description, position, created_at, updated_at FROM \
+                             project ORDER BY position";
         let mut project_stmt = app.db.conn.prepare(project_query).unwrap();
         let project_iter = project_stmt
             .query_map([], |row| {
                 Ok(Project {
                     id: row.get(0)?,
                     title: row.get(1)?,
-                    position: row.get(2)?,
-                    created_at: row.get(3)?,
+                    description: row.get(2)?,
+                    position: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
                     cards: vec![],
                 })
             })
@@ -187,6 +192,11 @@ impl RenderPage<ProjectsState> for ListProjects {
         area: ratatui::prelude::Rect,
         state: ProjectsState,
     ) {
+        let [list_layout, info_layout] = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(1), Constraint::Length(40)])
+            .areas(area);
+
         let colors = &app.config.colors.clone();
         let block = Block::new()
             .title_bottom(pane_title_bottom(
@@ -210,7 +220,9 @@ impl RenderPage<ProjectsState> for ListProjects {
                 Span::from(" to create a new project."),
             ])]))
             .block(block);
-            frame.render_widget(content, area)
+
+            frame.render_widget(content, list_layout);
+            frame.render_widget(Block::new(), info_layout);
         } else {
             let rows = self
                 .projects
@@ -237,7 +249,7 @@ impl RenderPage<ProjectsState> for ListProjects {
                     })
                 })
                 .collect::<Vec<Row>>();
-            // let rows = vec![Row::new(vec![Cell::new("something")])];
+
             let widths = vec![
                 Constraint::Length(10),
                 Constraint::Max(50),
@@ -257,7 +269,85 @@ impl RenderPage<ProjectsState> for ListProjects {
                 ])
                 .style(Style::new().bold().fg(colors.primary)),
             );
-            frame.render_widget(table, area);
+            frame.render_widget(table, list_layout);
+
+            let project_index = self
+                .projects
+                .iter()
+                .position(|p| p.id == self.selected_id)
+                .unwrap();
+            let project = &self.projects[project_index];
+
+            let info_1 = vec![
+                Line::from(vec![
+                    Span::styled("ID: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.id.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Title: ", Style::new().fg(colors.secondary)),
+                    Span::from(&project.title),
+                ]),
+            ];
+            let line_length = info_layout.width as usize - 6;
+            let mut first_line_length = line_length - "Description: ".chars().count();
+            let description = if let Some(desc) = &project.description {
+                if desc.chars().count() <= first_line_length {
+                    first_line_length = 0;
+                }
+                desc[first_line_length..]
+                    .chars()
+                    .collect::<Vec<char>>()
+                    .chunks(line_length)
+                    .enumerate()
+                    .flat_map(|(i, c)| {
+                        let mut text = vec![];
+                        if i == 0 {
+                            text.push(Line::from(vec![
+                                Span::styled("Description: ", Style::new().fg(colors.secondary)),
+                                Span::from(desc[..first_line_length].to_string()),
+                            ]))
+                        }
+                        text.push(Line::from(Span::from(
+                            c.iter().collect::<String>().trim().to_owned(),
+                        )));
+                        text
+                    })
+                    .collect::<Vec<Line>>()
+            } else {
+                vec![Line::from(vec![
+                    Span::styled("Description: ", Style::new().fg(colors.secondary)),
+                    Span::styled("<empty>", Style::new().fg(colors.secondary)),
+                ])]
+            };
+            let info_2 = vec![
+                Line::from(vec![
+                    Span::styled("Position: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.position.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Cards: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.cards.len().to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Created At: ", Style::new().fg(colors.secondary)),
+                    Span::from(&project.created_at),
+                ]),
+                Line::from(vec![
+                    Span::styled("Updated At: ", Style::new().fg(colors.secondary)),
+                    Span::from(&project.updated_at),
+                ]),
+            ];
+            let info_text = Text::from([info_1, description, info_2].concat());
+            let info_content = Paragraph::new(info_text).block(
+                Block::new()
+                    .title(" Project Information ")
+                    .title_style(Style::new().fg(colors.fg))
+                    .padding(Padding::proportional(1))
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(colors.border),
+            );
+            frame.render_widget(info_content, info_layout);
         }
     }
 }

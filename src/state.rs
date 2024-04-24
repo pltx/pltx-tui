@@ -1,5 +1,5 @@
 /// The current mode.
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum Mode {
     Navigation,
     Insert,
