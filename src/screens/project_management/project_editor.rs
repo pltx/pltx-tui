@@ -57,7 +57,7 @@ impl Init for ProjectEditor {
             action: Action::Save,
             inputs: Inputs {
                 title: TextInput::new().set_title("Title").set_max(100),
-                description: TextInput::new().set_title("Description").set_max(2000),
+                description: TextInput::new().set_title("Description").set_max(500),
             },
         }
     }
@@ -80,14 +80,18 @@ impl ProjectEditor {
             })
             .unwrap_or(Highest { position: -1 });
 
-        let mut description = Some(&self.inputs.description.input);
-        if self.inputs.description.input.chars().count() == 0 {
+        let mut description = Some(&self.inputs.description.input[0]);
+        if self.inputs.description.input[0].chars().count() == 0 {
             description = None;
         }
 
         app.db.conn.execute(
             "INSERT INTO project (title, description, position) VALUES (?1, ?2, ?3)",
-            (&self.inputs.title.input, description, highest.position + 1),
+            (
+                &self.inputs.title.input[0],
+                description,
+                highest.position + 1,
+            ),
         )?;
 
         Ok(())
@@ -98,8 +102,8 @@ impl ProjectEditor {
             let query = "UPDATE project SET title = ?1, description = ?2 WHERE id = ?3";
             let mut stmt = app.db.conn.prepare(query)?;
             stmt.execute(rusqlite::params![
-                &self.inputs.title.input,
-                &self.inputs.description.input,
+                &self.inputs.title.input[0],
+                &self.inputs.description.input[0],
                 data.id,
             ])?;
         } else {
@@ -212,8 +216,11 @@ impl RenderPage<ProjectsState> for ProjectEditor {
             ])
             .areas(area);
 
-        frame.render_widget(self.title(app, main_sp), title_layout);
-        frame.render_widget(self.description(app, main_sp), description_layout);
+        frame.render_widget(self.title(app, title_layout, main_sp), title_layout);
+        frame.render_widget(
+            self.description(app, description_layout, main_sp),
+            description_layout,
+        );
         let actions = self.actions(colors, actions_layout, main_sp);
         frame.render_widget(Block::new(), actions.1 .0);
         frame.render_widget(actions.0, actions.1 .1);
@@ -222,14 +229,18 @@ impl RenderPage<ProjectsState> for ProjectEditor {
 }
 
 impl ProjectEditor {
-    fn title(&self, app: &mut App, main_sp: bool) -> impl Widget {
+    fn title(&self, app: &mut App, area: Rect, main_sp: bool) -> impl Widget {
         let focused = self.focused_pane == FocusedPane::Title && main_sp;
-        self.inputs.title.render(app, focused)
+        self.inputs
+            .title
+            .render(app, area.width - 2, area.height - 2, focused)
     }
 
-    fn description(&self, app: &mut App, main_sp: bool) -> impl Widget {
+    fn description(&self, app: &mut App, area: Rect, main_sp: bool) -> impl Widget {
         let focused = self.focused_pane == FocusedPane::Description && main_sp;
-        self.inputs.description.render(app, focused)
+        self.inputs
+            .description
+            .render(app, area.width - 2, area.height - 2, focused)
     }
 
     fn actions(
@@ -325,14 +336,14 @@ impl ProjectEditor {
             description: project.description.clone(),
         });
 
-        self.inputs.title.set_input(project.title.clone());
+        self.inputs.title.set_input(vec![project.title]);
         self.inputs.title.cursor_end_line();
         self.inputs
             .description
-            .set_input(if let Some(desc) = project.description.clone() {
-                desc
+            .set_input(if let Some(desc) = project.description {
+                vec![desc]
             } else {
-                String::from("")
+                vec![String::from("")]
             });
         self.inputs.description.cursor_end_line();
 

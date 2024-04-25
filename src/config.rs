@@ -90,16 +90,7 @@ fn read_config_file() -> Option<ConfigFile> {
 
     let config_dir_str = format!("{}/.config/pltx", home_dir.to_str().unwrap());
     let config_dir = PathBuf::from(config_dir_str);
-
-    // Create the directory if it doesn't exist
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir).unwrap_or_else(|_| {
-            panic!(
-                "Failed to create directory: {}",
-                &config_dir.to_str().unwrap()
-            )
-        });
-    }
+    std::fs::create_dir_all(config_dir.clone()).unwrap();
 
     let config_filename = "config.toml";
     let config_contents: Option<String> =

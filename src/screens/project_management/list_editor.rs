@@ -77,7 +77,7 @@ impl ListEditor {
             "INSERT INTO project_list (project_id, title, position) VALUES (?1, ?2, ?3)",
             (
                 Some(&self.project_id),
-                &self.inputs.title.input,
+                &self.inputs.title.input[0],
                 highest_position,
             ),
         )?;
@@ -88,7 +88,7 @@ impl ListEditor {
         if let Some(data) = &self.data {
             let query = "UPDATE project_list SET title = ?1 WHERE id = ?2";
             let mut stmt = app.db.conn.prepare(query)?;
-            stmt.execute(rusqlite::params![&self.inputs.title.input, data.id,])?;
+            stmt.execute(rusqlite::params![&self.inputs.title.input[0], data.id,])?;
         } else {
             panic!("list data was not set");
         }
@@ -129,7 +129,12 @@ impl RenderPopup for ListEditor {
             .constraints([Constraint::Length(3)])
             .areas(popup.area);
 
-        frame.render_widget(self.title(app), title_layout);
+        frame.render_widget(
+            self.inputs
+                .title
+                .render(app, popup.width - 2, popup.height - 2, true),
+            title_layout,
+        );
     }
 }
 
@@ -160,13 +165,9 @@ impl ListEditor {
             title: list.title.clone(),
         });
 
-        self.inputs.title.set_input(list.title.clone());
+        self.inputs.title.set_input(vec![list.title]);
         self.inputs.title.cursor_end_line();
 
         Ok(())
-    }
-
-    fn title(&self, app: &App) -> impl Widget {
-        self.inputs.title.render(app, true)
     }
 }

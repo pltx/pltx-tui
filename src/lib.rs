@@ -12,6 +12,7 @@ pub mod database;
 pub mod errors;
 pub mod keybinds;
 pub mod state;
+pub mod tracing;
 pub mod tui;
 pub mod ui;
 
