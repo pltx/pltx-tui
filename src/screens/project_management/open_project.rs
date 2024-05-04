@@ -92,6 +92,7 @@ struct Popups {
     edit_list: ListEditor,
 }
 
+#[derive(PartialEq)]
 enum FocusedPane {
     List,
     Card,
@@ -100,8 +101,8 @@ enum FocusedPane {
 
 pub struct OpenProject {
     project_id: Option<i32>,
-    list_id: Option<i32>,
-    card_id: Option<i32>,
+    selected_list_id: Option<i32>,
+    selected_card_id: Option<i32>,
     data: ProjectData,
     popup: Popup,
     popups: Popups,
@@ -112,15 +113,15 @@ impl Init for OpenProject {
     fn init(app: &mut App) -> OpenProject {
         OpenProject {
             project_id: None,
-            list_id: None,
-            card_id: None,
+            selected_list_id: None,
+            selected_card_id: None,
             data: ProjectData::default(),
             popup: Popup::None,
             popups: Popups {
                 new_list: ListEditor::init(app).set_new(),
                 edit_list: ListEditor::init(app),
             },
-            focused_pane: FocusedPane::Card,
+            focused_pane: FocusedPane::None,
         }
     }
 }
@@ -277,11 +278,14 @@ impl OpenProject {
                 .push(subtask);
         }
 
-        if !project.lists.is_empty() {
-            self.list_id = Some(project.lists[0].id);
+        if !project.lists.is_empty() && self.selected_list_id.is_none() {
+            self.selected_list_id = Some(project.lists[0].id);
+            self.focused_pane = FocusedPane::List;
+            // TODO: Check if the first list has cards. If so, focus on the
+            // first card instead.
         }
 
-        if let Some(list_id) = self.list_id {
+        if let Some(list_id) = self.selected_list_id {
             self.popups
                 .edit_list
                 .set_list(app, list_id)
@@ -289,6 +293,47 @@ impl OpenProject {
         }
 
         self.data = project;
+
+        Ok(())
+    }
+
+    fn db_delete_list(&mut self, app: &App, selected_list_id: i32) -> rusqlite::Result<()> {
+        struct Select {
+            position: i32,
+        }
+        let select_query = "SELECT position FROM project_list WHERE id = ?1";
+        let mut select_stmt = app.db.conn.prepare(select_query)?;
+        let select = select_stmt.query_row([self.selected_list_id], |r| {
+            Ok(Select {
+                position: r.get(0)?,
+            })
+        })?;
+
+        let query = "DELETE FROM project_list WHERE id = ?1";
+        let mut stmt = app.db.conn.prepare(query)?;
+        stmt.execute([self.selected_list_id])?;
+
+        let update_position_query =
+            "UPDATE project_list SET position = position - 1 WHERE position > ?1";
+        let mut update_position_stmt = app.db.conn.prepare(update_position_query)?;
+        update_position_stmt.execute([select.position])?;
+
+        let selected_list_index = self
+            .data
+            .lists
+            .iter()
+            .position(|l| l.id == selected_list_id)
+            .unwrap_or(0);
+
+        if self.data.lists.len() == 1 {
+            self.selected_list_id = None;
+        } else if selected_list_index != self.data.lists.len() - 1 {
+            self.selected_list_id = Some(self.data.lists[selected_list_index + 1].id);
+        } else if selected_list_index != 0 {
+            self.selected_list_id = Some(self.data.lists[selected_list_index - 1].id);
+        } else {
+            self.selected_list_id = Some(self.data.lists[0].id);
+        }
 
         Ok(())
     }
@@ -327,31 +372,27 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
             match key_event.code {
                 KeyCode::Char('[') => return true,
                 KeyCode::Char('n') => {
-                    app.state.mode = Mode::Popup;
                     self.popup = Popup::NewList;
                     app.state.mode = Mode::PopupInsert;
                     // TODO: Create a new card
                 }
                 KeyCode::Char('e') => {
-                    app.state.mode = Mode::Popup;
                     self.popup = Popup::EditList;
                     app.state.mode = Mode::PopupInsert;
-                    if let Some(list_id) = self.list_id {
+                    if let Some(list_id) = self.selected_list_id {
                         self.popups
                             .edit_list
                             .set_list(app, list_id)
                             .unwrap_or_else(|e| panic! {"{e}"});
                     }
-
-                    // TODO: Edit a list
                     // TODO: Edit a card
                 }
                 KeyCode::Char('d') => {
-                    // TODO: Delete a list
+                    app.state.mode = Mode::Delete;
                     // TODO: Delete a card
                 }
                 KeyCode::Char('h') => {
-                    if let Some(list_id) = self.list_id {
+                    if let Some(list_id) = self.selected_list_id {
                         let list_index = self
                             .data
                             .lists
@@ -359,12 +400,12 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
                             .position(|l| l.id == list_id)
                             .unwrap();
                         if list_index != 0 {
-                            self.list_id = Some(self.data.lists[list_index - 1].id);
+                            self.selected_list_id = Some(self.data.lists[list_index - 1].id);
                         }
                     }
                 }
                 KeyCode::Char('l') => {
-                    if let Some(list_id) = self.list_id {
+                    if let Some(list_id) = self.selected_list_id {
                         let list_index = self
                             .data
                             .lists
@@ -372,7 +413,7 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
                             .position(|l| l.id == list_id)
                             .unwrap();
                         if list_index != self.data.lists.len() - 1 {
-                            self.list_id = Some(self.data.lists[list_index + 1].id);
+                            self.selected_list_id = Some(self.data.lists[list_index + 1].id);
                         }
                     }
                 }
@@ -380,20 +421,41 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
             }
         }
 
+        if app.state.mode == Mode::Delete {
+            match key_event.code {
+                KeyCode::Char('y') => {
+                    if self.focused_pane == FocusedPane::List {
+                        if let Some(selected_list_id) = self.selected_list_id {
+                            self.db_delete_list(app, selected_list_id)
+                                .unwrap_or_else(|e| panic!("{e}"));
+                            self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
+                            app.state.mode = Mode::Navigation;
+                        }
+                    }
+                }
+                KeyCode::Char('n') => {
+                    app.state.mode = Mode::Navigation;
+                }
+                _ => {}
+            }
+        }
         false
+    }
+}
+
+impl OpenProject {
+    fn list_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
+        vec![("n", "New List"), ("e", "Edit List"), ("d", "Delete List")]
+    }
+
+    fn card_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
+        vec![("n", "New Card"), ("e", "Edit Card"), ("d", "Delete Card")]
     }
 }
 
 impl ScreenKeybinds for OpenProject {
     fn screen_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
-        vec![
-            ("N", "New List"),
-            ("E", "Edit List"),
-            ("D", "Delete List"),
-            ("n", "New Card"),
-            ("e", "Edit Card"),
-            ("d", "Delete Card"),
-        ]
+        [self.list_keybinds(), self.card_keybinds()].concat()
     }
 }
 
@@ -407,30 +469,46 @@ impl RenderPage<ProjectsState> for OpenProject {
     ) {
         let colors = &app.config.colors.clone();
         let block = Block::new()
-            .title_top(format!(" {} ", self.data.title))
+            .title_top(
+                Line::from(format!(" {} ", self.data.title)).style(Style::new().bold().fg(
+                    if state.screen_pane != ScreenPane::Tabs && self.data.lists.is_empty() {
+                        colors.primary
+                    } else {
+                        colors.secondary
+                    },
+                )),
+            )
             .title_bottom(pane_title_bottom(
                 colors,
-                self.screen_keybinds(),
-                state.screen_pane != ScreenPane::Tabs,
+                self.list_keybinds(),
+                state.screen_pane != ScreenPane::Tabs && self.data.lists.is_empty(),
             ))
             .padding(Padding::horizontal(1))
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(if state.screen_pane == ScreenPane::Main {
-                colors.primary
-            } else {
-                colors.border
-            }));
+            .border_type(BorderType::Rounded);
 
         if self.data.lists.is_empty() {
             let content = Paragraph::new(Text::from(vec![Line::from(vec![
                 Span::from("You have no lists in your project. Press "),
-                Span::styled("N", Style::new().bold().fg(colors.keybind_key)),
+                Span::styled("n", Style::new().bold().fg(colors.keybind_key)),
                 Span::from(" to create a new list."),
             ])]))
-            .block(block);
+            .block(block.border_style(Style::new().fg(
+                if state.screen_pane == ScreenPane::Main {
+                    colors.primary
+                } else {
+                    colors.border
+                },
+            )));
             frame.render_widget(content, area)
         } else {
+            frame.render_widget(block.border_style(Style::new().fg(colors.border)), area);
+            let [block_layout] = Layout::default()
+                .constraints([Constraint::Min(1)])
+                .vertical_margin(1)
+                .horizontal_margin(2)
+                .areas(area);
+
             let list_layout = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(
@@ -440,7 +518,8 @@ impl RenderPage<ProjectsState> for OpenProject {
                         .map(|_| Constraint::Fill(1))
                         .collect::<Vec<Constraint>>(),
                 )
-                .split(area);
+                .split(block_layout);
+
             for (list_index, list_layout) in list_layout.iter().enumerate() {
                 let list = &self.data.lists[list_index];
                 let list_block = Block::new()
@@ -450,7 +529,8 @@ impl RenderPage<ProjectsState> for OpenProject {
                     .border_type(BorderType::Rounded)
                     .border_style(Style::new().fg(
                         if state.screen_pane == ScreenPane::Main
-                            && self.list_id.is_some_and(|id| id == list.id)
+                            && self.focused_pane == FocusedPane::List
+                            && self.selected_list_id.is_some_and(|id| id == list.id)
                         {
                             colors.primary
                         } else {

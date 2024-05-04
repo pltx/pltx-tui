@@ -90,16 +90,18 @@ impl ListProjects {
             projects[index].cards.push(card);
         }
 
-        if !projects.is_empty() {
+        if !projects.is_empty() && self.selected_id == 0 {
             self.selected_id = projects[0].id;
         }
+
         self.projects = projects;
+
         Ok(())
     }
 }
 
 impl ListProjects {
-    fn db_delete_project(&self, app: &App) -> rusqlite::Result<()> {
+    fn db_delete_project(&mut self, app: &App) -> rusqlite::Result<()> {
         struct Select {
             position: i32,
         }
@@ -119,6 +121,22 @@ impl ListProjects {
             "UPDATE project SET position = position - 1 WHERE position > ?1";
         let mut update_position_stmt = app.db.conn.prepare(update_position_query)?;
         update_position_stmt.execute([select.position])?;
+
+        let selected_index = self
+            .projects
+            .iter()
+            .position(|p| p.id == self.selected_id)
+            .unwrap_or(0);
+
+        if self.projects.len() == 1 {
+            self.selected_id = 0;
+        } else if selected_index != self.projects.len() - 1 {
+            self.selected_id = self.projects[selected_index + 1].id;
+        } else if selected_index != 0 {
+            self.selected_id = self.projects[selected_index - 1].id;
+        } else {
+            self.selected_id = self.projects[0].id;
+        }
 
         Ok(())
     }
@@ -168,7 +186,6 @@ impl KeyEventHandlerReturn<bool> for ListProjects {
         if app.state.mode == Mode::Delete {
             match key_event.code {
                 KeyCode::Char('y') => {
-                    // TODO: Confirm deletion
                     app.state.mode = Mode::Navigation;
                     self.db_delete_project(app)
                         .unwrap_or_else(|e| panic!("{e}"));

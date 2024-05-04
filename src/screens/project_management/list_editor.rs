@@ -1,7 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout},
-    widgets::Widget,
     Frame,
 };
 

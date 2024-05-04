@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, str::FromStr};
+use std::{path::PathBuf, str::FromStr};
 
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};

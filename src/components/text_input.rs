@@ -5,7 +5,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
 };
 
-use crate::{state::Mode, trace_debug, App};
+use crate::{state::Mode, App};
 
 pub struct TextInput {
     pub input: Vec<String>,

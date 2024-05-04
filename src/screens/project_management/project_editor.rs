@@ -124,14 +124,9 @@ impl KeyEventHandlerReturn<bool> for ProjectEditor {
 
         if app.state.mode == Mode::Navigation {
             match key_event.code {
-                KeyCode::Char('n') | KeyCode::Char('e') => {
-                    if self.focused_pane == FocusedPane::Title {
-                        app.state.mode = Mode::Insert
-                    }
-                }
                 KeyCode::Char('q') => self.reset(),
-                KeyCode::Char('j') => self.prev_pane(),
-                KeyCode::Char('k') => self.next_pane(),
+                KeyCode::Char('j') => self.next_pane(),
+                KeyCode::Char('k') => self.prev_pane(),
                 KeyCode::Enter => {
                     if self.save_project(app) {
                         return true;
@@ -145,21 +140,27 @@ impl KeyEventHandlerReturn<bool> for ProjectEditor {
 }
 
 impl ProjectEditor {
-    fn prev_pane(&mut self) {
+    fn next_pane(&mut self) {
         match self.focused_pane {
             FocusedPane::Title => self.focused_pane = FocusedPane::Description,
             FocusedPane::Description => self.focused_pane = FocusedPane::Actions,
             FocusedPane::Actions => {
                 if self.action == Action::Save {
                     self.action = Action::Cancel;
+                } else if self.action == Action::Cancel {
+                    self.focused_pane = FocusedPane::Title;
+                    self.action = Action::Save;
                 }
             }
         }
     }
 
-    fn next_pane(&mut self) {
+    fn prev_pane(&mut self) {
         match self.focused_pane {
-            FocusedPane::Title => {}
+            FocusedPane::Title => {
+                self.focused_pane = FocusedPane::Actions;
+                self.action = Action::Cancel;
+            }
             FocusedPane::Description => self.focused_pane = FocusedPane::Title,
             FocusedPane::Actions => {
                 if self.action == Action::Save {
