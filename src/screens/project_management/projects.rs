@@ -7,6 +7,7 @@ use super::{
 };
 use crate::{
     state::{Mode, State},
+    trace_panic,
     utils::{Init, InitData, KeyEventHandler, KeyEventHandlerReturn, RenderPage},
     App,
 };
@@ -71,7 +72,7 @@ impl KeyEventHandler for Projects {
                     self.pages
                         .open_project
                         .db_get_project(app)
-                        .unwrap_or_else(|e| panic!("{e}"));
+                        .unwrap_or_else(|e| trace_panic!("{e}"));
                     self.page = Page::OpenProject;
                 }
                 _ => {}

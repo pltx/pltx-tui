@@ -1,16 +1,10 @@
 use std::path::PathBuf;
 
 use color_eyre::eyre::Result;
-use lazy_static::lazy_static;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{self, layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
-lazy_static! {
-    pub static ref PROJECT_NAME: String = env!("CARGO_CRATE_NAME").to_uppercase().to_string();
-    pub static ref LOG_ENV: String = format!("{}_LOGLEVEL", PROJECT_NAME.clone());
-}
-
-pub fn initialize_logging() -> Result<()> {
+pub fn initialize_logging(log_level: &str) -> Result<()> {
     let home_dir = match home::home_dir() {
         Some(path) => path,
         None => {
@@ -22,12 +16,7 @@ pub fn initialize_logging() -> Result<()> {
     std::fs::create_dir_all(cache_dir.clone())?;
     let log_path = cache_dir.join("debug.log");
     let log_file = std::fs::File::create(log_path)?;
-    std::env::set_var(
-        "RUST_LOG",
-        std::env::var("RUST_LOG")
-            .or_else(|_| std::env::var(LOG_ENV.clone()))
-            .unwrap_or_else(|_| format!("{}=info", env!("CARGO_CRATE_NAME"))),
-    );
+    std::env::set_var("RUST_LOG", log_level);
     let file_subscriber = tracing_subscriber::fmt::layer()
         .with_file(true)
         .with_line_number(true)
@@ -75,5 +64,13 @@ macro_rules! trace_error {
                 value
             }
         }
+    }};
+}
+
+#[macro_export]
+macro_rules! trace_panic {
+    ($value:expr) => {{
+        tracing::event!(target: module_path!(), tracing::Level::ERROR, $value);
+        panic!($value);
     }};
 }

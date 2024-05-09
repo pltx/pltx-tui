@@ -1,18 +1,15 @@
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
-/// Create a centered rect using a percentage of the available rect.
-pub fn centered_rect(width_percentage: u16, height_percentage: u16, r: Rect) -> Rect {
-    // Cut the given rectange into three vertical pieces
+pub fn centered_rect(width_percentage: u16, height_percentage: u16, rect: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Percentage((100 - height_percentage) / 2),
             Constraint::Percentage(height_percentage),
-            Constraint::Percentage(100 - height_percentage / 2),
+            Constraint::Percentage((100 - height_percentage) / 2),
         ])
-        .split(r);
+        .split(rect);
 
-    // Then cut the middle vertical piece into three width-wise pices
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -20,18 +17,17 @@ pub fn centered_rect(width_percentage: u16, height_percentage: u16, r: Rect) -> 
             Constraint::Percentage(width_percentage),
             Constraint::Percentage((100 - width_percentage) / 2),
         ])
-        .split(popup_layout[1])[1] // return the middle chunk
+        .split(popup_layout[1])[1]
 }
 
-/// Create a centered rect with an absolute size.
-pub fn centered_rect_absolute(absolute_width: u16, absolute_height: u16, r: Rect) -> Rect {
-    let width = (r.width.saturating_sub(absolute_width)) / 2;
-    let height = (r.height.saturating_sub(absolute_height)) / 2;
+pub fn centered_rect_absolute(absolute_width: u16, absolute_height: u16, rect: Rect) -> Rect {
+    let width = (rect.width.saturating_sub(absolute_width)) / 2;
+    let height = (rect.height.saturating_sub(absolute_height)) / 2;
 
     Rect::new(
         width,
         height,
-        absolute_width.min(r.width),
-        absolute_height.min(r.height),
+        absolute_width.min(rect.width),
+        absolute_height.min(rect.height),
     )
 }

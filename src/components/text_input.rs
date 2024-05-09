@@ -30,8 +30,9 @@ impl TextInput {
         }
     }
 
-    pub fn set_input(&mut self, input: Vec<String>) {
-        self.input = input;
+    pub fn set_input(&mut self, input: String) {
+        self.input = input.split("\n").map(|s| s.to_string()).collect();
+        self.cursor_end_line();
     }
 
     pub fn reset(&mut self) {

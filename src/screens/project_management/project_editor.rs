@@ -101,11 +101,11 @@ impl ProjectEditor {
         if let Some(data) = &self.data {
             let query = "UPDATE project SET title = ?1, description = ?2 WHERE id = ?3";
             let mut stmt = app.db.conn.prepare(query)?;
-            stmt.execute(rusqlite::params![
+            stmt.execute((
                 &self.inputs.title.input[0],
                 &self.inputs.description.input[0],
                 data.id,
-            ])?;
+            ))?;
         } else {
             panic!("project data was not set")
         }
@@ -124,6 +124,7 @@ impl KeyEventHandlerReturn<bool> for ProjectEditor {
 
         if app.state.mode == Mode::Navigation {
             match key_event.code {
+                KeyCode::Char('n') => app.state.mode = Mode::Insert,
                 KeyCode::Char('q') => self.reset(),
                 KeyCode::Char('j') => self.next_pane(),
                 KeyCode::Char('k') => self.prev_pane(),
@@ -337,14 +338,14 @@ impl ProjectEditor {
             description: project.description.clone(),
         });
 
-        self.inputs.title.set_input(vec![project.title]);
+        self.inputs.title.set_input(project.title);
         self.inputs.title.cursor_end_line();
         self.inputs
             .description
             .set_input(if let Some(desc) = project.description {
-                vec![desc]
+                desc
             } else {
-                vec![String::from("")]
+                String::from("")
             });
         self.inputs.description.cursor_end_line();
 

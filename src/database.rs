@@ -40,7 +40,7 @@ impl Database {
     /// don't, then create them.
     /// For screens and popups, they should implement the `InitData` trait and
     /// call the `init_data()` method in `init()`.
-    pub fn ensure_tables(&mut self) -> rusqlite::Result<()> {
+    pub fn ensure_tables(&self) -> rusqlite::Result<()> {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS session (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,9 +53,34 @@ impl Database {
         Ok(())
     }
 
-    pub fn insert_session(&mut self) -> rusqlite::Result<()> {
+    pub fn insert_session(&self) -> rusqlite::Result<()> {
         self.conn
             .execute("INSERT INTO session (id) VALUES (NULL)", ())?;
+        Ok(())
+    }
+
+    pub fn get_position(&self, table: &str, id: i32) -> rusqlite::Result<i32> {
+        struct Select {
+            position: i32,
+        }
+        let select_query = format!("SELECT position FROM {} WHERE id = ?1", table);
+        let mut select_stmt = self.conn.prepare(&select_query)?;
+        let select = select_stmt.query_row([id], |r| {
+            Ok(Select {
+                position: r.get(0)?,
+            })
+        })?;
+
+        Ok(select.position)
+    }
+
+    pub fn update_positions(&self, table: &str, old_position: i32) -> rusqlite::Result<()> {
+        let update_position_query = format!(
+            "UPDATE {} SET position = position - 1 WHERE position > ?1",
+            table
+        );
+        let mut update_position_stmt = self.conn.prepare(&update_position_query)?;
+        update_position_stmt.execute([old_position])?;
         Ok(())
     }
 }

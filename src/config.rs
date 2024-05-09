@@ -4,7 +4,7 @@ use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
-pub struct ConfigGeneric<T> {
+pub struct ColorsConfigGeneric<T> {
     pub primary: T,
     pub secondary: T,
     pub bg: T,
@@ -33,21 +33,24 @@ pub struct ConfigGeneric<T> {
     pub status_bar_delete_mode_fg: T,
 }
 
-type ColorsConfigFile = ConfigGeneric<Option<String>>;
-pub type ColorsConfig = ConfigGeneric<Color>;
+type ColorsConfigFile = ColorsConfigGeneric<Option<String>>;
+pub type ColorsConfig = ColorsConfigGeneric<Color>;
 #[derive(Deserialize, Serialize)]
 struct ConfigFile {
+    log_level: Option<String>,
     colors: Option<ColorsConfigFile>,
 }
 
 /// The main config struct where all properties are provided.
 #[derive(Clone)]
 pub struct Config {
+    pub log_level: String,
     pub colors: ColorsConfig,
 }
 
 fn get_base_config() -> Config {
     Config {
+        log_level: String::from("info"),
         colors: ColorsConfig {
             primary: get_color("#AF5FFF"),
             secondary: get_color("#AAAAAA"),
@@ -124,6 +127,11 @@ fn get_color_op(color_op: Option<String>, base_config_color: Color) -> Color {
 fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
     let bc = &base_config;
     Config {
+        log_level: if let Some(log_level) = user_config.log_level {
+            log_level
+        } else {
+            base_config.log_level.clone()
+        },
         colors: match user_config.colors {
             Some(colors) => ColorsConfig {
                 primary: get_color_op(colors.primary, bc.colors.primary),

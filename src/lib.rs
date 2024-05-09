@@ -22,8 +22,6 @@ use keybinds::EventHandler;
 use state::{Mode, Pane, Popup, Screen, State};
 use ui::Interface;
 
-use crate::config::get_config;
-
 pub struct App {
     exit: bool,
     config: Config,
@@ -32,18 +30,11 @@ pub struct App {
     scroll_view_state: ScrollViewState,
 }
 
-impl Default for App {
-    fn default() -> App {
-        App::new()
-    }
-}
-
 impl App {
-    // Create a new instance App
-    pub fn new() -> App {
+    pub fn new(config: Config) -> App {
         App {
             exit: false,
-            config: get_config(),
+            config,
             db: Database::init(),
             state: State {
                 mode: Mode::Navigation,

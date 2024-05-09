@@ -117,7 +117,7 @@ impl InitData for ProjectManagement {
                 description TEXT,
                 important BOOLEAN NOT NULL CHECK (important IN (0, 1)),
                 due_date DATETIME,
-                reminder BOOLEAN NOT NULL CHECK (important IN (0, 1)),
+                reminder DATETIME,
                 position INTEGER NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

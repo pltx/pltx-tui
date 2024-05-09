@@ -4,8 +4,8 @@ use color_eyre::{config::HookBuilder, eyre};
 
 use crate::tui;
 
-/// This replaces the standard color_eyre panic and error hooks with hooks that restore the
-/// terminal before printing the panic or error.
+/// This replaces the standard color_eyre panic and error hooks with hooks that
+/// restore the terminal before printing the panic or error.
 pub fn install_hooks() -> color_eyre::Result<()> {
     let (panic_hook, eyre_hook) = HookBuilder::default().into_hooks();
 

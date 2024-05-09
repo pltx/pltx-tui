@@ -39,6 +39,10 @@ pub trait RenderPopup {
     fn render(&mut self, frame: &mut Frame, app: &App);
 }
 
+pub trait RenderPopupContained {
+    fn render(&mut self, frame: &mut Frame, app: &App, area: Rect);
+}
+
 pub trait EventHandler {
     fn event_handler(event: &Event, app: &mut App);
 }

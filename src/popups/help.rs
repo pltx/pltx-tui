@@ -43,7 +43,7 @@ impl KeyEventHandler for Help {
 impl RenderScrollPopup for Help {
     fn render(&mut self, frame: &mut Frame, app: &mut App) {
         let popup = components::Popup::new(app, frame.size())
-            .set_title_top("Help Menu")
+            .title_top("Help Menu")
             .render(frame);
         // TODO: Fix height being twice as much as it needs to be
         let mut scroll_view = ScrollView::new(Size::new(popup.area.width, self.total_height()));
