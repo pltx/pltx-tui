@@ -7,11 +7,16 @@ use ratatui::{
 
 use crate::{state::Mode, App};
 
+pub enum TextInputEvent {
+    OnChange,
+    None,
+}
+
 pub struct TextInput {
     pub input: Vec<String>,
-    // (x, y)
     pub cursor_position: (usize, usize),
     title: Option<String>,
+    placeholder: Option<String>,
     multiline: bool,
     min: Option<usize>,
     max: Option<usize>,
@@ -24,15 +29,20 @@ impl TextInput {
             input: vec![String::from("")],
             cursor_position: (0, 0),
             title: None,
+            placeholder: None,
             multiline: false,
             min: None,
             max: None,
         }
     }
 
-    pub fn set_input(&mut self, input: String) {
-        self.input = input.split("\n").map(|s| s.to_string()).collect();
+    pub fn input(&mut self, input: String) {
+        self.input = input.split('\n').map(|s| s.to_string()).collect();
         self.cursor_end_line();
+    }
+
+    pub fn input_string(&self) -> String {
+        self.input.join("\n")
     }
 
     pub fn reset(&mut self) {
@@ -40,25 +50,30 @@ impl TextInput {
         self.cursor_position = (0, 0);
     }
 
-    pub fn set_title(mut self, title: &str) -> Self {
+    pub fn title(mut self, title: &str) -> Self {
         self.title = Some(title.to_string());
         self
     }
 
-    pub fn set_min(mut self, min: usize) -> Self {
+    pub fn placeholder(mut self, placeholder: &str) -> Self {
+        self.placeholder = Some(placeholder.to_string());
+        self
+    }
+
+    pub fn min(mut self, min: usize) -> Self {
         self.min = Some(min);
         self
     }
 
     pub fn is_min(&self) -> bool {
         if let Some(min) = self.min {
-            self.input[self.cursor_position.1].len() >= min
+            self.input[self.cursor_position.1].chars().count() >= min
         } else {
             true
         }
     }
 
-    pub fn set_max(mut self, max: usize) -> Self {
+    pub fn max(mut self, max: usize) -> Self {
         self.max = Some(max);
         self
     }
@@ -77,7 +92,7 @@ impl TextInput {
 
     fn enter_char(&mut self, new_char: char) {
         if let Some(max) = self.max {
-            if self.input[self.cursor_position.1].len() == max {
+            if self.input[self.cursor_position.1].chars().count() == max {
                 return;
             }
         }
@@ -89,7 +104,7 @@ impl TextInput {
         if self.cursor_position != (0, 0) {
             let before_char_to_delete = self.input[self.cursor_position.1]
                 .chars()
-                .take(self.cursor_position.0 - 1);
+                .take(self.cursor_position.0.saturating_sub(1));
             let after_char_to_delete = self.input[self.cursor_position.1]
                 .chars()
                 .skip(self.cursor_position.0);
@@ -100,7 +115,7 @@ impl TextInput {
     }
 
     fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
-        new_cursor_pos.clamp(0, self.input[self.cursor_position.1].len())
+        new_cursor_pos.clamp(0, self.input[self.cursor_position.1].chars().count())
     }
 
     fn cursor_next_word(&mut self) {
@@ -123,12 +138,13 @@ impl TextInput {
     }
 
     pub fn cursor_end_line(&mut self) {
-        self.cursor_position.0 = self.input[self.cursor_position.1].len()
+        self.cursor_position.0 = self.input[self.cursor_position.1].chars().count()
     }
 
     fn enter_insert_mode(&self, app: &mut App) {
         app.state.mode = match app.state.mode {
             Mode::Popup => Mode::PopupInsert,
+            Mode::Command => Mode::CommandInsert,
             _ => Mode::Insert,
         }
     }
@@ -143,16 +159,24 @@ impl TextInput {
     // u = undo
     // ctrl + r = redo
     // o = newline + insert mode
-    pub fn handle_key_event(&mut self, app: &mut App, key_event: KeyEvent) {
+    pub fn handle_key_event(&mut self, app: &mut App, key_event: KeyEvent) -> TextInputEvent {
+        let mut event = TextInputEvent::None;
+
         match app.state.mode {
-            Mode::Insert | Mode::PopupInsert => match key_event.code {
-                KeyCode::Char(to_insert) => self.enter_char(to_insert),
-                KeyCode::Backspace => self.delete_char(),
+            Mode::Insert | Mode::PopupInsert | Mode::CommandInsert => match key_event.code {
+                KeyCode::Char(to_insert) => {
+                    self.enter_char(to_insert);
+                    event = TextInputEvent::OnChange;
+                }
+                KeyCode::Backspace => {
+                    self.delete_char();
+                    event = TextInputEvent::OnChange;
+                }
                 KeyCode::Left => self.move_cursor_left(),
                 KeyCode::Right => self.move_cursor_right(),
                 _ => {}
             },
-            Mode::Navigation | Mode::Popup => match key_event.code {
+            Mode::Navigation | Mode::Popup | Mode::Command => match key_event.code {
                 KeyCode::Char('h') => self.move_cursor_left(),
                 KeyCode::Char('l') => self.move_cursor_right(),
                 KeyCode::Char('w') => self.cursor_next_word(),
@@ -169,37 +193,48 @@ impl TextInput {
                     self.move_cursor_right()
                 }
                 KeyCode::Char('A') => {
-                    app.state.mode = Mode::Insert;
+                    self.enter_insert_mode(app);
                     self.cursor_end_line()
                 }
                 _ => {}
             },
             _ => {}
         }
+
+        event
     }
 
     pub fn render(&self, app: &App, width: u16, _: u16, focused: bool) -> impl Widget {
         let colors = &app.config.colors;
 
-        let input = if focused
-            && !self.input.is_empty()
+        let input = if !self.input.is_empty()
             && self.input[self.cursor_position.1].is_empty()
             && self.cursor_position == (0, 0)
         {
-            vec![Line::from(vec![Span::from(" ").style(
-                if app.state.mode == Mode::Insert {
-                    Style::new().fg(colors.bg).bg(colors.fg)
+            if !focused {
+                if let Some(placeholder) = &self.placeholder {
+                    vec![Line::from(vec![
+                        Span::from(placeholder.clone()).style(Style::new().fg(colors.secondary))
+                    ])]
                 } else {
-                    Style::new().fg(colors.bg).bg(colors.secondary)
-                },
-            )])]
+                    vec![]
+                }
+            } else {
+                vec![Line::from(vec![Span::from(" ").style(
+                    if self.is_insert_mode(app) {
+                        Style::new().fg(colors.bg).bg(colors.fg)
+                    } else {
+                        Style::new().fg(colors.bg).bg(colors.secondary)
+                    },
+                )])]
+            }
         } else {
             // TODO: Implement multiline by spliting \n
             // TODO: Scrollable view (not with the widget) for when there are more lines to
             // display than `height`
 
             // Reduce by 2 for the border width and 1 for the cursor.
-            let line_length = width as usize - 2 - 1;
+            let line_length = width.saturating_sub(3) as usize;
 
             type RenderCharType<'a> = ((usize, &'a String), (usize, &'a [char]), (usize, &'a char));
             let render_char =
@@ -217,7 +252,7 @@ impl TextInput {
 
                     let cursor_on_char = (real_line_x_value, line_index) == self.cursor_position;
                     if focused && cursor_on_char {
-                        style = style.fg(colors.bg).bg(if app.state.mode == Mode::Insert {
+                        style = style.fg(colors.bg).bg(if self.is_insert_mode(app) {
                             colors.fg
                         } else {
                             colors.secondary
@@ -225,15 +260,18 @@ impl TextInput {
                     }
                     let mut span = vec![Span::from(character.to_string()).style(style)];
 
-                    let is_last_char =
-                        real_line_x_value == self.input[self.cursor_position.1].len() - 1;
+                    let is_last_char = real_line_x_value
+                        == self.input[self.cursor_position.1]
+                            .chars()
+                            .count()
+                            .saturating_sub(1);
                     let cursor_not_at_start = self.cursor_position != (0, 0);
                     let char_is_before_cursor =
                         (real_line_x_value + 1, line_index) == self.cursor_position;
 
                     // Render the cursor (only if last character)
                     if focused && is_last_char && cursor_not_at_start && char_is_before_cursor {
-                        span.push(Span::from(" ").style(if app.state.mode == Mode::Insert {
+                        span.push(Span::from(" ").style(if self.is_insert_mode(app) {
                             Style::new().fg(colors.bg).bg(colors.fg)
                         } else {
                             Style::new().fg(colors.bg).bg(colors.secondary)
@@ -277,7 +315,7 @@ impl TextInput {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::new().fg(if focused {
-                    if app.state.mode == Mode::Insert || app.state.mode == Mode::PopupInsert {
+                    if self.is_insert_mode(app) {
                         colors.status_bar_insert_mode_bg
                     } else {
                         colors.primary
@@ -285,6 +323,13 @@ impl TextInput {
                 } else {
                     colors.border
                 })),
+        )
+    }
+
+    fn is_insert_mode(&self, app: &App) -> bool {
+        matches!(
+            app.state.mode,
+            Mode::Insert | Mode::PopupInsert | Mode::CommandInsert
         )
     }
 }

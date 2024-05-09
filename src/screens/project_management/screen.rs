@@ -217,13 +217,15 @@ impl KeyEventHandler for ProjectManagement {
             let tab_index = tabs.iter().position(|t| t.0 == self.tab).unwrap();
             match key_event.code {
                 KeyCode::Char('l') => {
-                    if self.screen_pane == ScreenPane::Tabs && tab_index != tabs.len() - 1 {
+                    if self.screen_pane == ScreenPane::Tabs
+                        && tab_index != tabs.len().saturating_sub(1)
+                    {
                         self.tab = tabs[tab_index + 1].0.clone();
                     }
                 }
                 KeyCode::Char('h') => {
                     if self.screen_pane == ScreenPane::Tabs && tab_index != 0 {
-                        self.tab = tabs[tab_index - 1].0.clone();
+                        self.tab = tabs[tab_index.saturating_sub(1)].0.clone();
                     }
                 }
                 KeyCode::Char('H') => {
@@ -296,7 +298,7 @@ impl ProjectManagement {
                         style = style.fg(colors.secondary)
                     };
                     let mut span = vec![Span::from(format!(" {} ", t.1)).style(style)];
-                    if i != self.get_tabs().len() - 1 {
+                    if i != self.get_tabs().len().saturating_sub(1) {
                         span.push(Span::styled(" | ", Style::new().fg(colors.border)))
                     }
                     span

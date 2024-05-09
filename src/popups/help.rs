@@ -10,23 +10,21 @@ use ratatui::{
 use tui_scrollview::ScrollView;
 
 use crate::{
-    components,
+    components::{self, PopupSize},
     config::ColorsConfig,
-    state::{Mode, Popup, State},
+    state::{Mode, GlobalPopup, State},
     utils::{Init, KeyEventHandler, RenderScrollPopup},
     App,
 };
 
 pub struct Help {
-    pub width: u16,
-    pub height: u16,
+    size: PopupSize,
 }
 
 impl Init for Help {
     fn init(_: &mut App) -> Help {
         Help {
-            width: 70,
-            height: 20,
+            size: PopupSize::new().percentage_based_height().height(90),
         }
     }
 }
@@ -35,7 +33,7 @@ impl KeyEventHandler for Help {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
         if key_event.code == KeyCode::Char('?') {
             app.state.mode = Mode::Navigation;
-            app.state.popup = Popup::None;
+            app.state.popup = GlobalPopup::None;
         }
     }
 }
@@ -44,6 +42,7 @@ impl RenderScrollPopup for Help {
     fn render(&mut self, frame: &mut Frame, app: &mut App) {
         let popup = components::Popup::new(app, frame.size())
             .title_top("Help Menu")
+            .size(self.size.clone())
             .render(frame);
         // TODO: Fix height being twice as much as it needs to be
         let mut scroll_view = ScrollView::new(Size::new(popup.area.width, self.total_height()));
@@ -88,6 +87,7 @@ impl Help {
             Mode::Navigation => vec![
                 ("?", "Show help menu"),
                 ("q", "Quit application"),
+                (":", "Open command prompt"),
                 ("h", "Select next horizontal option"),
                 ("j", "Select next vertical option"),
                 ("k", "Select previous vertical option"),
@@ -110,16 +110,23 @@ impl Help {
             ],
             Mode::PopupInsert => vec![("<esc>", "Exit popup insert mode")],
             Mode::Delete => vec![("y", "Yes (delete)"), ("n", "No (cancel)")],
+            Mode::Command => vec![("q", "Exit the command prompt")],
+            Mode::CommandInsert => vec![
+                ("<esc>", "Exit command insert mode"),
+                ("<enter>", "Execute command"),
+            ],
         }
     }
 
-    fn get_modes(&self) -> [Mode; 5] {
+    fn get_modes(&self) -> [Mode; 7] {
         [
             Mode::Navigation,
             Mode::Insert,
             Mode::Popup,
             Mode::PopupInsert,
             Mode::Delete,
+            Mode::Command,
+            Mode::CommandInsert,
         ]
     }
 
@@ -142,6 +149,8 @@ impl Help {
                 Mode::Popup => colors.status_bar_popup_mode_fg,
                 Mode::PopupInsert => colors.status_bar_popup_insert_mode_fg,
                 Mode::Delete => colors.status_bar_delete_mode_fg,
+                Mode::Command => colors.status_bar_command_mode_fg,
+                Mode::CommandInsert => colors.status_bar_command_insert_mode_fg,
             },
             match mode {
                 Mode::Navigation => colors.status_bar_navigation_mode_bg,
@@ -149,6 +158,8 @@ impl Help {
                 Mode::Popup => colors.status_bar_popup_mode_bg,
                 Mode::PopupInsert => colors.status_bar_popup_insert_mode_bg,
                 Mode::Delete => colors.status_bar_delete_mode_bg,
+                Mode::Command => colors.status_bar_command_mode_bg,
+                Mode::CommandInsert => colors.status_bar_command_insert_mode_bg,
             },
         )
     }

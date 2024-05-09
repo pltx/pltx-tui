@@ -25,6 +25,7 @@ panic = "abort"
 chrono = "0.4.38"
 color-eyre = "0.6.3"
 crossterm = "0.27.0"
+fst = { version = "0.4.7", features = ["levenshtein"] }
 home = "0.5.9"
 ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }

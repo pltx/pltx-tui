@@ -1,11 +1,13 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
+    style::Stylize,
+    widgets::Block,
     Frame,
 };
 
 use crate::{
-    components::{self, TextInput},
+    components::{self, PopupSize, TextInput},
     state::{Mode, State},
     trace_panic,
     utils::{Init, KeyEventHandlerReturn, RenderPopup, RenderPopupContained},
@@ -25,8 +27,7 @@ struct ListData {
 pub struct ListEditor {
     is_new: bool,
     data: Option<ListData>,
-    width: u16,
-    height: u16,
+    size: PopupSize,
     project_id: Option<i32>,
     inputs: Inputs,
 }
@@ -36,11 +37,10 @@ impl Init for ListEditor {
         ListEditor {
             is_new: false,
             data: None,
-            width: 60,
-            height: 5,
+            size: PopupSize::new().width(60).height(5),
             project_id: None,
             inputs: Inputs {
-                title: TextInput::new().set_title("Title").set_max(50),
+                title: TextInput::new().title("Title").max(50),
             },
         }
     }
@@ -117,7 +117,7 @@ impl RenderPopupContained for ListEditor {
     fn render(&mut self, frame: &mut Frame, app: &App, area: Rect) {
         let popup = components::Popup::new(app, area)
             .title_top(if self.is_new { "New List" } else { "Edit List" })
-            .size(self.width, self.height)
+            .size(self.size.clone())
             .render(frame);
 
         let [title_layout] = Layout::default()
@@ -129,7 +129,7 @@ impl RenderPopupContained for ListEditor {
         frame.render_widget(
             self.inputs
                 .title
-                .render(app, popup.width - 2, popup.height - 2, true),
+                .render(app, self.size.width - 2, self.size.height - 2, true),
             title_layout,
         );
     }
@@ -159,7 +159,7 @@ impl ListEditor {
             .unwrap_or_else(|e| trace_panic!("{e}"));
 
         self.data = Some(list.clone());
-        self.inputs.title.set_input(list.title);
+        self.inputs.title.input(list.title);
 
         Ok(())
     }

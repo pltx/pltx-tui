@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{block::Title, Block, BorderType, Borders, Padding, Paragraph},
@@ -13,7 +13,7 @@ use super::{
     card_editor::CardEditor, list_editor::ListEditor, projects::ProjectsState, screen::ScreenPane,
 };
 use crate::{
-    state::{Mode, State},
+    state::{GlobalPopup, Mode, State},
     trace_panic,
     utils::{
         pane_title_bottom, Init, InitData, KeyEventHandlerReturn, RenderPage, RenderPopup,
@@ -377,10 +377,10 @@ impl OpenProject {
         let selected_list_index = self.selected_list_index().unwrap_or(0);
         if self.data.lists.len() == 1 {
             self.selected_list_id = None;
-        } else if selected_list_index != self.data.lists.len() - 1 {
+        } else if selected_list_index != self.data.lists.len().saturating_sub(1) {
             self.selected_list_id = Some(self.data.lists[selected_list_index + 1].id);
         } else if selected_list_index != 0 {
-            self.selected_list_id = Some(self.data.lists[selected_list_index - 1].id);
+            self.selected_list_id = Some(self.data.lists[selected_list_index.saturating_sub(1)].id);
         } else {
             self.selected_list_id = Some(self.data.lists[0].id);
         }
@@ -404,12 +404,14 @@ impl OpenProject {
 
         if list.cards.len() == 1 {
             self.selected_card_ids.insert(list.id, None);
-        } else if selected_card_index != list.cards.len() - 1 {
+        } else if selected_card_index != list.cards.len().saturating_sub(1) {
             self.selected_card_ids
                 .insert(list.id, Some(list.cards[selected_card_index + 1].id));
         } else if selected_card_index != 0 {
-            self.selected_card_ids
-                .insert(list.id, Some(list.cards[selected_card_index - 1].id));
+            self.selected_card_ids.insert(
+                list.id,
+                Some(list.cards[selected_card_index.saturating_sub(1)].id),
+            );
         } else {
             self.selected_card_ids
                 .insert(list.id, Some(list.cards[0].id));
@@ -524,7 +526,8 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
                             .position(|l| l.id == list_id)
                             .unwrap();
                         if list_index != 0 {
-                            self.selected_list_id = Some(self.data.lists[list_index - 1].id);
+                            self.selected_list_id =
+                                Some(self.data.lists[list_index.saturating_sub(1)].id);
                         }
                     }
                 }
@@ -536,7 +539,7 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
                             .iter()
                             .position(|l| l.id == list_id)
                             .unwrap();
-                        if list_index != self.data.lists.len() - 1 {
+                        if list_index != self.data.lists.len().saturating_sub(1) {
                             self.selected_list_id = Some(self.data.lists[list_index + 1].id);
                         }
                     }
@@ -629,13 +632,7 @@ impl ScreenKeybinds for OpenProject {
 }
 
 impl RenderPage<ProjectsState> for OpenProject {
-    fn render(
-        &mut self,
-        app: &mut App,
-        frame: &mut Frame,
-        area: ratatui::prelude::Rect,
-        state: ProjectsState,
-    ) {
+    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect, state: ProjectsState) {
         let colors = &app.config.colors.clone();
         let block = Block::new()
             .title_top(
@@ -747,7 +744,9 @@ impl RenderPage<ProjectsState> for OpenProject {
             }
         }
 
-        if app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert {
+        if (app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert)
+            && app.state.popup == GlobalPopup::None
+        {
             match self.popup {
                 Popup::NewList => self.popups.new_list.render(frame, app, area),
                 Popup::EditList => self.popups.edit_list.render(frame, app, area),

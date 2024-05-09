@@ -6,6 +6,8 @@ pub enum Mode {
     Popup,
     PopupInsert,
     Delete,
+    Command,
+    CommandInsert,
 }
 
 /// The current screen (page).
@@ -27,7 +29,7 @@ pub enum Pane {
 
 /// The current popup that is showing or none.
 #[derive(PartialEq, Clone)]
-pub enum Popup {
+pub enum GlobalPopup {
     Help,
     None,
 }
@@ -38,5 +40,5 @@ pub struct State {
     pub mode: Mode,
     pub screen: Screen,
     pub pane: Pane,
-    pub popup: Popup,
+    pub popup: GlobalPopup,
 }

@@ -7,11 +7,12 @@ use ratatui::{
 };
 
 use crate::{
+    command_handler::{self, CommandHandler},
     config::ColorsConfig,
     popups, screens,
     state::{Mode, Pane, Screen},
-    utils::{Init, InitData, RenderScreen, RenderScrollPopup},
-    App, Popup,
+    utils::{Init, InitData, RenderPopup, RenderScreen, RenderScrollPopup},
+    App, GlobalPopup,
 };
 
 /// States for each screen
@@ -57,7 +58,12 @@ impl Interface {
         Ok(())
     }
 
-    pub fn render(&mut self, frame: &mut Frame, app: &mut App) {
+    pub fn render(
+        &mut self,
+        frame: &mut Frame,
+        app: &mut App,
+        command_handler: &mut CommandHandler,
+    ) {
         let colors = &app.config.colors.clone();
 
         // Root layout
@@ -127,12 +133,15 @@ impl Interface {
             Screen::None => {}
         };
 
-        // Popup
-        if app.state.mode == Mode::Popup {
+        if app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert {
             match app.state.popup {
-                Popup::Help => self.popups.help.render(frame, app),
-                Popup::None => {}
+                GlobalPopup::Help => self.popups.help.render(frame, app),
+                GlobalPopup::None => {}
             }
+        }
+
+        if app.state.mode == Mode::Command || app.state.mode == Mode::CommandInsert {
+            command_handler.render(frame, app);
         }
     }
 
@@ -212,10 +221,9 @@ impl Interface {
                 .fg(mode_fg)
                 .bg(mode_bg),
             Span::from("").fg(mode_bg),
-            if app.state.mode == Mode::Delete {
-                Span::from(" Confirm Deletion (y/n)").bold()
-            } else {
-                Span::from("")
+            match app.state.mode {
+                Mode::Delete => Span::from(" Confirm Deletion (y/n)").bold(),
+                _ => Span::from(""),
             },
         ])];
         let left_content = Paragraph::new(left_text)
@@ -230,10 +238,9 @@ impl Interface {
         frame.render_widget(center_content, center_layout);
 
         let right_text = vec![Line::from(vec![Span::from("Press ? for help ")])];
-        let right_content = Paragraph::new(if app.state.mode == Mode::Delete {
-            vec![Line::from("")]
-        } else {
-            right_text
+        let right_content = Paragraph::new(match app.state.mode {
+            Mode::Delete => vec![Line::from("")],
+            _ => right_text,
         })
         .alignment(Alignment::Right)
         .style(Style::new().fg(status_bar_fg).bg(status_bar_bg));

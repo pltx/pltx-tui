@@ -2,7 +2,8 @@ use color_eyre::eyre::Context;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 
 use crate::{
-    state::{Mode, Pane, Popup, Screen, State},
+    command_handler::CommandHandler,
+    state::{Mode, Pane, GlobalPopup, Screen, State},
     ui::Interface,
     utils::KeyEventHandler,
     App,
@@ -23,6 +24,7 @@ impl EventHandler {
         &mut self,
         app: &mut App,
         interface: &mut Interface,
+        command_handler: &mut CommandHandler,
     ) -> color_eyre::eyre::Result<()> {
         let e = event::read()?;
         // A copy of the application state at the start of the event. Since there are
@@ -42,7 +44,7 @@ impl EventHandler {
         // }
         match e {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => self
-                .handle_key_event(app, interface, key_event, event_state)
+                .handle_key_event(app, interface, command_handler, key_event, event_state)
                 .wrap_err_with(|| format!("handling key event failed:\n{key_event:#?}")),
             _ => Ok(()),
         }
@@ -53,6 +55,7 @@ impl EventHandler {
         &mut self,
         app: &mut App,
         interface: &mut Interface,
+        command_handler: &mut CommandHandler,
         key_event: KeyEvent,
         event_state: &State,
     ) -> color_eyre::eyre::Result<()> {
@@ -63,36 +66,37 @@ impl EventHandler {
             .unwrap();
 
         // TODO: Convert to match statements when adding more poups
-        if app.state.mode == Mode::Popup && app.state.popup == Popup::Help {
+        if app.state.mode == Mode::Popup && app.state.popup == GlobalPopup::Help {
             interface
                 .popups
                 .help
                 .key_event_handler(app, key_event, event_state);
         }
 
+        if app.state.mode == Mode::Command || app.state.mode == Mode::CommandInsert {
+            command_handler.key_event_handler(app, key_event, event_state)
+        }
+
         if event_state.mode == Mode::Navigation {
             match key_event.code {
-                // Show the help menu
                 KeyCode::Char('?') => {
                     app.state.mode = Mode::Popup;
-                    app.state.popup = Popup::Help;
+                    app.state.popup = GlobalPopup::Help;
                 }
-                // Quit the application
                 KeyCode::Char('q') | KeyCode::Char('Q') => app.exit(),
-                // Select and focus on the screen. Each screen must handle it's own keybinds to go
-                // back to the navigation pane.
                 KeyCode::Enter | KeyCode::Char('L') => {
                     if event_state.pane == Pane::Navigation {
                         app.state.pane = Pane::Screen;
                     }
                 }
+                KeyCode::Char(':') => app.state.mode = Mode::CommandInsert,
                 _ => {}
             }
             if event_state.pane == Pane::Navigation {
                 match key_event.code {
                     // Go down an option
                     KeyCode::Char('j') => {
-                        if screen_index == screen_list.len() - 1 {
+                        if screen_index == screen_list.len().saturating_sub(1) {
                             app.state.screen = screen_list[0].0.clone();
                         } else {
                             app.state.screen = screen_list[screen_index + 1].0.clone();
@@ -101,16 +105,17 @@ impl EventHandler {
                     // Go up an option
                     KeyCode::Char('k') => {
                         if screen_index == 0 {
-                            app.state.screen = screen_list[screen_list.len() - 1].0.clone();
+                            app.state.screen =
+                                screen_list[screen_list.len().saturating_sub(1)].0.clone();
                         } else {
-                            app.state.screen = screen_list[screen_index - 1].0.clone();
+                            app.state.screen =
+                                screen_list[screen_index.saturating_sub(1)].0.clone();
                         }
                     }
                     _ => {}
                 }
             }
         }
-
         if event_state.mode == Mode::Insert && key_event.code == KeyCode::Esc {
             app.state.mode = Mode::Navigation;
         } else if event_state.mode == Mode::PopupInsert && key_event.code == KeyCode::Esc {
@@ -139,7 +144,7 @@ impl EventHandler {
                 // Close the popup
                 KeyCode::Char('q') | KeyCode::Char('Q') => {
                     app.state.mode = Mode::Navigation;
-                    app.state.popup = Popup::None;
+                    app.state.popup = GlobalPopup::None;
                 }
                 KeyCode::Char('j') => app.scroll_view_state.scroll_down(),
                 KeyCode::Char('k') => app.scroll_view_state.scroll_up(),

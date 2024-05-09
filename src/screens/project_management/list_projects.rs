@@ -130,10 +130,10 @@ impl ListProjects {
 
         if self.projects.len() == 1 {
             self.selected_id = 0;
-        } else if selected_index != self.projects.len() - 1 {
+        } else if selected_index != self.projects.len().saturating_sub(1) {
             self.selected_id = self.projects[selected_index + 1].id;
         } else if selected_index != 0 {
-            self.selected_id = self.projects[selected_index - 1].id;
+            self.selected_id = self.projects[selected_index.saturating_sub(1)].id;
         } else {
             self.selected_id = self.projects[0].id;
         }
@@ -166,7 +166,7 @@ impl KeyEventHandlerReturn<bool> for ListProjects {
                     app.state.mode = Mode::Delete;
                 }
                 KeyCode::Char('j') => {
-                    if selected_index != self.projects.len() - 1 {
+                    if selected_index != self.projects.len().saturating_sub(1) {
                         self.selected_id = self.projects[selected_index + 1].id;
                     } else {
                         self.selected_id = self.projects[0].id;
@@ -174,9 +174,9 @@ impl KeyEventHandlerReturn<bool> for ListProjects {
                 }
                 KeyCode::Char('k') => {
                     if selected_index != 0 {
-                        self.selected_id = self.projects[selected_index - 1].id;
+                        self.selected_id = self.projects[selected_index.saturating_sub(1)].id;
                     } else {
-                        self.selected_id = self.projects[self.projects.len() - 1].id;
+                        self.selected_id = self.projects[self.projects.len().saturating_sub(1)].id;
                     }
                 }
                 _ => {}

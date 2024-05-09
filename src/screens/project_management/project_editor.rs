@@ -9,7 +9,7 @@ use ratatui::{
 
 use super::{projects::ProjectsState, screen::ScreenPane};
 use crate::{
-    components::TextInput,
+    components::{TextInput, TextInputEvent},
     config::ColorsConfig,
     state::{Mode, State},
     utils::{Init, KeyEventHandlerReturn, RenderPage},
@@ -56,8 +56,8 @@ impl Init for ProjectEditor {
             focused_pane: FocusedPane::Title,
             action: Action::Save,
             inputs: Inputs {
-                title: TextInput::new().set_title("Title").set_max(100),
-                description: TextInput::new().set_title("Description").set_max(500),
+                title: TextInput::new().title("Title").max(100),
+                description: TextInput::new().title("Description").max(500),
             },
         }
     }
@@ -119,8 +119,8 @@ impl KeyEventHandlerReturn<bool> for ProjectEditor {
         match self.focused_pane {
             FocusedPane::Title => self.inputs.title.handle_key_event(app, key_event),
             FocusedPane::Description => self.inputs.description.handle_key_event(app, key_event),
-            _ => {}
-        }
+            _ => TextInputEvent::None,
+        };
 
         if app.state.mode == Mode::Navigation {
             match key_event.code {
@@ -338,11 +338,11 @@ impl ProjectEditor {
             description: project.description.clone(),
         });
 
-        self.inputs.title.set_input(project.title);
+        self.inputs.title.input(project.title);
         self.inputs.title.cursor_end_line();
         self.inputs
             .description
-            .set_input(if let Some(desc) = project.description {
+            .input(if let Some(desc) = project.description {
                 desc
             } else {
                 String::from("")

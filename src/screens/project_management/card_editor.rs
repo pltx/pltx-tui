@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use crate::{
-    components::{self, Buttons, TextInput},
+    components::{self, Buttons, PopupSize, TextInput, TextInputEvent},
     config::ColorsConfig,
     state::{Mode, State},
     utils::{current_timestamp, Init, KeyEventHandlerReturn, RenderPopupContained},
@@ -80,8 +80,7 @@ enum Action {
 pub struct CardEditor {
     is_new: bool,
     data: Option<CardData>,
-    width: u16,
-    height: u16,
+    size: PopupSize,
     project_id: Option<i32>,
     list_id: Option<i32>,
     inputs: Inputs,
@@ -94,13 +93,12 @@ impl Init for CardEditor {
         CardEditor {
             is_new: false,
             data: None,
-            width: 80,
-            height: 80,
+            size: PopupSize::new().percentage_based().width(80).height(80),
             project_id: None,
             list_id: None,
             inputs: Inputs {
-                title: TextInput::new().set_title("Title").set_max(100),
-                description: TextInput::new().set_title("Description").set_max(4000),
+                title: TextInput::new().title("Title").max(100),
+                description: TextInput::new().title("Description").max(4000),
             },
             focused_pane: FocusedPane::Title,
             action: Action::Save,
@@ -178,8 +176,8 @@ impl KeyEventHandlerReturn<bool> for CardEditor {
         match self.focused_pane {
             FocusedPane::Title => self.inputs.title.handle_key_event(app, key_event),
             FocusedPane::Description => self.inputs.description.handle_key_event(app, key_event),
-            _ => {}
-        }
+            _ => TextInputEvent::None,
+        };
 
         if app.state.mode == Mode::Popup {
             match key_event.code {
@@ -235,8 +233,7 @@ impl RenderPopupContained for CardEditor {
 
         let popup = components::Popup::new(app, area)
             .title_top(if self.is_new { "New Card" } else { "Edit Card" })
-            .percentage_sizing()
-            .size(self.width, self.height)
+            .size(self.size.clone())
             .render(frame);
 
         let [title_layout, description_layout, actions_layout] = Layout::default()
@@ -252,8 +249,8 @@ impl RenderPopupContained for CardEditor {
         frame.render_widget(
             self.inputs.title.render(
                 app,
-                popup.width - 2,
-                popup.height - 2,
+                self.size.width - 2,
+                self.size.height - 2,
                 self.focused_pane == FocusedPane::Title,
             ),
             title_layout,
@@ -261,8 +258,8 @@ impl RenderPopupContained for CardEditor {
         frame.render_widget(
             self.inputs.description.render(
                 app,
-                popup.width - 2,
-                popup.height - 2,
+                self.size.width - 2,
+                self.size.height - 2,
                 self.focused_pane == FocusedPane::Description,
             ),
             description_layout,
@@ -330,9 +327,9 @@ impl CardEditor {
         })?;
 
         self.data = Some(card.clone());
-        self.inputs.title.set_input(card.title);
+        self.inputs.title.input(card.title);
         if let Some(description) = card.description {
-            self.inputs.description.set_input(description);
+            self.inputs.description.input(description);
         }
 
         Ok(())

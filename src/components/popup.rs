@@ -5,34 +5,76 @@ use ratatui::{
     Frame,
 };
 
-use crate::{
-    config::ColorsConfig,
-    utils::{centered_rect, centered_rect_absolute},
-    App,
-};
+use crate::{config::ColorsConfig, utils::centered_rect, App};
 
-/// Popup component.
-pub struct Popup<'a> {
-    pub absolute: bool,
-    title_top: Option<&'a str>,
-    title_bottom: Option<&'a str>,
+#[derive(Clone)]
+pub struct PopupSize {
     pub width: u16,
     pub height: u16,
-    pub percentage_sizing: bool,
+    percentage_based_width: bool,
+    percentage_based_height: bool,
+}
+
+impl PopupSize {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> PopupSize {
+        PopupSize {
+            width: 70,
+            height: 20,
+            percentage_based_width: false,
+            percentage_based_height: false,
+        }
+    }
+
+    pub fn percentage_based(mut self) -> Self {
+        self.percentage_based_width = true;
+        self.percentage_based_height = true;
+        self
+    }
+
+    pub fn percentage_based_width(mut self) -> Self {
+        self.percentage_based_width = true;
+        self
+    }
+
+    pub fn percentage_based_height(mut self) -> Self {
+        self.percentage_based_height = true;
+        self
+    }
+
+    pub fn width(mut self, width: u16) -> Self {
+        self.width = width;
+        self
+    }
+
+    pub fn height(mut self, height: u16) -> Self {
+        self.height = height;
+        self
+    }
+}
+
+pub struct Popup<'a> {
+    title_top: Option<&'a str>,
+    title_bottom: Option<&'a str>,
+    pub size: PopupSize,
     pub area: Rect,
-    pub rect: Rect,
+    rect: Rect,
     pub sub_area: Rect,
-    pub colors: &'a ColorsConfig,
+    colors: &'a ColorsConfig,
 }
 
 impl<'a> Popup<'a> {
-    /// Create a new popup component
     pub fn new(app: &'a App, rect: Rect) -> Popup<'a> {
         let colors = &app.config.colors;
-        let default_width = 70;
-        let default_height = 20;
 
-        let area = centered_rect_absolute(default_width, default_height, rect);
+        let size = PopupSize::new();
+
+        let area = centered_rect(
+            (size.width, size.percentage_based_width),
+            (size.height, size.percentage_based_height),
+            rect,
+        );
+
         let [sub_area] = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(2)
@@ -40,35 +82,29 @@ impl<'a> Popup<'a> {
             .areas(area);
 
         Popup {
-            absolute: false,
             title_top: None,
             title_bottom: None,
-            width: default_width,
-            height: default_height,
-            percentage_sizing: false,
             rect,
+            size,
             area,
             sub_area,
             colors,
         }
     }
 
-    pub fn percentage_sizing(mut self) -> Self {
-        self.percentage_sizing = true;
-        self
-    }
-
-    pub fn size(mut self, width: u16, height: u16) -> Self {
-        self.area = if self.percentage_sizing {
-            centered_rect(width, height, self.rect)
-        } else {
-            centered_rect_absolute(width, height, self.rect)
-        };
+    pub fn size(mut self, size: PopupSize) -> Self {
+        self.size = size.clone();
+        self.area = centered_rect(
+            (size.width, size.percentage_based_width),
+            (size.height, size.percentage_based_height),
+            self.rect,
+        );
         self.sub_area = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(2)
             .constraints([Constraint::Fill(1)])
             .areas::<1>(self.area)[0];
+
         self
     }
 
@@ -93,6 +129,7 @@ impl<'a> Popup<'a> {
         if let Some(title) = self.title_top {
             block = block.title(Title::from(format!(" {title} ")).alignment(Alignment::Center))
         }
+
         frame.render_widget(Clear, self.area);
         frame.render_widget(block, self.area);
         self

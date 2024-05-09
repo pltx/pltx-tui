@@ -7,6 +7,7 @@ pub mod popups;
 pub mod screens;
 pub mod utils;
 
+pub mod command_handler;
 pub mod config;
 pub mod database;
 pub mod errors;
@@ -16,15 +17,17 @@ pub mod tracing;
 pub mod tui;
 pub mod ui;
 
+use command_handler::CommandHandler;
 use config::Config;
 use database::Database;
 use keybinds::EventHandler;
-use state::{Mode, Pane, Popup, Screen, State};
+use state::{Mode, Pane, GlobalPopup, Screen, State};
 use ui::Interface;
 
 pub struct App {
     exit: bool,
     config: Config,
+    command_handler: CommandHandler,
     db: Database,
     state: State,
     scroll_view_state: ScrollViewState,
@@ -35,12 +38,13 @@ impl App {
         App {
             exit: false,
             config,
+            command_handler: CommandHandler::new(),
             db: Database::init(),
             state: State {
                 mode: Mode::Navigation,
                 screen: Screen::Dashboard,
                 pane: Pane::Navigation,
-                popup: Popup::None,
+                popup: GlobalPopup::None,
             },
             scroll_view_state: ScrollViewState::new(),
         }
@@ -52,15 +56,16 @@ impl App {
         self.db.insert_session().unwrap_or_else(|e| panic!("{e}"));
         let mut interface = Interface::init(self);
         interface.init_data(self).unwrap_or_else(|e| panic!("{e}"));
+        let mut command_handler = CommandHandler::new();
         let mut event_handler = EventHandler::init();
 
         while !self.exit {
             terminal.draw(|frame| {
-                interface.render(frame, self);
+                interface.render(frame, self, &mut command_handler);
             })?;
 
             event_handler
-                .handle_events(self, &mut interface)
+                .handle_events(self, &mut interface, &mut command_handler)
                 .wrap_err("handle events failed")?;
         }
         Ok(())
@@ -77,6 +82,8 @@ impl App {
             Mode::Popup => "Popup",
             Mode::PopupInsert => "Popup Insert",
             Mode::Delete => "Delete",
+            Mode::Command => "Command",
+            Mode::CommandInsert => "Command Insert",
         }
     }
 
@@ -103,6 +110,14 @@ impl App {
             Mode::Delete => (
                 colors.status_bar_delete_mode_fg,
                 colors.status_bar_delete_mode_bg,
+            ),
+            Mode::Command => (
+                colors.status_bar_command_mode_fg,
+                colors.status_bar_command_mode_bg,
+            ),
+            Mode::CommandInsert => (
+                colors.status_bar_command_insert_mode_fg,
+                colors.status_bar_command_insert_mode_bg,
             ),
         };
         (
