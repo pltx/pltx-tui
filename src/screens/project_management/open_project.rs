@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     state::{GlobalPopup, Mode, State},
-    trace_panic,
+    trace_debug, trace_panic,
     utils::{
         pane_title_bottom, Init, InitData, KeyEventHandlerReturn, RenderPage, RenderPopup,
         RenderPopupContained, ScreenKeybinds,
@@ -181,8 +181,10 @@ impl OpenProject {
         project = self.db_get_card_labels(app, &mut project).unwrap();
         project = self.db_get_card_subtasks(app, &mut project).unwrap();
 
-        if !project.lists.is_empty() && self.selected_list_id.is_none() {
-            self.selected_list_id = Some(project.lists[0].id);
+        if !project.lists.is_empty() {
+            if self.selected_list_id.is_none() {
+                self.selected_list_id = Some(project.lists[0].id);
+            }
 
             for list in project.lists.clone() {
                 if list.cards.is_empty() {
@@ -381,8 +383,6 @@ impl OpenProject {
             self.selected_list_id = Some(self.data.lists[selected_list_index + 1].id);
         } else if selected_list_index != 0 {
             self.selected_list_id = Some(self.data.lists[selected_list_index.saturating_sub(1)].id);
-        } else {
-            self.selected_list_id = Some(self.data.lists[0].id);
         }
 
         Ok(())
@@ -397,11 +397,11 @@ impl OpenProject {
 
         app.db.update_positions("project_card", original_position)?;
 
-        // Update the position of the selected card before `data` is updated.
         let list_index = self.selected_list_index().unwrap_or(0);
         let list = &self.data.lists[list_index];
         let selected_card_index = self.selected_card_index().unwrap_or(0);
 
+        // Update the position of the selected card before `data` is updated.
         if list.cards.len() == 1 {
             self.selected_card_ids.insert(list.id, None);
         } else if selected_card_index != list.cards.len().saturating_sub(1) {
@@ -412,9 +412,6 @@ impl OpenProject {
                 list.id,
                 Some(list.cards[selected_card_index.saturating_sub(1)].id),
             );
-        } else {
-            self.selected_card_ids
-                .insert(list.id, Some(list.cards[0].id));
         }
 
         Ok(())

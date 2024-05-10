@@ -44,6 +44,18 @@ macro_rules! trace_debug {
 }
 
 #[macro_export]
+macro_rules! trace_info {
+    ($ex:expr) => {{
+        match $ex {
+            value => {
+                tracing::event!(target: module_path!(), tracing::Level::INFO, ?value);
+                value
+            }
+        }
+    }};
+}
+
+#[macro_export]
 macro_rules! trace_warn {
     ($ex:expr) => {{
         match $ex {
