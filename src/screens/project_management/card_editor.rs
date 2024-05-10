@@ -107,23 +107,22 @@ impl Init for CardEditor {
 }
 
 impl CardEditor {
-    fn db_new_card(&self, app: &mut App) -> rusqlite::Result<()> {
-        if self.list_id.is_none() {
-            panic!("list_id is not set");
-        }
-
+    fn db_new_card(&self, app: &mut App) -> Result<i32, &str> {
         struct CardQuery {
             position: i32,
         }
         let mut stmt = app
             .db
             .conn
-            .prepare("SELECT position from project_card where list_id = ?1")?;
-        let project_iter = stmt.query_map([self.list_id], |r| {
-            Ok(CardQuery {
-                position: r.get(0)?,
+            .prepare("SELECT position from project_card where list_id = ?1")
+            .unwrap();
+        let project_iter = stmt
+            .query_map([self.list_id], |r| {
+                Ok(CardQuery {
+                    position: r.get(0)?,
+                })
             })
-        })?;
+            .unwrap();
         let mut highest_position = 0;
         for project in project_iter {
             let project_pos = project.unwrap().position;
@@ -132,28 +131,34 @@ impl CardEditor {
             }
         }
 
-        app.db.conn.execute(
-            "INSERT INTO project_card (project_id, list_id, title, description, important, \
-             due_date, reminder, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            (
-                Some(&self.project_id),
-                Some(&self.list_id),
-                &self.inputs.title.input[0],
-                &self.inputs.description.input.join("\n"),
-                true,
-                Option::<String>::None,
-                Option::<String>::None,
-                highest_position,
-            ),
-        )?;
-        Ok(())
+        app.db
+            .conn
+            .execute(
+                "INSERT INTO project_card (project_id, list_id, title, description, important, \
+                 due_date, reminder, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                (
+                    Some(&self.project_id),
+                    Some(&self.list_id),
+                    &self.inputs.title.input[0],
+                    &self.inputs.description.input.join("\n"),
+                    true,
+                    Option::<String>::None,
+                    Option::<String>::None,
+                    highest_position,
+                ),
+            )
+            .unwrap();
+
+        let new_card_id = app.db.last_row_id("project_card").unwrap();
+
+        Ok(new_card_id)
     }
 
-    fn db_edit_card(&self, app: &mut App) -> rusqlite::Result<()> {
+    fn db_edit_card(&self, app: &mut App) -> Result<i32, &str> {
         if let Some(data) = &self.data {
             let query = "UPDATE project_card SET title = ?1, description = ?2, important = ?3, \
                          due_date = ?4, reminder = ?5, updated_at = ?6 WHERE id = ?7";
-            let mut stmt = app.db.conn.prepare(query)?;
+            let mut stmt = app.db.conn.prepare(query).unwrap();
             stmt.execute((
                 &self.inputs.title.input[0],
                 &self.inputs.description.input[0],
@@ -162,17 +167,17 @@ impl CardEditor {
                 Option::<String>::None,
                 current_timestamp(),
                 data.id,
-            ))?;
+            ))
+            .unwrap();
+            Ok(data.id)
         } else {
-            panic!("list data was not set");
+            Err("list data was not set")
         }
-
-        Ok(())
     }
 }
 
-impl KeyEventHandlerReturn<bool> for CardEditor {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
+impl KeyEventHandlerReturn<Option<i32>> for CardEditor {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> Option<i32> {
         match self.focused_pane {
             FocusedPane::Title => self.inputs.title.handle_key_event(app, key_event),
             FocusedPane::Description => self.inputs.description.handle_key_event(app, key_event),
@@ -207,13 +212,13 @@ impl KeyEventHandlerReturn<bool> for CardEditor {
                 KeyCode::Enter => {
                     if self.focused_pane == FocusedPane::Actions {
                         if self.action == Action::Save {
-                            if self.is_new {
-                                self.db_new_card(app).unwrap_or_else(|e| panic!("{e}"));
+                            let id = if self.is_new {
+                                Some(self.db_new_card(app).unwrap_or_else(|e| panic!("{e}")))
                             } else {
-                                self.db_edit_card(app).unwrap_or_else(|e| panic!("{e}"));
-                            }
+                                Some(self.db_edit_card(app).unwrap_or_else(|e| panic!("{e}")))
+                            };
                             self.reset(app);
-                            return true;
+                            return id;
                         } else if self.action == Action::Cancel {
                             self.reset(app);
                         }
@@ -223,7 +228,7 @@ impl KeyEventHandlerReturn<bool> for CardEditor {
             }
         }
 
-        false
+        None
     }
 }
 

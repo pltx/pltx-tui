@@ -47,16 +47,22 @@ impl Init for ListEditor {
 }
 
 impl ListEditor {
-    fn db_new_list(&self, app: &mut App) -> rusqlite::Result<()> {
+    fn db_new_list(&self, app: &mut App) -> Result<i32, &str> {
         struct ProjectQuery {
             position: i32,
         }
-        let mut stmt = app.db.conn.prepare("SELECT position from project_list")?;
-        let project_iter = stmt.query_map([], |r| {
-            Ok(ProjectQuery {
-                position: r.get(0)?,
+        let mut stmt = app
+            .db
+            .conn
+            .prepare("SELECT position from project_list")
+            .unwrap_or_else(|e| trace_panic!("{e}"));
+        let project_iter = stmt
+            .query_map([], |r| {
+                Ok(ProjectQuery {
+                    position: r.get(0)?,
+                })
             })
-        })?;
+            .unwrap_or_else(|e| trace_panic!("{e}"));
         let mut highest_position = 0;
         for project in project_iter {
             let project_pos = project.unwrap().position;
@@ -67,49 +73,51 @@ impl ListEditor {
 
         // TODO: Replace with error notification
         if highest_position >= 5 {
-            return Ok(());
+            return Err("cannot create more than 5 lists");
         }
 
-        app.db.conn.execute(
-            "INSERT INTO project_list (project_id, title, position) VALUES (?1, ?2, ?3)",
-            (
-                Some(&self.project_id),
-                &self.inputs.title.input[0],
-                highest_position,
-            ),
-        )?;
-        Ok(())
+        let query = "INSERT INTO project_list (project_id, title, position) VALUES (?1, ?2, ?3)";
+        let params = (
+            Some(&self.project_id),
+            &self.inputs.title.input[0],
+            highest_position,
+        );
+        app.db.conn.execute(query, params).unwrap();
+
+        let new_list_id = app.db.last_row_id("project_list").unwrap();
+
+        Ok(new_list_id)
     }
 
-    fn db_edit_list(&self, app: &mut App) -> rusqlite::Result<()> {
+    fn db_edit_list(&self, app: &mut App) -> Result<i32, &str> {
         if let Some(data) = &self.data {
             let query = "UPDATE project_list SET title = ?1 WHERE id = ?2";
-            let mut stmt = app.db.conn.prepare(query)?;
-            stmt.execute((&self.inputs.title.input[0], data.id))?;
+            let mut stmt = app.db.conn.prepare(query).unwrap();
+            stmt.execute((&self.inputs.title.input[0], data.id))
+                .unwrap();
+            Ok(data.id)
         } else {
-            panic!("list data was not set");
+            Err("list data was not set")
         }
-
-        Ok(())
     }
 }
 
-impl KeyEventHandlerReturn<bool> for ListEditor {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
+impl KeyEventHandlerReturn<Option<i32>> for ListEditor {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> Option<i32> {
         self.inputs.title.handle_key_event(app, key_event);
 
         if key_event.code == KeyCode::Enter {
-            if self.is_new {
-                self.db_new_list(app).unwrap_or_else(|e| panic!("{e}"));
+            let list_id = if self.is_new {
+                Some(self.db_new_list(app).unwrap_or_else(|e| panic!("{e}")))
             } else {
-                self.db_edit_list(app).unwrap_or_else(|e| panic!("{e}"));
-            }
+                Some(self.db_edit_list(app).unwrap_or_else(|e| panic!("{e}")))
+            };
             app.state.mode = Mode::Navigation;
             self.inputs.title.reset();
-            return true;
+            return list_id;
         }
 
-        false
+        None
     }
 }
 

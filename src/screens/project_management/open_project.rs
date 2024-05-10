@@ -14,10 +14,10 @@ use super::{
 };
 use crate::{
     state::{GlobalPopup, Mode, State},
-    trace_debug, trace_panic,
+    trace_panic,
     utils::{
-        pane_title_bottom, Init, InitData, KeyEventHandlerReturn, RenderPage, RenderPopup,
-        RenderPopupContained, ScreenKeybinds,
+        pane_title_bottom, Init, InitData, KeyEventHandlerReturn, RenderPage, RenderPopupContained,
+        ScreenKeybinds,
     },
     App,
 };
@@ -188,10 +188,11 @@ impl OpenProject {
 
             for list in project.lists.clone() {
                 if list.cards.is_empty() {
-                    self.selected_card_ids.insert(list.id, None);
+                    self.selected_card_ids.entry(list.id).or_insert(None);
                 } else {
                     self.selected_card_ids
-                        .insert(list.id, Some(list.cards[0].id));
+                        .entry(list.id)
+                        .or_insert(Some(list.cards[0].id));
                 }
             }
         }
@@ -424,21 +425,34 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
         key_event: KeyEvent,
         event_state: &State,
     ) -> bool {
-        if (app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert)
-            && match self.popup {
-                Popup::NewList => {
+        if (app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert) {
+            if self.popup == Popup::NewList {
+                if let Some(new_list_id) =
                     self.popups
                         .new_list
                         .key_event_handler(app, key_event, event_state)
+                {
+                    self.selected_list_id = Some(new_list_id);
+                    self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
                 }
+            } else if self.popup == Popup::NewCard {
+                if let Some(new_card_id) =
+                    self.popups
+                        .new_card
+                        .key_event_handler(app, key_event, event_state)
+                {
+                    if let Some(selected_list_id) = self.selected_list_id {
+                        self.selected_card_ids
+                            .insert(selected_list_id, Some(new_card_id));
+                        self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
+                    }
+                }
+            }
+
+            if match self.popup {
                 Popup::EditList => {
                     self.popups
                         .edit_list
-                        .key_event_handler(app, key_event, event_state)
-                }
-                Popup::NewCard => {
-                    self.popups
-                        .new_card
                         .key_event_handler(app, key_event, event_state)
                 }
                 Popup::EditCard => {
@@ -446,10 +460,12 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
                         .edit_card
                         .key_event_handler(app, key_event, event_state)
                 }
-                Popup::None => false,
+                _ => None,
             }
-        {
-            self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"))
+            .is_some()
+            {
+                self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"))
+            }
         }
 
         if app.state.mode == Mode::Popup && key_event.code == KeyCode::Char('q') {
