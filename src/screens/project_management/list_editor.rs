@@ -1,8 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::Stylize,
-    widgets::Block,
     Frame,
 };
 
@@ -10,7 +8,7 @@ use crate::{
     components::{self, PopupSize, TextInput},
     state::{Mode, State},
     trace_panic,
-    utils::{Init, KeyEventHandlerReturn, RenderPopup, RenderPopupContained},
+    utils::{Init, KeyEventHandler, RenderPopupContained},
     App,
 };
 
@@ -40,7 +38,7 @@ impl Init for ListEditor {
             size: PopupSize::new().width(60).height(5),
             project_id: None,
             inputs: Inputs {
-                title: TextInput::new().title("Title").max(50),
+                title: TextInput::new(Mode::Popup).title("Title").max(50),
             },
         }
     }
@@ -79,7 +77,7 @@ impl ListEditor {
         let query = "INSERT INTO project_list (project_id, title, position) VALUES (?1, ?2, ?3)";
         let params = (
             Some(&self.project_id),
-            &self.inputs.title.input[0],
+            self.inputs.title.input_string(),
             highest_position,
         );
         app.db.conn.execute(query, params).unwrap();
@@ -93,7 +91,7 @@ impl ListEditor {
         if let Some(data) = &self.data {
             let query = "UPDATE project_list SET title = ?1 WHERE id = ?2";
             let mut stmt = app.db.conn.prepare(query).unwrap();
-            stmt.execute((&self.inputs.title.input[0], data.id))
+            stmt.execute((&self.inputs.title.input_string(), data.id))
                 .unwrap();
             Ok(data.id)
         } else {
@@ -102,7 +100,7 @@ impl ListEditor {
     }
 }
 
-impl KeyEventHandlerReturn<Option<i32>> for ListEditor {
+impl KeyEventHandler<Option<i32>> for ListEditor {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> Option<i32> {
         self.inputs.title.handle_key_event(app, key_event);
 
@@ -137,7 +135,7 @@ impl RenderPopupContained for ListEditor {
         frame.render_widget(
             self.inputs
                 .title
-                .render(app, self.size.width - 2, self.size.height - 2, true),
+                .render_block(app, self.size.width - 2, self.size.height - 2, true),
             title_layout,
         );
     }
@@ -170,5 +168,12 @@ impl ListEditor {
         self.inputs.title.input(list.title);
 
         Ok(())
+    }
+
+    pub fn reset(&mut self, app: &mut App) {
+        app.state.mode = Mode::Navigation;
+        self.data = None;
+        self.project_id = None;
+        self.inputs.title.reset();
     }
 }

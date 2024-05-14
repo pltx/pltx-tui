@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::{
-    command_handler::{self, CommandHandler},
+    command_handler::CommandHandler,
     config::ColorsConfig,
     popups, screens,
     state::{Mode, Pane, Screen},

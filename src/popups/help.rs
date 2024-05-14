@@ -12,7 +12,7 @@ use tui_scrollview::ScrollView;
 use crate::{
     components::{self, PopupSize},
     config::ColorsConfig,
-    state::{Mode, GlobalPopup, State},
+    state::{GlobalPopup, Mode, State},
     utils::{Init, KeyEventHandler, RenderScrollPopup},
     App,
 };
@@ -45,6 +45,8 @@ impl RenderScrollPopup for Help {
             .size(self.size.clone())
             .render(frame);
         // TODO: Fix height being twice as much as it needs to be
+        // TODO: Scrollview background does not match config.popup_bg, might not be a
+        // configurable option.
         let mut scroll_view = ScrollView::new(Size::new(popup.area.width, self.total_height()));
         self.render_widgets_into_scrollview(scroll_view.buf_mut(), app);
         scroll_view.render(
@@ -86,12 +88,12 @@ impl Help {
         match mode {
             Mode::Navigation => vec![
                 ("?", "Show help menu"),
-                ("q", "Quit application"),
                 (":", "Open command prompt"),
                 ("h", "Select next horizontal option"),
                 ("j", "Select next vertical option"),
                 ("k", "Select previous vertical option"),
                 ("l", "Select previous horizontal option"),
+                ("[", "Go back"),
                 ("<enter>", "Open selected option + Next navigation pane"),
                 ("<bs>", "Previous navigation pane"),
             ],

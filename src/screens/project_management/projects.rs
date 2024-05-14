@@ -8,7 +8,7 @@ use super::{
 use crate::{
     state::{Mode, State},
     trace_panic,
-    utils::{Init, InitData, KeyEventHandler, KeyEventHandlerReturn, RenderPage},
+    utils::{Init, InitData, KeyEventHandler, RenderPage},
     App,
 };
 
@@ -66,6 +66,7 @@ impl KeyEventHandler for Projects {
                     self.page = Page::EditProject;
                 }
                 KeyCode::Enter => {
+                    self.pages.open_project.reset(app);
                     self.pages
                         .open_project
                         .set_project_id(self.pages.list_projects.selected_id);

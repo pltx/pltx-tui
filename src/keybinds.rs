@@ -3,7 +3,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 
 use crate::{
     command_handler::CommandHandler,
-    state::{Mode, Pane, GlobalPopup, Screen, State},
+    state::{GlobalPopup, Mode, Pane, Screen, State},
     ui::Interface,
     utils::KeyEventHandler,
     App,
@@ -83,7 +83,6 @@ impl EventHandler {
                     app.state.mode = Mode::Popup;
                     app.state.popup = GlobalPopup::Help;
                 }
-                KeyCode::Char('q') | KeyCode::Char('Q') => app.exit(),
                 KeyCode::Enter | KeyCode::Char('L') => {
                     if event_state.pane == Pane::Navigation {
                         app.state.pane = Pane::Screen;
@@ -142,7 +141,7 @@ impl EventHandler {
             // Global popup keybinds
             match key_event.code {
                 // Close the popup
-                KeyCode::Char('q') | KeyCode::Char('Q') => {
+                KeyCode::Char('q') => {
                     app.state.mode = Mode::Navigation;
                     app.state.popup = GlobalPopup::None;
                 }

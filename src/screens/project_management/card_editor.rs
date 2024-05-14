@@ -1,9 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Style, Stylize},
-    text::{Line, Text},
-    widgets::{Block, BorderType, Borders, Paragraph, Widget},
+    layout::{Constraint, Layout, Rect},
+    widgets::{Block, Widget},
     Frame,
 };
 
@@ -11,7 +9,7 @@ use crate::{
     components::{self, Buttons, PopupSize, TextInput, TextInputEvent},
     config::ColorsConfig,
     state::{Mode, State},
-    utils::{current_timestamp, Init, KeyEventHandlerReturn, RenderPopupContained},
+    utils::{current_timestamp, Init, KeyEventHandler, RenderPopupContained},
     App,
 };
 
@@ -97,8 +95,8 @@ impl Init for CardEditor {
             project_id: None,
             list_id: None,
             inputs: Inputs {
-                title: TextInput::new().title("Title").max(100),
-                description: TextInput::new().title("Description").max(4000),
+                title: TextInput::new(Mode::Popup).title("Title").max(100),
+                description: TextInput::new(Mode::Popup).title("Description").max(4000),
             },
             focused_pane: FocusedPane::Title,
             action: Action::Save,
@@ -139,8 +137,8 @@ impl CardEditor {
                 (
                     Some(&self.project_id),
                     Some(&self.list_id),
-                    &self.inputs.title.input[0],
-                    &self.inputs.description.input.join("\n"),
+                    self.inputs.title.input_string(),
+                    self.inputs.description.input_string(),
                     true,
                     Option::<String>::None,
                     Option::<String>::None,
@@ -160,8 +158,8 @@ impl CardEditor {
                          due_date = ?4, reminder = ?5, updated_at = ?6 WHERE id = ?7";
             let mut stmt = app.db.conn.prepare(query).unwrap();
             stmt.execute((
-                &self.inputs.title.input[0],
-                &self.inputs.description.input[0],
+                self.inputs.title.input_string(),
+                self.inputs.description.input_string(),
                 true,
                 Option::<String>::None,
                 Option::<String>::None,
@@ -176,7 +174,7 @@ impl CardEditor {
     }
 }
 
-impl KeyEventHandlerReturn<Option<i32>> for CardEditor {
+impl KeyEventHandler<Option<i32>> for CardEditor {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> Option<i32> {
         match self.focused_pane {
             FocusedPane::Title => self.inputs.title.handle_key_event(app, key_event),
@@ -252,7 +250,7 @@ impl RenderPopupContained for CardEditor {
             .areas(popup.area);
 
         frame.render_widget(
-            self.inputs.title.render(
+            self.inputs.title.render_block(
                 app,
                 self.size.width - 2,
                 self.size.height - 2,
@@ -261,7 +259,7 @@ impl RenderPopupContained for CardEditor {
             title_layout,
         );
         frame.render_widget(
-            self.inputs.description.render(
+            self.inputs.description.render_block(
                 app,
                 self.size.width - 2,
                 self.size.height - 2,
@@ -340,7 +338,7 @@ impl CardEditor {
         Ok(())
     }
 
-    fn reset(&mut self, app: &mut App) {
+    pub fn reset(&mut self, app: &mut App) {
         app.state.mode = Mode::Navigation;
         self.inputs.title.reset();
         self.inputs.description.reset();

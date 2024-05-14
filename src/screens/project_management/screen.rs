@@ -79,7 +79,7 @@ impl InitData for ProjectManagement {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 project_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
-                color TEXT,
+                color TEXT NOT NULL,
                 position INTEGER NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

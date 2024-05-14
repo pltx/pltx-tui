@@ -47,11 +47,7 @@ pub trait EventHandler {
     fn event_handler(event: &Event, app: &mut App);
 }
 
-pub trait KeyEventHandler {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State);
-}
-
-pub trait KeyEventHandlerReturn<T> {
+pub trait KeyEventHandler<T = ()> {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) -> T;
 }
 

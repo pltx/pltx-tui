@@ -1,38 +1,43 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     style::Style,
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
 };
 
-use crate::{state::Mode, App};
+use crate::{state::Mode, utils::normal_to_insert, App};
 
 pub enum TextInputEvent {
     OnChange,
     None,
 }
 
+#[derive(Clone)]
 pub struct TextInput {
     pub input: Vec<String>,
     pub cursor_position: (usize, usize),
     title: Option<String>,
     placeholder: Option<String>,
     multiline: bool,
+    required: bool,
     min: Option<usize>,
     max: Option<usize>,
+    mode: Mode,
 }
 
 impl TextInput {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> TextInput {
+    pub fn new(mode: Mode) -> TextInput {
         TextInput {
             input: vec![String::from("")],
             cursor_position: (0, 0),
             title: None,
             placeholder: None,
             multiline: false,
+            required: false,
             min: None,
             max: None,
+            mode,
         }
     }
 
@@ -60,6 +65,11 @@ impl TextInput {
         self
     }
 
+    pub fn required(mut self) -> Self {
+        self.required = true;
+        self
+    }
+
     pub fn min(mut self, min: usize) -> Self {
         self.min = Some(min);
         self
@@ -75,6 +85,12 @@ impl TextInput {
 
     pub fn max(mut self, max: usize) -> Self {
         self.max = Some(max);
+        self
+    }
+
+    pub fn required_len(mut self, length: usize) -> Self {
+        self.min = Some(length);
+        self.max = Some(length);
         self
     }
 
@@ -142,11 +158,7 @@ impl TextInput {
     }
 
     fn enter_insert_mode(&self, app: &mut App) {
-        app.state.mode = match app.state.mode {
-            Mode::Popup => Mode::PopupInsert,
-            Mode::Command => Mode::CommandInsert,
-            _ => Mode::Insert,
-        }
+        app.state.mode = normal_to_insert(app.state.mode);
     }
 
     // TODO:
@@ -162,8 +174,8 @@ impl TextInput {
     pub fn handle_key_event(&mut self, app: &mut App, key_event: KeyEvent) -> TextInputEvent {
         let mut event = TextInputEvent::None;
 
-        match app.state.mode {
-            Mode::Insert | Mode::PopupInsert | Mode::CommandInsert => match key_event.code {
+        if app.state.mode == normal_to_insert(self.mode) {
+            match key_event.code {
                 KeyCode::Char(to_insert) => {
                     self.enter_char(to_insert);
                     event = TextInputEvent::OnChange;
@@ -175,8 +187,14 @@ impl TextInput {
                 KeyCode::Left => self.move_cursor_left(),
                 KeyCode::Right => self.move_cursor_right(),
                 _ => {}
-            },
-            Mode::Navigation | Mode::Popup | Mode::Command => match key_event.code {
+            }
+        }
+
+        if (self.mode == Mode::Navigation && app.state.mode == Mode::Navigation)
+            || (self.mode == Mode::Popup && app.state.mode == Mode::Popup)
+            || (self.mode == Mode::Command && app.state.mode == Mode::Command)
+        {
+            match key_event.code {
                 KeyCode::Char('h') => self.move_cursor_left(),
                 KeyCode::Char('l') => self.move_cursor_right(),
                 KeyCode::Char('w') => self.cursor_next_word(),
@@ -197,14 +215,20 @@ impl TextInput {
                     self.cursor_end_line()
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
 
         event
     }
 
-    pub fn render(&self, app: &App, width: u16, _: u16, focused: bool) -> impl Widget {
+    fn render_lines<'a>(
+        &self,
+        app: &App,
+        width: u16,
+        _: u16,
+        focused: bool,
+        side_space: bool,
+    ) -> Vec<Line<'a>> {
         let colors = &app.config.colors;
 
         let input = if !self.input.is_empty()
@@ -214,19 +238,21 @@ impl TextInput {
             if !focused {
                 if let Some(placeholder) = &self.placeholder {
                     vec![Line::from(vec![
-                        Span::from(placeholder.clone()).style(Style::new().fg(colors.secondary))
+                        Span::from(if side_space { " " } else { "" }),
+                        Span::from(placeholder.clone()).style(Style::new().fg(colors.secondary)),
                     ])]
                 } else {
                     vec![]
                 }
             } else {
-                vec![Line::from(vec![Span::from(" ").style(
-                    if self.is_insert_mode(app) {
+                vec![Line::from(vec![
+                    Span::from(if side_space { " " } else { "" }),
+                    Span::from(" ").style(if self.is_insert_mode(app) {
                         Style::new().fg(colors.bg).bg(colors.fg)
                     } else {
                         Style::new().fg(colors.bg).bg(colors.secondary)
-                    },
-                )])]
+                    }),
+                ])]
             }
         } else {
             // TODO: Implement multiline by spliting \n
@@ -234,7 +260,11 @@ impl TextInput {
             // display than `height`
 
             // Reduce by 2 for the border width and 1 for the cursor.
-            let line_length = width.saturating_sub(3) as usize;
+            let border_width = 2;
+            let cursor_width = 1;
+            let side_space_width = if side_space { 1 } else { 0 };
+            let line_length =
+                width.saturating_sub(border_width + cursor_width + side_space_width) as usize;
 
             type RenderCharType<'a> = ((usize, &'a String), (usize, &'a [char]), (usize, &'a char));
             let render_char =
@@ -252,11 +282,13 @@ impl TextInput {
 
                     let cursor_on_char = (real_line_x_value, line_index) == self.cursor_position;
                     if focused && cursor_on_char {
-                        style = style.fg(colors.bg).bg(if self.is_insert_mode(app) {
-                            colors.fg
+                        if self.is_insert_mode(app) {
+                            style = style
+                                .fg(colors.input_cursor_insert_fg)
+                                .bg(colors.input_cursor_insert_bg)
                         } else {
-                            colors.secondary
-                        });
+                            style = style.fg(colors.input_cursor_fg).bg(colors.input_cursor_bg)
+                        }
                     }
                     let mut span = vec![Span::from(character.to_string()).style(style)];
 
@@ -272,14 +304,19 @@ impl TextInput {
                     // Render the cursor (only if last character)
                     if focused && is_last_char && cursor_not_at_start && char_is_before_cursor {
                         span.push(Span::from(" ").style(if self.is_insert_mode(app) {
-                            Style::new().fg(colors.bg).bg(colors.fg)
+                            Style::new()
+                                .fg(colors.input_cursor_insert_fg)
+                                .bg(colors.input_cursor_insert_bg)
                         } else {
-                            Style::new().fg(colors.bg).bg(colors.secondary)
+                            Style::new()
+                                .fg(colors.input_cursor_fg)
+                                .bg(colors.input_cursor_bg)
                         }));
                     }
 
                     span
                 };
+
             self.input
                 .iter()
                 .enumerate()
@@ -289,13 +326,17 @@ impl TextInput {
                         .chunks(line_length)
                         .enumerate()
                         .map(|(chunk_index, chunk)| {
-                            let line = chunk
+                            let mut line = chunk
                                 .iter()
                                 .enumerate()
                                 .flat_map(|(i, c)| {
                                     render_char(((line_index, line), (chunk_index, chunk), (i, c)))
                                 })
                                 .collect::<Vec<Span>>();
+                            if side_space {
+                                line.insert(0, Span::from(" "));
+                                line.push(Span::from(" "));
+                            }
                             Line::from(line)
                         })
                         .collect::<Vec<Line>>()
@@ -303,7 +344,26 @@ impl TextInput {
                 .collect::<Vec<Line>>()
         };
 
-        Paragraph::new(input).block(
+        input
+    }
+
+    pub fn render_text<'a>(&self, app: &App, width: u16, height: u16, focused: bool) -> Text<'a> {
+        let colors = &app.config.colors;
+        let input_lines = self.render_lines(app, width, height, focused, true);
+        Text::from(input_lines).style(if focused {
+            Style::new()
+                .fg(colors.input_focus_fg)
+                .bg(colors.input_focus_bg)
+        } else {
+            Style::new().fg(colors.input_fg).bg(colors.input_bg)
+        })
+    }
+
+    pub fn render_block(&self, app: &App, width: u16, height: u16, focused: bool) -> impl Widget {
+        let colors = &app.config.colors;
+
+        let text = self.render_lines(app, width, height, focused, false);
+        Paragraph::new(text).block(
             Block::new()
                 .padding(Padding::horizontal(1))
                 .title(if let Some(title) = &self.title {
@@ -327,9 +387,6 @@ impl TextInput {
     }
 
     fn is_insert_mode(&self, app: &App) -> bool {
-        matches!(
-            app.state.mode,
-            Mode::Insert | Mode::PopupInsert | Mode::CommandInsert
-        )
+        app.state.mode == normal_to_insert(self.mode)
     }
 }

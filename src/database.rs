@@ -60,10 +60,19 @@ impl Database {
     }
 
     pub fn get_position(&self, table: &str, id: i32) -> rusqlite::Result<i32> {
-        let select_query = format!("SELECT position FROM {} WHERE id = ?1", table);
-        let mut select_stmt = self.conn.prepare(&select_query)?;
-        let position: i32 = select_stmt.query_row([id], |r| Ok(r.get(0)?))?;
+        let query = format!("SELECT position FROM {} WHERE id = ?1", table);
+        let mut stmt = self.conn.prepare(&query)?;
+        let position: i32 = stmt.query_row([id], |r| r.get(0))?;
         Ok(position)
+    }
+
+    pub fn get_highest_position(&self, table: &str) -> rusqlite::Result<i32> {
+        let query = format!(
+            "SELECT position from {table} WHERE position = (SELECT MAX(position) FROM {table})"
+        );
+        let mut stmt = self.conn.prepare(&query)?;
+        let highest_position: i32 = stmt.query_row([], |r| r.get(0)).unwrap_or(-1);
+        Ok(highest_position)
     }
 
     pub fn update_positions(&self, table: &str, old_position: i32) -> rusqlite::Result<()> {
@@ -82,7 +91,7 @@ impl Database {
             table, table
         );
         let mut stmt = self.conn.prepare(&query).unwrap();
-        let recent_id: i32 = stmt.query_row((), |r| Ok(r.get(0)?)).unwrap();
+        let recent_id: i32 = stmt.query_row((), |r| r.get(0)).unwrap();
         Ok(recent_id)
     }
 }

@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Style, Stylize},
+    style::{Color, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{block::Title, Block, BorderType, Borders, Padding, Paragraph},
     Frame,
@@ -16,7 +16,7 @@ use crate::{
     state::{GlobalPopup, Mode, State},
     trace_panic,
     utils::{
-        pane_title_bottom, Init, InitData, KeyEventHandlerReturn, RenderPage, RenderPopupContained,
+        pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, RenderPopupContained,
         ScreenKeybinds,
     },
     App,
@@ -151,7 +151,7 @@ impl Init for OpenProject {
 
 impl InitData for OpenProject {
     fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()> {
-        self.db_get_project(app);
+        self.db_get_project(app).unwrap();
         Ok(())
     }
 }
@@ -418,7 +418,7 @@ impl OpenProject {
         Ok(())
     }
 }
-impl KeyEventHandlerReturn<bool> for OpenProject {
+impl KeyEventHandler<bool> for OpenProject {
     fn key_event_handler(
         &mut self,
         app: &mut App,
@@ -628,19 +628,16 @@ impl KeyEventHandlerReturn<bool> for OpenProject {
     }
 }
 
-impl OpenProject {
-    fn list_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
-        vec![("n", "New List"), ("e", "Edit List"), ("d", "Delete List")]
-    }
-
-    fn card_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
-        vec![("n", "New Card"), ("e", "Edit Card"), ("d", "Delete Card")]
-    }
-}
-
 impl ScreenKeybinds for OpenProject {
     fn screen_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
-        [self.list_keybinds(), self.card_keybinds()].concat()
+        vec![
+            ("N", "New Card"),
+            ("E", "Edit Card"),
+            ("D", "Delete Card"),
+            ("n", "New List"),
+            ("e", "Edit List"),
+            ("d", "Delete List"),
+        ]
     }
 }
 
@@ -649,17 +646,12 @@ impl RenderPage<ProjectsState> for OpenProject {
         let colors = &app.config.colors.clone();
         let block = Block::new()
             .title_top(
-                Line::from(format!(" {} ", self.data.title)).style(Style::new().bold().fg(
-                    if state.screen_pane != ScreenPane::Tabs && self.data.lists.is_empty() {
-                        colors.primary
-                    } else {
-                        colors.secondary
-                    },
-                )),
+                Line::from(format!(" {} ", self.data.title))
+                    .style(Style::new().bold().fg(colors.fg)),
             )
             .title_bottom(pane_title_bottom(
                 colors,
-                self.list_keybinds(),
+                self.screen_keybinds(),
                 state.screen_pane != ScreenPane::Tabs && self.data.lists.is_empty(),
             ))
             .padding(Padding::horizontal(1))
@@ -700,13 +692,19 @@ impl RenderPage<ProjectsState> for OpenProject {
                 .split(block_layout);
 
             for (list_index, list_layout) in project_layout.iter().enumerate() {
+                let list_width = list_layout.width as usize - 2;
                 let list = &self.data.lists[list_index];
                 let selected_list = state.screen_pane == ScreenPane::Main
                     && self.selected_list_id.is_some_and(|id| id == list.id);
 
                 let list_block = Block::new()
                     .title(Title::from(format!(" {} ", list.title)).alignment(Alignment::Center))
-                    .padding(Padding::proportional(1))
+                    .title_style(Style::new().fg(colors.fg))
+                    .padding(if list.cards.is_empty() {
+                        Padding::proportional(1)
+                    } else {
+                        Padding::zero()
+                    })
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
                     .border_style(Style::new().fg(if selected_list {
@@ -733,21 +731,54 @@ impl RenderPage<ProjectsState> for OpenProject {
                                     .get(&self.data.lists[list_index].id)
                                     .is_some_and(|id| id == &Some(card.id))
                         });
+
                         text.push(
-                            Line::from(vec![Span::from(format!(" {} ", card.title))]).style(
-                                if selected_list && selected {
-                                    Style::new()
-                                        .bold()
-                                        .fg(colors.active_fg)
-                                        .bg(colors.active_bg)
-                                } else if unfocused_selected {
-                                    Style::new().bold().fg(colors.bg).bg(colors.secondary)
-                                } else {
-                                    Style::new().fg(colors.fg)
-                                },
-                            ),
+                            Line::from(vec![
+                                Span::from(format!(" {} ", card.title)),
+                                Span::from(" ".repeat(
+                                    list_width.saturating_sub(card.title.chars().count() + 2),
+                                )),
+                            ])
+                            .style(if selected_list && selected {
+                                Style::new()
+                                    .bold()
+                                    .fg(colors.active_fg)
+                                    .bg(colors.active_bg)
+                            } else if unfocused_selected {
+                                Style::new().bold().fg(colors.bg).bg(colors.secondary)
+                            } else {
+                                Style::new().fg(colors.fg)
+                            }),
                         );
-                        text.push(Line::from(format!(" {} ", card.id)));
+
+                        let label_colors_temp = vec!["#ff55aa", "#6633aa"];
+                        text.push(
+                            Line::from(
+                                [
+                                    vec![Span::from(" ")],
+                                    label_colors_temp
+                                        .iter()
+                                        .map(|label| {
+                                            Span::from("⬤ ").fg(Color::from_str(label).unwrap())
+                                        })
+                                        .collect(),
+                                    vec![Span::from(" ".repeat(
+                                        list_width - card.id.to_string().chars().count() - 2,
+                                    ))],
+                                ]
+                                .concat(),
+                            )
+                            .style(if selected_list && selected {
+                                Style::new()
+                                    .bold()
+                                    .fg(colors.active_fg)
+                                    .bg(colors.active_bg)
+                            } else if unfocused_selected {
+                                Style::new().bold().fg(colors.bg).bg(colors.secondary)
+                            } else {
+                                Style::new().fg(colors.secondary)
+                            }),
+                        );
                         text.push(Line::from(""))
                     }
                 }
@@ -798,12 +829,25 @@ impl OpenProject {
 
     fn selected_card_index(&self) -> Option<usize> {
         if let Some(index) = self.selected_list_index() {
-            self.data.lists[index].cards.iter().position(|p| {
-                if let Some(scid) = self.selected_card_id() {}
-                self.selected_card_id() == Some(p.id)
-            })
+            self.data.lists[index]
+                .cards
+                .iter()
+                .position(|p| self.selected_card_id() == Some(p.id))
         } else {
             None
         }
+    }
+
+    pub fn reset(&mut self, app: &mut App) {
+        self.project_id = None;
+        self.selected_list_id = None;
+        self.selected_card_ids = HashMap::new();
+        self.data = ProjectData::default();
+        self.popup = Popup::None;
+        self.popups.new_list.reset(app);
+        self.popups.edit_list.reset(app);
+        self.popups.new_card.reset(app);
+        self.popups.edit_card.reset(app);
+        self.delete_selection = DeleteSelection::None;
     }
 }

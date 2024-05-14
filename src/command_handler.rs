@@ -72,7 +72,9 @@ impl CommandHandler {
         let command_set = fst::Set::from_iter(command_options_list()).unwrap();
 
         CommandHandler {
-            command: TextInput::new().placeholder("Enter a command...").max(50),
+            command: TextInput::new(Mode::Command)
+                .placeholder("Enter a command...")
+                .max(50),
             size: PopupSize::new().width(60).height(20),
             display: Display::CommandInput,
             focused_pane: FocusedPane::Input,
@@ -197,7 +199,7 @@ impl RenderPopup for CommandHandler {
             .areas(popup.area);
 
         frame.render_widget(
-            self.command.render(
+            self.command.render_block(
                 app,
                 self.size.width - 2,
                 self.size.height - 2,

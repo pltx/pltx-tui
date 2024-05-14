@@ -6,18 +6,20 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table},
 };
 
-use super::{projects::ProjectsState, screen::ScreenPane};
+use super::{project_editor::ProjectLabel, projects::ProjectsState, screen::ScreenPane};
 use crate::{
     state::{Mode, State},
-    utils::{pane_title_bottom, Init, InitData, KeyEventHandlerReturn, RenderPage, ScreenKeybinds},
+    utils::{pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds},
     App,
 };
 
-struct Card {
+#[derive(Clone)]
+struct ListProjectCard {
     project_id: i32,
     due_date: Option<String>,
 }
 
+#[derive(Clone)]
 struct Project {
     id: i32,
     title: String,
@@ -25,7 +27,8 @@ struct Project {
     position: i32,
     created_at: String,
     updated_at: String,
-    cards: Vec<Card>,
+    labels: Vec<ProjectLabel>,
+    cards: Vec<ListProjectCard>,
 }
 
 pub struct ListProjects {
@@ -62,6 +65,7 @@ impl ListProjects {
                     position: row.get(3)?,
                     created_at: row.get(4)?,
                     updated_at: row.get(5)?,
+                    labels: vec![],
                     cards: vec![],
                 })
             })
@@ -71,16 +75,28 @@ impl ListProjects {
             projects.push(p.unwrap())
         }
 
-        let card_query = "SELECT project_id, due_date FROM project_card";
-        let mut card_stmt = app.db.conn.prepare(card_query).unwrap();
-        let card_iter = card_stmt
-            .query_map([], |row| {
-                Ok(Card {
-                    project_id: row.get(0)?,
-                    due_date: row.get(1)?,
-                })
+        projects = self.db_get_cards(app, &mut projects).unwrap();
+        projects = self.db_get_labels(app, &mut projects).unwrap();
+
+        if !projects.is_empty() && self.selected_id == 0 {
+            self.selected_id = projects[0].id;
+        }
+
+        self.projects = projects;
+
+        Ok(())
+    }
+
+    fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+        let query = "SELECT project_id, due_date FROM project_card";
+        let mut stmt = app.db.conn.prepare(query)?;
+        let card_iter = stmt.query_map([], |row| {
+            Ok(ListProjectCard {
+                project_id: row.get(0)?,
+                due_date: row.get(1)?,
             })
-            .unwrap();
+        })?;
+
         for c in card_iter {
             let card = c.unwrap();
             let index = projects
@@ -90,13 +106,31 @@ impl ListProjects {
             projects[index].cards.push(card);
         }
 
-        if !projects.is_empty() && self.selected_id == 0 {
-            self.selected_id = projects[0].id;
+        Ok(projects.to_vec())
+    }
+
+    fn db_get_labels(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+        let query = "SELECT project_id, id, title, color FROM project_label";
+        let mut stmt = app.db.conn.prepare(query)?;
+        let label_iter = stmt.query_map([], |row| {
+            Ok(ProjectLabel {
+                project_id: row.get(0)?,
+                id: row.get(1)?,
+                title: row.get(2)?,
+                color: row.get(3)?,
+            })
+        })?;
+
+        for l in label_iter {
+            let label = l.unwrap();
+            let index = projects
+                .iter()
+                .position(|p| p.id == label.project_id)
+                .unwrap();
+            projects[index].labels.push(label);
         }
 
-        self.projects = projects;
-
-        Ok(())
+        Ok(projects.to_vec())
     }
 }
 
@@ -152,7 +186,7 @@ impl ScreenKeybinds for ListProjects {
     }
 }
 
-impl KeyEventHandlerReturn<bool> for ListProjects {
+impl KeyEventHandler<bool> for ListProjects {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
         if app.state.mode == Mode::Navigation {
             let selected_index = self
@@ -254,7 +288,6 @@ impl RenderPage<ProjectsState> for ListProjects {
                         Cell::new("0"),
                         // TODO: Implement overdue
                         Cell::new("0"),
-                        Cell::new(p.created_at.clone()),
                     ])
                     .style(if p.id == self.selected_id {
                         Style::new()
@@ -268,21 +301,19 @@ impl RenderPage<ProjectsState> for ListProjects {
                 .collect::<Vec<Row>>();
 
             let widths = vec![
-                Constraint::Length(10),
+                Constraint::Length(7),
                 Constraint::Max(50),
                 Constraint::Length(7),
                 Constraint::Length(9),
                 Constraint::Length(8),
-                Constraint::Length(20),
             ];
             let table = Table::new(rows, widths).block(block).header(
                 Row::new(vec![
-                    Cell::new(" Position"),
+                    Cell::new(" Index"),
                     Cell::new("Title"),
                     Cell::new("Cards"),
                     Cell::new("Due Soon"),
                     Cell::new("Overdue"),
-                    Cell::new("Created At "),
                 ])
                 .style(Style::new().bold().fg(colors.primary)),
             );
@@ -340,6 +371,10 @@ impl RenderPage<ProjectsState> for ListProjects {
                 Line::from(vec![
                     Span::styled("Position: ", Style::new().fg(colors.secondary)),
                     Span::from(project.position.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Labels: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.labels.len().to_string()),
                 ]),
                 Line::from(vec![
                     Span::styled("Cards: ", Style::new().fg(colors.secondary)),
