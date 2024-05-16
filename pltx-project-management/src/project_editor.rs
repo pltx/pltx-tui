@@ -7,11 +7,11 @@ use pltx_app::{
 };
 use pltx_config::ColorsConfig;
 use pltx_utils::{current_timestamp, Init, KeyEventHandler, RenderPage};
-use pltx_widgets::{TextInput, TextInputEvent};
+use pltx_widgets::{Buttons, TextInput, TextInputEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
-    text::{Line, Span, Text},
+    text::Line,
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
     Frame,
 };
@@ -458,59 +458,21 @@ impl ProjectEditor {
         area: Rect,
         main_sp: bool,
     ) -> (impl Widget, Rect) {
-        let width = 30;
-        let [layout] = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Length(width)])
-            .areas(area);
-
-        (
-            Paragraph::new(Text::from(
-                [
-                    (
-                        Action::Save,
-                        if self.new {
-                            "Create New Project"
-                        } else {
-                            "Save Project"
-                        },
-                    ),
-                    (Action::Cancel, "Cancel"),
-                ]
-                .iter()
-                .map(|l| {
-                    Line::from(vec![
-                        Span::from(format!(" {} ", l.1)),
-                        Span::from(" ".repeat(layout.width as usize - 2 - l.1.chars().count() - 2)),
-                    ])
-                    .style(if self.focused_pane == FocusedPane::Actions {
-                        if self.action == l.0 {
-                            Style::new()
-                                .bold()
-                                .fg(colors.active_fg)
-                                .bg(colors.active_bg)
-                        } else {
-                            Style::new().fg(colors.secondary)
-                        }
-                    } else {
-                        Style::new().fg(colors.secondary)
-                    })
-                })
-                .collect::<Vec<Line>>(),
-            ))
-            .block(
-                Block::new()
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(Style::new().fg(
-                        if self.focused_pane == FocusedPane::Actions && main_sp {
-                            colors.primary
-                        } else {
-                            colors.border
-                        },
-                    )),
+        Buttons::from(vec![
+            (
+                if self.new {
+                    "Create New Project"
+                } else {
+                    "Save Project"
+                },
+                self.action == Action::Save,
             ),
-            layout,
+            ("Cancel", self.action == Action::Cancel),
+        ])
+        .render(
+            colors,
+            area,
+            self.focused_pane == FocusedPane::Actions && main_sp,
         )
     }
 

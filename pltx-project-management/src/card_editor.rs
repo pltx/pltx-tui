@@ -12,7 +12,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
     text::Span,
-    widgets::{Block, Paragraph, Widget},
+    widgets::{Paragraph, Widget},
     Frame,
 };
 
@@ -294,7 +294,7 @@ impl RenderPopupContained for CardEditor {
                 Constraint::Length(3),
                 Constraint::Length(10),
                 Constraint::Length(label_height),
-                Constraint::Length(6),
+                Constraint::Length(4),
             ])
             .areas(popup.area);
 
@@ -321,9 +321,7 @@ impl RenderPopupContained for CardEditor {
         frame.render_widget(self.render_labels(colors), label_layout);
 
         let actions = self.render_actions(colors, actions_layout);
-        frame.render_widget(Block::new(), actions.1 .0);
-        frame.render_widget(actions.0, actions.1 .1);
-        frame.render_widget(Block::new(), actions.1 .0);
+        frame.render_widget(actions.0, actions.1);
     }
 }
 
@@ -334,26 +332,18 @@ impl CardEditor {
             .render(colors, self.focused_pane == FocusedPane::Labels)
     }
 
-    fn render_actions(
-        &self,
-        colors: &ColorsConfig,
-        area: Rect,
-    ) -> (impl Widget, (Rect, Rect, Rect)) {
-        Buttons::new(vec![
+    fn render_actions(&self, colors: &ColorsConfig, area: Rect) -> (impl Widget, Rect) {
+        Buttons::from(vec![
             (
                 if self.is_new {
                     "Create New Card"
                 } else {
                     "Save Card"
                 },
-                self.focused_pane == FocusedPane::Actions && self.action == Action::Save,
+                self.action == Action::Save,
             ),
-            (
-                "Cancel",
-                self.focused_pane == FocusedPane::Actions && self.action == Action::Cancel,
-            ),
+            ("Cancel", self.action == Action::Cancel),
         ])
-        .set_width(30)
         .render(colors, area, self.focused_pane == FocusedPane::Actions)
     }
 }
@@ -397,8 +387,8 @@ impl CardEditor {
     pub fn set_data(&mut self, app: &App, card_id: i32) -> rusqlite::Result<()> {
         self.reset();
 
-        let query = "SELECT id, list_id, title, description, important, due_date, reminder, \
-                     position, created_at, updated_at FROM project_card WHERE id = ?1";
+        let query = "SELECT id, title, description, important, due_date, reminder, position, \
+                     created_at, updated_at FROM project_card WHERE id = ?1";
         let mut stmt = app.db.conn.prepare(query)?;
         let mut card = stmt.query_row([card_id], |r| {
             Ok(CardData {
