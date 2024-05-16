@@ -11,6 +11,7 @@ struct SideSpacing {
     right: u8,
 }
 
+/// Buttons widget
 pub struct Buttons {
     width: u16,
     side_spacing: SideSpacing,

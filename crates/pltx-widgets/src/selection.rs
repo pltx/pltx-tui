@@ -15,6 +15,7 @@ use ratatui::{
 
 type SelectionOptions<T = String> = Vec<(T, Span<'static>)>;
 
+/// Selection Widget
 pub struct Selection<T> {
     pub options: SelectionOptions<T>,
     pub focused_option: usize,
@@ -104,11 +105,11 @@ impl<T> Selection<T> {
         self.focused_option == self.options.len().saturating_sub(1)
     }
 
-    pub fn render<'b>(&self, colors: &ColorsConfig, focused_component: bool) -> Paragraph<'b> {
+    pub fn render<'b>(&self, colors: &ColorsConfig, focused_widget: bool) -> Paragraph<'b> {
         let mut text = vec![];
 
         for (i, option) in self.options.iter().enumerate() {
-            let focused = focused_component && self.focused_option == i;
+            let focused = focused_widget && self.focused_option == i;
 
             text.push(Line::from(vec![
                 Span::from(if focused { "❯" } else { " " })
@@ -128,7 +129,7 @@ impl<T> Selection<T> {
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(if focused_component {
+            .border_style(Style::new().fg(if focused_widget {
                 colors.primary
             } else {
                 colors.border

@@ -12,6 +12,7 @@ pub enum TextInputEvent {
     None,
 }
 
+/// TextInput widget
 #[derive(Clone)]
 pub struct TextInput {
     pub input: Vec<String>,

@@ -25,7 +25,7 @@ impl EventHandler {
     ) -> color_eyre::eyre::Result<()> {
         let e = event::read()?;
         // A copy of the application state at the start of the event. Since there are
-        // seperate global and component-specific functions that handle events,
+        // seperate global and widget-specific functions that handle events,
         // they can conflict if not using the original state of the application
         // at the start of the event. For example, if the global handler runs
         // first and opens the help menu when pressing `?`, but the help popup

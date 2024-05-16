@@ -54,7 +54,7 @@ impl PopupSize {
     }
 }
 
-/// Popup component
+/// Popup widget
 pub struct Popup<'a> {
     title_top: Option<&'a str>,
     title_bottom: Option<&'a str>,
