@@ -24,7 +24,6 @@ pub struct Selection<T> {
 }
 
 impl<T> Selection<T> {
-    #[allow(clippy::new_without_default)]
     pub fn new(mode: Mode) -> Self {
         Self {
             options: vec![],

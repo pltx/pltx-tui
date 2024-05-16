@@ -33,7 +33,7 @@ impl Init for ListEditor {
         ListEditor {
             is_new: false,
             data: None,
-            size: PopupSize::new().width(60).height(5),
+            size: PopupSize::default().width(60).height(5),
             project_id: None,
             inputs: Inputs {
                 title: TextInput::new(Mode::Popup).title("Title").max(50),

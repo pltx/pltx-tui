@@ -16,17 +16,18 @@ pub struct PopupSize {
     percentage_based_height: bool,
 }
 
-impl PopupSize {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> PopupSize {
-        PopupSize {
+impl Default for PopupSize {
+    fn default() -> Self {
+        Self {
             width: 70,
             height: 20,
             percentage_based_width: false,
             percentage_based_height: false,
         }
     }
+}
 
+impl PopupSize {
     pub fn percentage_based(mut self) -> Self {
         self.percentage_based_width = true;
         self.percentage_based_height = true;
@@ -69,7 +70,7 @@ impl<'a> Popup<'a> {
     pub fn new(app: &'a App, rect: Rect) -> Popup<'a> {
         let colors = &app.config.colors;
 
-        let size = PopupSize::new();
+        let size = PopupSize::default();
 
         let area = centered_rect(
             (size.width, size.percentage_based_width),

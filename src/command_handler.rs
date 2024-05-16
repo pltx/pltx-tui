@@ -66,15 +66,14 @@ fn command_options_list<'a>() -> Vec<&'a str> {
 }
 
 impl CommandHandler {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> CommandHandler {
+    pub fn init() -> CommandHandler {
         let command_set = fst::Set::from_iter(command_options_list()).unwrap();
 
         CommandHandler {
             command: TextInput::new(Mode::Command)
                 .placeholder("Enter a command...")
                 .max(50),
-            size: PopupSize::new().width(60).height(20),
+            size: PopupSize::default().width(60).height(20),
             display: Display::CommandInput,
             focused_pane: FocusedPane::Input,
             command_set,

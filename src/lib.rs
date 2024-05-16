@@ -18,7 +18,7 @@ pub fn run(terminal: &mut tui::Tui, app: &mut App) -> color_eyre::eyre::Result<(
     app.db.insert_session().unwrap_or_else(|e| panic!("{e}"));
     let mut interface = Interface::init(app);
     interface.init_data(app).unwrap_or_else(|e| panic!("{e}"));
-    let mut command_handler = CommandHandler::new();
+    let mut command_handler = CommandHandler::init();
     let mut event_handler = EventHandler::init();
 
     while !app.state.exit {

@@ -23,7 +23,7 @@ pub struct Help {
 impl Init for Help {
     fn init(_: &mut App) -> Help {
         Help {
-            size: PopupSize::new().percentage_based_height().height(90),
+            size: PopupSize::default().percentage_based_height().height(90),
         }
     }
 }

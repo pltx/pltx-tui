@@ -79,7 +79,7 @@ impl Init for CardEditor {
         CardEditor {
             is_new: false,
             data: None,
-            size: PopupSize::new().percentage_based().width(80).height(80),
+            size: PopupSize::default().percentage_based().width(80).height(80),
             project_id: None,
             list_id: None,
             inputs: Inputs {

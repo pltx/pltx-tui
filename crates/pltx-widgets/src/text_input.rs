@@ -27,9 +27,8 @@ pub struct TextInput {
 }
 
 impl TextInput {
-    #[allow(clippy::new_without_default)]
-    pub fn new(mode: Mode) -> TextInput {
-        TextInput {
+    pub fn new(mode: Mode) -> Self {
+        Self {
             input: vec![String::from("")],
             cursor_position: (0, 0),
             title: None,
