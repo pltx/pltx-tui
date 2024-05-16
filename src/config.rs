@@ -4,7 +4,7 @@ use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
-pub struct ColorsConfigGeneric<T> {
+pub struct ColorsConfig<T = Color> {
     pub primary: T,
     pub secondary: T,
     pub bg: T,
@@ -45,8 +45,8 @@ pub struct ColorsConfigGeneric<T> {
     pub status_bar_command_insert_mode_fg: T,
 }
 
-type ColorsConfigFile = ColorsConfigGeneric<Option<String>>;
-pub type ColorsConfig = ColorsConfigGeneric<Color>;
+type ColorsConfigFile = ColorsConfig<Option<String>>;
+
 #[derive(Deserialize, Serialize)]
 struct ConfigFile {
     log_level: Option<String>,
