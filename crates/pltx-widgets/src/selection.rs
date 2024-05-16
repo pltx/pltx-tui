@@ -1,17 +1,16 @@
 use std::collections::HashSet;
 
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{Mode, State},
+    App,
+};
+use pltx_config::ColorsConfig;
+use pltx_utils::KeyEventHandler;
 use ratatui::{
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
-};
-
-use crate::{
-    config::ColorsConfig,
-    state::{Mode, State},
-    utils::KeyEventHandler,
-    App,
 };
 
 type SelectionOptions<T = String> = Vec<(T, Span<'static>)>;

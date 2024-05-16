@@ -1,11 +1,10 @@
+use pltx_config::ColorsConfig;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Text},
     widgets::{Block, BorderType, Borders, Paragraph, Widget},
 };
-
-use crate::config::ColorsConfig;
 
 pub struct Buttons {
     width: u16,

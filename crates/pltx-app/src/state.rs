@@ -1,3 +1,5 @@
+use tui_scrollview::ScrollViewState;
+
 /// The current mode.
 #[derive(PartialEq, Clone, Copy)]
 pub enum Mode {
@@ -41,4 +43,6 @@ pub struct State {
     pub screen: Screen,
     pub pane: Pane,
     pub popup: GlobalPopup,
+    pub exit: bool,
+    pub scroll_view_state: ScrollViewState,
 }

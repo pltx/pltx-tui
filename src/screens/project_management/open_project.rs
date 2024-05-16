@@ -4,6 +4,13 @@ use std::{
 };
 
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{GlobalPopup, Mode, State},
+    App,
+};
+use pltx_config::ColorsConfig;
+use pltx_tracing::trace_panic;
+use pltx_utils::{Init, KeyEventHandler, RenderPage, RenderPopupContained};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
@@ -14,13 +21,6 @@ use ratatui::{
 
 use super::{
     card_editor::CardEditor, list_editor::ListEditor, projects::ProjectsState, screen::ScreenPane,
-};
-use crate::{
-    config::ColorsConfig,
-    state::{GlobalPopup, Mode, State},
-    trace_panic,
-    utils::{Init, KeyEventHandler, RenderPage, RenderPopupContained},
-    App,
 };
 
 #[derive(Clone)]
@@ -134,7 +134,7 @@ impl Init for OpenProject {
 
 impl OpenProject {
     pub fn db_get_project(&mut self, app: &mut App) -> Result<(), &str> {
-        let query = "SELECT id, title, description, position, created_at, updated_at FROM project \
+        let query = "SELECT title, description, position, created_at, updated_at FROM project \
                      WHERE id = ?1 ORDER BY position";
         let mut stmt = app.db.conn.prepare(query).unwrap();
         let mut project = stmt

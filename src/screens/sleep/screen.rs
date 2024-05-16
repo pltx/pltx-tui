@@ -1,9 +1,6 @@
+use pltx_app::App;
+use pltx_utils::{Init, RenderScreen};
 use ratatui::{layout::Rect, widgets::Paragraph, Frame};
-
-use crate::{
-    utils::{Init, RenderScreen},
-    App,
-};
 
 pub struct Sleep;
 

@@ -1,9 +1,8 @@
 use std::io::{self, stdout, Stdout};
 
 use crossterm::{execute, terminal::*};
+use pltx_tracing::trace_info;
 use ratatui::prelude::*;
-
-use crate::trace_info;
 
 /// A type alias for the terminal type used in this application.
 pub type Tui = Terminal<CrosstermBackend<Stdout>>;

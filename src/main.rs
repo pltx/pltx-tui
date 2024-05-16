@@ -1,4 +1,7 @@
-use pltx::{config::get_config, errors, tracing::initialize_logging, tui, App};
+use pltx::{errors, run, tui};
+use pltx_app::App;
+use pltx_config::get_config;
+use pltx_tracing::initialize_logging;
 
 fn main() -> color_eyre::eyre::Result<()> {
     errors::install_hooks()?;
@@ -8,7 +11,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     let mut terminal = tui::init()?;
 
     let mut app = App::new(config);
-    app.run(&mut terminal)?;
+    run(&mut terminal, &mut app)?;
 
     tui::restore()?;
 

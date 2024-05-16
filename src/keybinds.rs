@@ -1,15 +1,12 @@
 use color_eyre::eyre::Context;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-
-use crate::{
-    command_handler::CommandHandler,
+use pltx_app::{
     state::{GlobalPopup, Mode, Pane, Screen, State},
-    ui::Interface,
-    utils::KeyEventHandler,
     App,
 };
+use pltx_utils::KeyEventHandler;
 
-pub struct Popups {}
+use crate::{command_handler::CommandHandler, ui::Interface};
 
 /// Global event handler
 pub struct EventHandler;
@@ -157,12 +154,12 @@ impl EventHandler {
                     app.state.mode = Mode::Navigation;
                     app.state.popup = GlobalPopup::None;
                 }
-                KeyCode::Char('j') => app.scroll_view_state.scroll_down(),
-                KeyCode::Char('k') => app.scroll_view_state.scroll_up(),
-                KeyCode::Char('J') => app.scroll_view_state.scroll_page_down(),
-                KeyCode::Char('K') => app.scroll_view_state.scroll_page_up(),
-                KeyCode::Char('g') => app.scroll_view_state.scroll_to_top(),
-                KeyCode::Char('G') => app.scroll_view_state.scroll_to_bottom(),
+                KeyCode::Char('j') => app.state.scroll_view_state.scroll_down(),
+                KeyCode::Char('k') => app.state.scroll_view_state.scroll_up(),
+                KeyCode::Char('J') => app.state.scroll_view_state.scroll_page_down(),
+                KeyCode::Char('K') => app.state.scroll_view_state.scroll_page_up(),
+                KeyCode::Char('g') => app.state.scroll_view_state.scroll_to_top(),
+                KeyCode::Char('G') => app.state.scroll_view_state.scroll_to_bottom(),
                 _ => {}
             }
         }

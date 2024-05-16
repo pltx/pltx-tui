@@ -1,4 +1,6 @@
 use crossterm::event::{Event, KeyEvent};
+use pltx_app::{state::State, App};
+use pltx_config::ColorsConfig;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -6,8 +8,6 @@ use ratatui::{
     text::{Line, Span},
     Frame,
 };
-
-use crate::{config::ColorsConfig, state::State, App};
 
 pub trait InitData {
     /// This function should be called at the same time as `init()`.

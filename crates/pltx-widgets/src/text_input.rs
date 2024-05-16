@@ -1,11 +1,11 @@
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{state::Mode, App};
+use pltx_utils::normal_to_insert;
 use ratatui::{
     style::Style,
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
 };
-
-use crate::{state::Mode, utils::normal_to_insert, App};
 
 pub enum TextInputEvent {
     OnChange,

@@ -1,4 +1,11 @@
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{GlobalPopup, Mode, State},
+    App,
+};
+use pltx_config::ColorsConfig;
+use pltx_utils::{Init, KeyEventHandler, RenderScrollPopup};
+use pltx_widgets::{Popup, PopupSize};
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Size},
@@ -8,14 +15,6 @@ use ratatui::{
     Frame,
 };
 use tui_scrollview::ScrollView;
-
-use crate::{
-    components::{self, PopupSize},
-    config::ColorsConfig,
-    state::{GlobalPopup, Mode, State},
-    utils::{Init, KeyEventHandler, RenderScrollPopup},
-    App,
-};
 
 pub struct Help {
     size: PopupSize,
@@ -40,7 +39,7 @@ impl KeyEventHandler for Help {
 
 impl RenderScrollPopup for Help {
     fn render(&mut self, frame: &mut Frame, app: &mut App) {
-        let popup = components::Popup::new(app, frame.size())
+        let popup = Popup::new(app, frame.size())
             .title_top("Help Menu")
             .size(self.size.clone())
             .render(frame);
@@ -52,7 +51,7 @@ impl RenderScrollPopup for Help {
         scroll_view.render(
             popup.sub_area,
             frame.buffer_mut(),
-            &mut app.scroll_view_state,
+            &mut app.state.scroll_view_state,
         );
     }
 

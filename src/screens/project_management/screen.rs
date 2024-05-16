@@ -1,4 +1,10 @@
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{Mode, Pane, State},
+    App,
+};
+use pltx_config::ColorsConfig;
+use pltx_utils::{Init, InitData, KeyEventHandler, RenderPage, RenderScreen};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
@@ -8,12 +14,6 @@ use ratatui::{
 };
 
 use super::projects::{Projects, ProjectsState};
-use crate::{
-    config::ColorsConfig,
-    state::{Mode, Pane, State},
-    utils::{Init, InitData, KeyEventHandler, RenderPage, RenderScreen},
-    App,
-};
 
 #[derive(PartialEq, Clone)]
 enum Tab {

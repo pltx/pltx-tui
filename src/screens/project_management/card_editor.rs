@@ -1,6 +1,13 @@
 use std::{collections::HashSet, str::FromStr};
 
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{Mode, State},
+    App,
+};
+use pltx_config::ColorsConfig;
+use pltx_utils::{current_timestamp, Init, KeyEventHandler, RenderPopupContained};
+use pltx_widgets::{self, Buttons, Popup, PopupSize, Selection, TextInput, TextInputEvent};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
@@ -10,13 +17,6 @@ use ratatui::{
 };
 
 use super::open_project::ProjectLabel;
-use crate::{
-    components::{self, Buttons, PopupSize, Selection, TextInput, TextInputEvent},
-    config::ColorsConfig,
-    state::{Mode, State},
-    utils::{current_timestamp, Init, KeyEventHandler, RenderPopupContained},
-    App,
-};
 
 struct Inputs {
     title: TextInput,
@@ -279,7 +279,7 @@ impl RenderPopupContained for CardEditor {
     fn render(&mut self, frame: &mut Frame, app: &App, area: Rect) {
         let colors = &app.config.colors;
 
-        let popup = components::Popup::new(app, area)
+        let popup = Popup::new(app, area)
             .title_top(if self.is_new { "New Card" } else { "Edit Card" })
             .size(self.size.clone())
             .render(frame);

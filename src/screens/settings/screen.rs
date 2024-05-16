@@ -1,9 +1,6 @@
+use pltx_app::App;
+use pltx_utils::{get_version, Init, RenderScreen};
 use ratatui::{layout::Rect, widgets::Paragraph, Frame};
-
-use crate::{
-    utils::{get_version, Init, RenderScreen},
-    App,
-};
 
 pub struct Settings;
 

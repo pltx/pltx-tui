@@ -2,9 +2,8 @@ mod centered_rect;
 mod render;
 
 pub use centered_rect::*;
+use pltx_app::state::Mode;
 pub use render::*;
-
-use crate::state::Mode;
 
 pub fn get_version<'a>() -> &'a str {
     env!("CARGO_PKG_VERSION")

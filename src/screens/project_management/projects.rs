@@ -1,15 +1,15 @@
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{Mode, State},
+    App,
+};
+use pltx_tracing::trace_panic;
+use pltx_utils::{Init, InitData, KeyEventHandler, RenderPage};
 use ratatui::{layout::Rect, Frame};
 
 use super::{
     list_projects::ListProjects, open_project::OpenProject, project_editor::ProjectEditor,
     screen::ScreenPane,
-};
-use crate::{
-    state::{Mode, State},
-    trace_panic,
-    utils::{Init, InitData, KeyEventHandler, RenderPage},
-    App,
 };
 
 #[derive(PartialEq)]

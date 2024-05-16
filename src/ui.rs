@@ -1,3 +1,9 @@
+use pltx_app::{
+    state::{GlobalPopup, Mode, Pane, Screen},
+    App,
+};
+use pltx_config::ColorsConfig;
+use pltx_utils::{Init, InitData, RenderPopup, RenderScreen, RenderScrollPopup};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
@@ -6,14 +12,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::{
-    command_handler::CommandHandler,
-    config::ColorsConfig,
-    popups, screens,
-    state::{Mode, Pane, Screen},
-    utils::{Init, InitData, RenderPopup, RenderScreen, RenderScrollPopup},
-    App, GlobalPopup,
-};
+use crate::{command_handler::CommandHandler, popups, screens};
 
 /// States for each screen
 pub struct ScreenState {

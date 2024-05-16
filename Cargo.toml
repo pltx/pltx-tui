@@ -1,15 +1,35 @@
+[workspace]
+members = [
+  ".",
+  "crates/pltx-app",
+  "crates/pltx-config",
+  "crates/pltx-database",
+  "crates/pltx-tracing",
+  "crates/pltx-utils",
+  "crates/pltx-widgets",
+]
+
+[workspace.package]
+version = "0.0.1"
+license = "GPL-3.0"
+edition = "2021"
+documentation = "https://github.com/pltx/tui"
+repository = "https://github.com/pltx/tui"
+homepage = "https://github.com/pltx/tui"
+authors = ["Slekup <opensource@slekup.com>"]
+
 [package]
 name = "pltx-tui"
 description = "Private Life Tracker X TUI"
-version = "0.0.1"
-edition = "2021"
-authors = ["Slekup <opensource@slekup.com>"]
 keywords = ["tui", "privacy", "tracker"]
 categories = ["tui", "privacy", "tracker"]
-documentation = "https://github.com/pltx/tui"
-homepage = "https://github.com/pltx/tui"
-repository = "https://github.com/pltx/tui"
-license = "GPL-3.0"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+documentation.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
 
 [[bin]]
 name = "pltx"
@@ -19,20 +39,50 @@ path = "src/main.rs"
 name = "pltx"
 
 [profile.release]
+lto = true
+codegen-units = 1
+strip = "debuginfo"
 panic = "abort"
 
-[dependencies]
-chrono = "0.4.38"
+
+[lints.rust]
+unused_extern_crates = "deny"
+
+[lints.rustdoc]
+broken_intra_doc_links = "deny"
+missing_crate_level_docs = "deny"
+
+[lints.clippy]
+todo = "deny"
+unimplemented = "deny"
+missing_safety_doc = "deny"
+
+[workspace.dependencies]
+pltx_app = { path = "crates/pltx-app" }
+pltx_config = { path = "crates/pltx-config" }
+pltx_database = { path = "crates/pltx-database" }
+pltx_tracing = { path = "crates/pltx-tracing" }
+pltx_utils = { path = "crates/pltx-utils" }
+pltx_widgets = { path = "crates/pltx-widgets" }
 color-eyre = "0.6.3"
 crossterm = "0.27.0"
-fst = { version = "0.4.7", features = ["levenshtein"] }
-home = "0.5.9"
 ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
-serde = { version = "1.0.197", features = ["derive"] }
-serde_derive = "1.0.197"
-toml = "0.8.12"
 tracing = "0.1.40"
-tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tui-scrollview = "0.3.4"
+home = "0.5.9"
+
+[dependencies]
+pltx_app = { workspace = true }
+pltx_database = { workspace = true }
+pltx_config = { workspace = true }
+pltx_tracing = { workspace = true }
+pltx_utils = { workspace = true }
+pltx_widgets = { workspace = true }
+color-eyre = { workspace = true }
+crossterm = { workspace = true }
+fst = { version = "0.4.7", features = ["levenshtein"] }
+ratatui = { workspace = true }
+rusqlite = { workspace = true }
+tracing = { workspace = true }
+tui-scrollview = { workspace = true }

@@ -1,18 +1,17 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use fst::{automaton::Levenshtein, IntoStreamer};
+use pltx_app::{
+    state::{GlobalPopup, Mode, State},
+    App,
+};
+use pltx_utils::{KeyEventHandler, RenderPopup};
+use pltx_widgets::{self, Popup, PopupSize, TextInput, TextInputEvent};
 use ratatui::{
     layout::{Constraint, Layout},
     style::{Style, Stylize},
     text::{Line, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
     Frame,
-};
-
-use crate::{
-    components::{self, PopupSize, TextInput, TextInputEvent},
-    state::{GlobalPopup, Mode, State},
-    utils::{KeyEventHandler, RenderPopup},
-    App,
 };
 
 #[derive(PartialEq, Clone)]
@@ -189,7 +188,7 @@ impl RenderPopup for CommandHandler {
     fn render(&mut self, frame: &mut Frame, app: &App) {
         let colors = &app.config.colors;
 
-        let popup = components::Popup::new(app, frame.size())
+        let popup = Popup::new(app, frame.size())
             .size(self.size.clone())
             .render(frame);
 

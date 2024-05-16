@@ -1,11 +1,12 @@
+use pltx_app::App;
+use pltx_config::ColorsConfig;
+use pltx_utils::centered_rect;
 use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Style, Stylize},
     widgets::{block::Title, Block, BorderType, Borders, Clear},
     Frame,
 };
-
-use crate::{config::ColorsConfig, utils::centered_rect, App};
 
 #[derive(Clone)]
 pub struct PopupSize {
@@ -53,6 +54,7 @@ impl PopupSize {
     }
 }
 
+/// Popup component
 pub struct Popup<'a> {
     title_top: Option<&'a str>,
     title_bottom: Option<&'a str>,

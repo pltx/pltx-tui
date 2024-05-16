@@ -1,15 +1,14 @@
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{Mode, State},
+    App,
+};
+use pltx_tracing::trace_panic;
+use pltx_utils::{Init, KeyEventHandler, RenderPopupContained};
+use pltx_widgets::{self, Popup, PopupSize, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     Frame,
-};
-
-use crate::{
-    components::{self, PopupSize, TextInput},
-    state::{Mode, State},
-    trace_panic,
-    utils::{Init, KeyEventHandler, RenderPopupContained},
-    App,
 };
 
 struct Inputs {
@@ -120,7 +119,7 @@ impl KeyEventHandler<Option<i32>> for ListEditor {
 
 impl RenderPopupContained for ListEditor {
     fn render(&mut self, frame: &mut Frame, app: &App, area: Rect) {
-        let popup = components::Popup::new(app, area)
+        let popup = Popup::new(app, area)
             .title_top(if self.is_new { "New List" } else { "Edit List" })
             .size(self.size.clone())
             .render(frame);

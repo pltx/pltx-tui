@@ -1,16 +1,15 @@
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{Mode, Pane, State},
+    App,
+};
+use pltx_database::Session;
+use pltx_utils::{KeyEventHandler, RenderScreen};
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Style, Stylize},
     widgets::{block::Title, Block, BorderType, Borders, Cell, Padding, Row, Table, Widget},
     Frame,
-};
-
-use crate::{
-    database::Session,
-    state::{Mode, Pane, State},
-    utils::{KeyEventHandler, RenderScreen},
-    App,
 };
 
 #[derive(PartialEq, Clone)]

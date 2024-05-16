@@ -1,6 +1,13 @@
 use std::str::FromStr;
 
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{Mode, State},
+    App,
+};
+use pltx_config::ColorsConfig;
+use pltx_utils::{current_timestamp, Init, KeyEventHandler, RenderPage};
+use pltx_widgets::{TextInput, TextInputEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
@@ -10,13 +17,6 @@ use ratatui::{
 };
 
 use super::{projects::ProjectsState, screen::ScreenPane};
-use crate::{
-    components::{TextInput, TextInputEvent},
-    config::ColorsConfig,
-    state::{Mode, State},
-    utils::{current_timestamp, Init, KeyEventHandler, RenderPage},
-    App,
-};
 
 const PROJECT_TITLE_MAX_LENGTH: usize = 100;
 const PROJECT_DESCRIPTION_MAX_LENGTH: usize = 500;

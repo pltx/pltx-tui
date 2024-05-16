@@ -1,0 +1,26 @@
+[package]
+name = "pltx_database"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+documentation.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[lints.rust]
+# missing_docs = "deny"
+unused_extern_crates = "deny"
+
+[lints.rustdoc]
+broken_intra_doc_links = "deny"
+missing_crate_level_docs = "deny"
+
+[lints.clippy]
+todo = "deny"
+unimplemented = "deny"
+missing_safety_doc = "deny"
+
+[dependencies]
+rusqlite = { workspace = true }
+home = { workspace = true }

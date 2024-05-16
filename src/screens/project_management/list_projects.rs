@@ -1,4 +1,9 @@
 use crossterm::event::{KeyCode, KeyEvent};
+use pltx_app::{
+    state::{Mode, State},
+    App,
+};
+use pltx_utils::{pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Style, Stylize},
@@ -7,11 +12,6 @@ use ratatui::{
 };
 
 use super::{project_editor::ProjectLabel, projects::ProjectsState, screen::ScreenPane};
-use crate::{
-    state::{Mode, State},
-    utils::{pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds},
-    App,
-};
 
 #[derive(Clone)]
 struct ListProjectCard {
