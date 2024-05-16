@@ -1,11 +1,14 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{block::Title, Block, BorderType, Borders, Padding, Paragraph},
+    widgets::{block::Title, Block, BorderType, Borders, Padding, Paragraph, Widget},
     Frame,
 };
 
@@ -13,42 +16,30 @@ use super::{
     card_editor::CardEditor, list_editor::ListEditor, projects::ProjectsState, screen::ScreenPane,
 };
 use crate::{
+    config::ColorsConfig,
     state::{GlobalPopup, Mode, State},
     trace_panic,
-    utils::{
-        pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, RenderPopupContained,
-        ScreenKeybinds,
-    },
+    utils::{Init, KeyEventHandler, RenderPage, RenderPopupContained},
     App,
 };
 
 #[derive(Clone)]
-struct ProjectLabel {
-    id: i32,
-    title: String,
-    color: Option<String>,
-    position: i32,
-    created_at: String,
-    updated_at: String,
+pub struct ProjectLabel {
+    pub id: i32,
+    pub title: String,
+    pub color: String,
 }
 
 #[derive(Clone)]
-struct CardLabel {
-    id: i32,
+struct ProjectCardLabel {
     card_id: i32,
     label_id: i32,
-    created_at: String,
-    updated_at: String,
 }
 
 #[derive(Clone)]
-struct CardSubtask {
-    id: i32,
+struct ProjectCardSubtask {
     card_id: i32,
-    value: String,
     completed: i32,
-    created_at: String,
-    updated_at: String,
 }
 
 #[derive(Clone)]
@@ -63,8 +54,8 @@ struct ProjectCard {
     position: i32,
     created_at: String,
     updated_at: String,
-    labels: Vec<CardLabel>,
-    subtasks: Vec<CardSubtask>,
+    labels: HashSet<i32>,
+    subtasks: Vec<ProjectCardSubtask>,
 }
 
 #[derive(Clone)]
@@ -149,13 +140,6 @@ impl Init for OpenProject {
     }
 }
 
-impl InitData for OpenProject {
-    fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()> {
-        self.db_get_project(app).unwrap();
-        Ok(())
-    }
-}
-
 impl OpenProject {
     pub fn db_get_project(&mut self, app: &mut App) -> Result<(), &str> {
         let query = "SELECT id, title, description, position, created_at, updated_at FROM project \
@@ -205,12 +189,12 @@ impl OpenProject {
                 self.popups.edit_card.ids(project_id, list_id);
             }
 
-            if let Some(card_id) = self.selected_card_id() {
-                self.popups
-                    .edit_card
-                    .set(app, card_id)
-                    .unwrap_or_else(|e| trace_panic!("{e}"));
-            }
+            // if let Some(card_id) = self.selected_card_id() {
+            //     self.popups
+            //         .edit_card
+            //         .set_data(app, card_id)
+            //         .unwrap_or_else(|e| trace_panic!("{e}"));
+            // }
         }
 
         self.data = project;
@@ -218,24 +202,32 @@ impl OpenProject {
         Ok(())
     }
 
-    fn db_get_labels(&self, app: &App) -> rusqlite::Result<Vec<ProjectLabel>> {
+    fn db_get_labels(&mut self, app: &App) -> rusqlite::Result<Vec<ProjectLabel>> {
         let mut labels = vec![];
         let project_label_query = "SELECT id, title, color, position, created_at, updated_at FROM \
                                    project_label WHERE project_id = ?1 ORDER BY position";
         let mut project_label_stmt = app.db.conn.prepare(project_label_query)?;
+
         let project_label_iter = project_label_stmt.query_map([&self.project_id], |r| {
             Ok(ProjectLabel {
                 id: r.get(0)?,
                 title: r.get(1)?,
                 color: r.get(2)?,
-                position: r.get(3)?,
-                created_at: r.get(4)?,
-                updated_at: r.get(5)?,
             })
         })?;
-        for label in project_label_iter {
-            labels.push(label.unwrap());
+
+        for l in project_label_iter {
+            let label = l.unwrap();
+            labels.push(label);
         }
+
+        self.popups
+            .new_card
+            .labels(&app.config.colors, labels.clone());
+        self.popups
+            .edit_card
+            .labels(&app.config.colors, labels.clone());
+
         Ok(labels)
     }
 
@@ -278,7 +270,7 @@ impl OpenProject {
                 position: r.get(7)?,
                 created_at: r.get(8)?,
                 updated_at: r.get(9)?,
-                labels: vec![],
+                labels: HashSet::new(),
                 subtasks: vec![],
             })
         })?;
@@ -299,20 +291,18 @@ impl OpenProject {
         app: &App,
         project: &mut ProjectData,
     ) -> rusqlite::Result<ProjectData> {
-        let card_label_query = "SELECT id, card_id, label_id, created_at, updated_at FROM \
-                                card_label WHERE project_id = ?1";
+        let card_label_query = "SELECT card_id, label_id FROM card_label WHERE project_id = ?1";
         let mut card_label_stmt = app.db.conn.prepare(card_label_query)?;
         let card_label_iter = card_label_stmt.query_map([&self.project_id], |r| {
-            Ok(CardLabel {
-                id: r.get(0)?,
-                card_id: r.get(1)?,
-                label_id: r.get(2)?,
-                created_at: r.get(3)?,
-                updated_at: r.get(4)?,
+            Ok(ProjectCardLabel {
+                card_id: r.get(0)?,
+                label_id: r.get(1)?,
             })
         })?;
+
         for card_label in card_label_iter {
             let label = card_label.unwrap();
+
             let list_index = project
                 .lists
                 .iter()
@@ -325,8 +315,9 @@ impl OpenProject {
                 .unwrap();
             project.lists[list_index].cards[card_index]
                 .labels
-                .push(label);
+                .insert(label.label_id);
         }
+
         Ok(project.clone())
     }
 
@@ -339,13 +330,9 @@ impl OpenProject {
                                   FROM card_subtask WHERE project_id = ?1";
         let mut card_subtask_stmt = app.db.conn.prepare(card_subtask_query)?;
         let card_subtask_iter = card_subtask_stmt.query_map([&self.project_id], |r| {
-            Ok(CardSubtask {
-                id: r.get(0)?,
+            Ok(ProjectCardSubtask {
                 card_id: r.get(0)?,
-                value: r.get(0)?,
                 completed: r.get(0)?,
-                created_at: r.get(0)?,
-                updated_at: r.get(0)?,
             })
         })?;
         for card_subtask in card_subtask_iter {
@@ -425,7 +412,7 @@ impl KeyEventHandler<bool> for OpenProject {
         key_event: KeyEvent,
         event_state: &State,
     ) -> bool {
-        if (app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert) {
+        if app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert {
             if self.popup == Popup::NewList {
                 if let Some(new_list_id) =
                     self.popups
@@ -513,10 +500,10 @@ impl KeyEventHandler<bool> for OpenProject {
                             if let Some(card_id) = self.selected_card_id() {
                                 self.popups.edit_card.ids(project_id, list_id);
                                 self.popup = Popup::EditCard;
-                                app.state.mode = Mode::PopupInsert;
+                                app.state.mode = Mode::Popup;
                                 self.popups
                                     .edit_card
-                                    .set(app, card_id)
+                                    .set_data(app, card_id)
                                     .unwrap_or_else(|e| panic!("{e}"))
                             }
                         }
@@ -628,19 +615,6 @@ impl KeyEventHandler<bool> for OpenProject {
     }
 }
 
-impl ScreenKeybinds for OpenProject {
-    fn screen_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
-        vec![
-            ("N", "New Card"),
-            ("E", "Edit Card"),
-            ("D", "Delete Card"),
-            ("n", "New List"),
-            ("e", "Edit List"),
-            ("d", "Delete List"),
-        ]
-    }
-}
-
 impl RenderPage<ProjectsState> for OpenProject {
     fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect, state: ProjectsState) {
         let colors = &app.config.colors.clone();
@@ -649,11 +623,6 @@ impl RenderPage<ProjectsState> for OpenProject {
                 Line::from(format!(" {} ", self.data.title))
                     .style(Style::new().bold().fg(colors.fg)),
             )
-            .title_bottom(pane_title_bottom(
-                colors,
-                self.screen_keybinds(),
-                state.screen_pane != ScreenPane::Tabs && self.data.lists.is_empty(),
-            ))
             .padding(Padding::horizontal(1))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded);
@@ -692,99 +661,8 @@ impl RenderPage<ProjectsState> for OpenProject {
                 .split(block_layout);
 
             for (list_index, list_layout) in project_layout.iter().enumerate() {
-                let list_width = list_layout.width as usize - 2;
-                let list = &self.data.lists[list_index];
-                let selected_list = state.screen_pane == ScreenPane::Main
-                    && self.selected_list_id.is_some_and(|id| id == list.id);
-
-                let list_block = Block::new()
-                    .title(Title::from(format!(" {} ", list.title)).alignment(Alignment::Center))
-                    .title_style(Style::new().fg(colors.fg))
-                    .padding(if list.cards.is_empty() {
-                        Padding::proportional(1)
-                    } else {
-                        Padding::zero()
-                    })
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(Style::new().fg(if selected_list {
-                        colors.primary
-                    } else {
-                        colors.border
-                    }));
-
-                let mut text = vec![];
-
-                if list.cards.is_empty() {
-                    text.push(Line::from(vec![
-                        Span::from("There are no tasks in this list. Press "),
-                        Span::from("n").bold().fg(colors.keybind_key),
-                        Span::from(" to create a new task."),
-                    ]));
-                } else {
-                    for card in list.cards.iter() {
-                        let selected = self.selected_card_id() == Some(card.id);
-                        let unfocused_selected = self.selected_list_id.is_some_and(|list_id| {
-                            list_id != self.data.lists[list_index].id
-                                && self
-                                    .selected_card_ids
-                                    .get(&self.data.lists[list_index].id)
-                                    .is_some_and(|id| id == &Some(card.id))
-                        });
-
-                        text.push(
-                            Line::from(vec![
-                                Span::from(format!(" {} ", card.title)),
-                                Span::from(" ".repeat(
-                                    list_width.saturating_sub(card.title.chars().count() + 2),
-                                )),
-                            ])
-                            .style(if selected_list && selected {
-                                Style::new()
-                                    .bold()
-                                    .fg(colors.active_fg)
-                                    .bg(colors.active_bg)
-                            } else if unfocused_selected {
-                                Style::new().bold().fg(colors.bg).bg(colors.secondary)
-                            } else {
-                                Style::new().fg(colors.fg)
-                            }),
-                        );
-
-                        let label_colors_temp = vec!["#ff55aa", "#6633aa"];
-                        text.push(
-                            Line::from(
-                                [
-                                    vec![Span::from(" ")],
-                                    label_colors_temp
-                                        .iter()
-                                        .map(|label| {
-                                            Span::from("⬤ ").fg(Color::from_str(label).unwrap())
-                                        })
-                                        .collect(),
-                                    vec![Span::from(" ".repeat(
-                                        list_width - card.id.to_string().chars().count() - 2,
-                                    ))],
-                                ]
-                                .concat(),
-                            )
-                            .style(if selected_list && selected {
-                                Style::new()
-                                    .bold()
-                                    .fg(colors.active_fg)
-                                    .bg(colors.active_bg)
-                            } else if unfocused_selected {
-                                Style::new().bold().fg(colors.bg).bg(colors.secondary)
-                            } else {
-                                Style::new().fg(colors.secondary)
-                            }),
-                        );
-                        text.push(Line::from(""))
-                    }
-                }
-
-                let content = Paragraph::new(Text::from(text)).block(list_block.clone());
-                frame.render_widget(content, *list_layout);
+                let list = self.render_list(app, &state, *list_layout, list_index);
+                frame.render_widget(list.0, list.1);
             }
         }
 
@@ -803,6 +681,128 @@ impl RenderPage<ProjectsState> for OpenProject {
 }
 
 impl OpenProject {
+    fn render_list(
+        &self,
+        app: &App,
+        state: &ProjectsState,
+        layout: Rect,
+        index: usize,
+    ) -> (impl Widget, Rect) {
+        let colors = &app.config.colors;
+
+        let list_width = layout.width as usize - 2;
+        let list = &self.data.lists[index];
+        let selected_list = state.screen_pane == ScreenPane::Main
+            && self.selected_list_id.is_some_and(|id| id == list.id);
+
+        let list_block = Block::new()
+            .title(Title::from(format!(" {} ", list.title)).alignment(Alignment::Center))
+            .title_style(Style::new().fg(colors.fg))
+            .padding(if list.cards.is_empty() {
+                Padding::proportional(1)
+            } else {
+                Padding::zero()
+            })
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::new().fg(if selected_list {
+                colors.primary
+            } else {
+                colors.border
+            }));
+
+        let mut text = vec![];
+
+        if list.cards.is_empty() {
+            text.push(Line::from(vec![
+                Span::from("There are no tasks in this list. Press "),
+                Span::from("n").bold().fg(colors.keybind_key),
+                Span::from(" to create a new task."),
+            ]));
+        } else {
+            for card in list.cards.iter() {
+                let card = self.render_card(colors, card, index, list_width, selected_list);
+                text.push(card.0);
+                text.push(card.1);
+                text.push(Line::from(""))
+            }
+        }
+
+        let content = Paragraph::new(Text::from(text)).block(list_block.clone());
+
+        (content, layout)
+    }
+
+    fn render_card<'a>(
+        &self,
+        colors: &ColorsConfig,
+        card: &ProjectCard,
+        list_index: usize,
+        list_width: usize,
+        selected_list: bool,
+    ) -> (Line<'a>, Line<'a>) {
+        let selected = self.selected_card_id() == Some(card.id);
+        let unfocused_selected = self.selected_list_id.is_some_and(|list_id| {
+            list_id != self.data.lists[list_index].id
+                && self
+                    .selected_card_ids
+                    .get(&self.data.lists[list_index].id)
+                    .is_some_and(|id| id == &Some(card.id))
+        });
+
+        let title = Line::from(vec![
+            Span::from(format!(" {} ", card.title)),
+            Span::from(" ".repeat(list_width.saturating_sub(card.title.chars().count() + 2))),
+        ])
+        .style(if selected_list && selected {
+            Style::new()
+                .bold()
+                .fg(colors.active_fg)
+                .bg(colors.active_bg)
+        } else if unfocused_selected {
+            Style::new().bold().fg(colors.bg).bg(colors.secondary)
+        } else {
+            Style::new().fg(colors.fg)
+        });
+
+        let details = Line::from(
+            [
+                vec![Span::from(" ")],
+                card.labels
+                    .iter()
+                    .map(|label| {
+                        Span::from("⬤ ").fg(Color::from_str(
+                            &self
+                                .data
+                                .labels
+                                .iter()
+                                .find(|l| label == &l.id)
+                                .unwrap()
+                                .color,
+                        )
+                        .unwrap())
+                    })
+                    .collect(),
+                vec![Span::from(" ".repeat(list_width.saturating_sub(
+                    card.labels.len() + if card.labels.is_empty() { 1 } else { 2 },
+                )))],
+            ]
+            .concat(),
+        )
+        .style(if selected_list && selected {
+            Style::new()
+                .bold()
+                .fg(colors.active_fg)
+                .bg(colors.active_bg)
+        } else if unfocused_selected {
+            Style::new().bold().fg(colors.bg).bg(colors.secondary)
+        } else {
+            Style::new().fg(colors.secondary)
+        });
+
+        (title, details)
+    }
+
     pub fn set_project_id(&mut self, project_id: i32) {
         self.project_id = Some(project_id);
         self.popups.new_list.project_id(project_id);
@@ -846,8 +846,8 @@ impl OpenProject {
         self.popup = Popup::None;
         self.popups.new_list.reset(app);
         self.popups.edit_list.reset(app);
-        self.popups.new_card.reset(app);
-        self.popups.edit_card.reset(app);
+        self.popups.new_card.reset();
+        self.popups.edit_card.reset();
         self.delete_selection = DeleteSelection::None;
     }
 }

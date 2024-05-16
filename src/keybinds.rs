@@ -44,14 +44,14 @@ impl EventHandler {
         // }
         match e {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => self
-                .handle_key_event(app, interface, command_handler, key_event, event_state)
+                .key_event_handler(app, interface, command_handler, key_event, event_state)
                 .wrap_err_with(|| format!("handling key event failed:\n{key_event:#?}")),
             _ => Ok(()),
         }
     }
 
     // Makes keybinds by handing key events
-    fn handle_key_event(
+    fn key_event_handler(
         &mut self,
         app: &mut App,
         interface: &mut Interface,
@@ -66,15 +66,28 @@ impl EventHandler {
             .unwrap();
 
         // TODO: Convert to match statements when adding more poups
-        if app.state.mode == Mode::Popup && app.state.popup == GlobalPopup::Help {
-            interface
-                .popups
-                .help
-                .key_event_handler(app, key_event, event_state);
+        match app.state.mode {
+            Mode::Popup => {
+                if app.state.popup == GlobalPopup::Help {
+                    interface
+                        .popups
+                        .help
+                        .key_event_handler(app, key_event, event_state);
+                }
+            }
+            Mode::Command | Mode::CommandInsert => {
+                command_handler.key_event_handler(app, key_event, event_state)
+            }
+            _ => {}
         }
 
-        if app.state.mode == Mode::Command || app.state.mode == Mode::CommandInsert {
-            command_handler.key_event_handler(app, key_event, event_state)
+        match event_state.mode {
+            Mode::Navigation | Mode::Popup => {
+                if key_event.code == KeyCode::Char(':') {
+                    app.state.mode = Mode::CommandInsert;
+                }
+            }
+            _ => {}
         }
 
         if event_state.mode == Mode::Navigation {
@@ -88,7 +101,6 @@ impl EventHandler {
                         app.state.pane = Pane::Screen;
                     }
                 }
-                KeyCode::Char(':') => app.state.mode = Mode::CommandInsert,
                 _ => {}
             }
             if event_state.pane == Pane::Navigation {

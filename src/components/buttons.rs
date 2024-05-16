@@ -14,23 +14,18 @@ pub struct Buttons {
 
 impl Buttons {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Buttons {
+    pub fn new(buttons: Vec<(&str, bool)>) -> Buttons {
         Buttons {
             width: 100,
-            buttons: vec![],
+            buttons: buttons
+                .iter()
+                .map(|b| (format!(" {} ", b.0), b.1))
+                .collect::<Vec<(String, bool)>>(),
         }
     }
 
     pub fn set_width(mut self, width: u16) -> Self {
         self.width = width;
-        self
-    }
-
-    pub fn set_buttons(mut self, buttons: Vec<(&str, bool)>) -> Self {
-        self.buttons = buttons
-            .iter()
-            .map(|b| (format!(" {} ", b.0), b.1))
-            .collect::<Vec<(String, bool)>>();
         self
     }
 

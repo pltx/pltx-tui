@@ -1,3 +1,10 @@
+#![deny(unused_extern_crates)]
+#![deny(rustdoc::broken_intra_doc_links)]
+#![deny(rustdoc::missing_crate_level_docs)]
+#![deny(clippy::todo)]
+#![deny(clippy::unimplemented)]
+#![deny(clippy::missing_safety_doc)]
+
 use color_eyre::eyre::WrapErr;
 use ratatui::style::Color;
 use tui_scrollview::ScrollViewState;
@@ -21,7 +28,7 @@ use command_handler::CommandHandler;
 use config::Config;
 use database::Database;
 use keybinds::EventHandler;
-use state::{Mode, Pane, GlobalPopup, Screen, State};
+use state::{GlobalPopup, Mode, Pane, Screen, State};
 use ui::Interface;
 
 pub struct App {

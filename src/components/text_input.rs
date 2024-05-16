@@ -171,7 +171,7 @@ impl TextInput {
     // u = undo
     // ctrl + r = redo
     // o = newline + insert mode
-    pub fn handle_key_event(&mut self, app: &mut App, key_event: KeyEvent) -> TextInputEvent {
+    pub fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> TextInputEvent {
         let mut event = TextInputEvent::None;
 
         if app.state.mode == normal_to_insert(self.mode) {

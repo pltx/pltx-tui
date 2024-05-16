@@ -102,7 +102,7 @@ impl ListEditor {
 
 impl KeyEventHandler<Option<i32>> for ListEditor {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> Option<i32> {
-        self.inputs.title.handle_key_event(app, key_event);
+        self.inputs.title.key_event_handler(app, key_event);
 
         if key_event.code == KeyCode::Enter {
             let list_id = if self.is_new {
@@ -152,6 +152,7 @@ impl ListEditor {
     }
 
     pub fn set(&mut self, app: &App, list_id: i32) -> Result<(), &str> {
+
         let query = "SELECT id, project_id, title FROM project_list WHERE id = ?1";
         let mut stmt = app.db.conn.prepare(query).unwrap();
         let list = stmt

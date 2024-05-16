@@ -88,7 +88,7 @@ impl ListProjects {
     }
 
     fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
-        let query = "SELECT project_id, due_date FROM project_card";
+        let query = "SELECT project_id, due_date FROM project_card ORDER BY position";
         let mut stmt = app.db.conn.prepare(query)?;
         let card_iter = stmt.query_map([], |row| {
             Ok(ListProjectCard {
@@ -110,7 +110,7 @@ impl ListProjects {
     }
 
     fn db_get_labels(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
-        let query = "SELECT project_id, id, title, color FROM project_label";
+        let query = "SELECT project_id, id, title, color FROM project_label ORDER BY position";
         let mut stmt = app.db.conn.prepare(query)?;
         let label_iter = stmt.query_map([], |row| {
             Ok(ProjectLabel {

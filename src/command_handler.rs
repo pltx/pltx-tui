@@ -90,6 +90,7 @@ impl CommandHandler {
     fn reset(&mut self) {
         self.command.reset();
         self.update_options();
+        self.focused_pane = FocusedPane::Input;
     }
 
     fn parse_command(&self) -> Command {
@@ -145,7 +146,7 @@ impl CommandHandler {
 impl KeyEventHandler for CommandHandler {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
         if self.focused_pane == FocusedPane::Input {
-            match self.command.handle_key_event(app, key_event) {
+            match self.command.key_event_handler(app, key_event) {
                 TextInputEvent::OnChange => self.update_options(),
                 TextInputEvent::None => {}
             }

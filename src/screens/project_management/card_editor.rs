@@ -1,12 +1,17 @@
+use std::{collections::HashSet, str::FromStr};
+
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    widgets::{Block, Widget},
+    style::{Color, Style, Stylize},
+    text::Span,
+    widgets::{Block, Paragraph, Widget},
     Frame,
 };
 
+use super::open_project::ProjectLabel;
 use crate::{
-    components::{self, Buttons, PopupSize, TextInput, TextInputEvent},
+    components::{self, Buttons, PopupSize, Selection, TextInput, TextInputEvent},
     config::ColorsConfig,
     state::{Mode, State},
     utils::{current_timestamp, Init, KeyEventHandler, RenderPopupContained},
@@ -16,24 +21,7 @@ use crate::{
 struct Inputs {
     title: TextInput,
     description: TextInput,
-}
-
-struct ProjectLabel {
-    id: i32,
-    title: String,
-    color: Option<String>,
-    position: i32,
-    created_at: String,
-    updated_at: String,
-}
-
-#[derive(Clone)]
-struct CardLabel {
-    id: i32,
-    card_id: i32,
-    label_id: String,
-    created_at: String,
-    updated_at: String,
+    labels: Selection<i32>,
 }
 
 #[derive(Clone)]
@@ -58,7 +46,6 @@ struct CardData {
     position: i32,
     created_at: String,
     updated_at: String,
-    labels: Vec<CardLabel>,
     subtasks: Vec<CardSubtask>,
 }
 
@@ -66,6 +53,7 @@ struct CardData {
 enum FocusedPane {
     Title,
     Description,
+    Labels,
     Actions,
 }
 
@@ -82,6 +70,7 @@ pub struct CardEditor {
     project_id: Option<i32>,
     list_id: Option<i32>,
     inputs: Inputs,
+    original_labels: HashSet<usize>,
     focused_pane: FocusedPane,
     action: Action,
 }
@@ -97,7 +86,9 @@ impl Init for CardEditor {
             inputs: Inputs {
                 title: TextInput::new(Mode::Popup).title("Title").max(100),
                 description: TextInput::new(Mode::Popup).title("Description").max(4000),
+                labels: Selection::new(Mode::Popup),
             },
+            original_labels: HashSet::new(),
             focused_pane: FocusedPane::Title,
             action: Action::Save,
         }
@@ -106,50 +97,41 @@ impl Init for CardEditor {
 
 impl CardEditor {
     fn db_new_card(&self, app: &mut App) -> Result<i32, &str> {
-        struct CardQuery {
-            position: i32,
-        }
-        let mut stmt = app
-            .db
-            .conn
-            .prepare("SELECT position from project_card where list_id = ?1")
-            .unwrap();
-        let project_iter = stmt
-            .query_map([self.list_id], |r| {
-                Ok(CardQuery {
-                    position: r.get(0)?,
-                })
-            })
-            .unwrap();
-        let mut highest_position = 0;
-        for project in project_iter {
-            let project_pos = project.unwrap().position;
-            if project_pos > highest_position {
-                highest_position = project_pos;
-            }
-        }
+        let highest_position = app.db.get_highest_position("project_card").unwrap_or(-1);
 
-        app.db
-            .conn
-            .execute(
-                "INSERT INTO project_card (project_id, list_id, title, description, important, \
-                 due_date, reminder, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                (
-                    Some(&self.project_id),
-                    Some(&self.list_id),
-                    self.inputs.title.input_string(),
-                    self.inputs.description.input_string(),
-                    true,
-                    Option::<String>::None,
-                    Option::<String>::None,
-                    highest_position,
-                ),
-            )
-            .unwrap();
+        let query = "INSERT INTO project_card (project_id, list_id, title, description, \
+                     important, due_date, reminder, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, \
+                     ?8)";
+        let params = (
+            Some(self.project_id),
+            Some(self.list_id),
+            self.inputs.title.input_string(),
+            self.inputs.description.input_string(),
+            true,
+            Option::<String>::None,
+            Option::<String>::None,
+            highest_position.saturating_add(1),
+        );
+        app.db.conn.execute(query, params).unwrap();
 
         let new_card_id = app.db.last_row_id("project_card").unwrap();
 
+        self.db_new_card_labels(app, new_card_id).unwrap();
+
         Ok(new_card_id)
+    }
+
+    fn db_new_card_labels(&self, app: &App, card_id: i32) -> rusqlite::Result<()> {
+        for index in self.inputs.labels.selected.iter() {
+            let label = self.inputs.labels.options[*index].clone();
+            let query =
+                "INSERT INTO card_label (project_id, card_id, label_id) VALUES (?1, ?2, ?3)";
+            app.db
+                .conn
+                .execute(query, (Some(self.project_id), card_id, label.0))?;
+        }
+
+        Ok(())
     }
 
     fn db_edit_card(&self, app: &mut App) -> Result<i32, &str> {
@@ -167,65 +149,129 @@ impl CardEditor {
                 data.id,
             ))
             .unwrap();
+
+            self.db_edit_card_labels(app, data.id).unwrap();
+
             Ok(data.id)
         } else {
             Err("list data was not set")
         }
     }
+
+    fn db_edit_card_labels(&self, app: &App, card_id: i32) -> rusqlite::Result<()> {
+        for (i, label) in self.inputs.labels.options.iter().enumerate() {
+            if self.inputs.labels.selected.contains(&i) {
+                if !self.original_labels.contains(&i) {
+                    let query = "INSERT INTO card_label (project_id, card_id, label_id) VALUES \
+                                 (?1, ?2, ?3)";
+                    app.db
+                        .conn
+                        .execute(query, (Some(self.project_id), card_id, label.0))?;
+                }
+            } else {
+                let query = "DELETE FROM card_label WHERE card_id = ?1 and label_id = ?2";
+                let mut stmt = app.db.conn.prepare(query)?;
+                stmt.execute((card_id, &label.0))?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl KeyEventHandler<Option<i32>> for CardEditor {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> Option<i32> {
+    fn key_event_handler(
+        &mut self,
+        app: &mut App,
+        key_event: KeyEvent,
+        event_state: &State,
+    ) -> Option<i32> {
         match self.focused_pane {
-            FocusedPane::Title => self.inputs.title.handle_key_event(app, key_event),
-            FocusedPane::Description => self.inputs.description.handle_key_event(app, key_event),
-            _ => TextInputEvent::None,
+            FocusedPane::Title => self.inputs.title.key_event_handler(app, key_event),
+            FocusedPane::Description => self.inputs.description.key_event_handler(app, key_event),
+            FocusedPane::Labels => {
+                self.inputs
+                    .labels
+                    .key_event_handler(app, key_event, event_state);
+                TextInputEvent::None
+            }
+            FocusedPane::Actions => TextInputEvent::None,
         };
 
         if app.state.mode == Mode::Popup {
             match key_event.code {
-                KeyCode::Char('q') => self.reset(app),
-                KeyCode::Char('j') => match self.focused_pane {
-                    FocusedPane::Title => self.focused_pane = FocusedPane::Description,
-                    FocusedPane::Description => self.focused_pane = FocusedPane::Actions,
-                    FocusedPane::Actions => match self.action {
-                        Action::Save => self.action = Action::Cancel,
-                        Action::Cancel => {
-                            self.focused_pane = FocusedPane::Title;
-                            self.action = Action::Save
-                        }
-                    },
-                },
-                KeyCode::Char('k') => match self.focused_pane {
-                    FocusedPane::Title => {
-                        self.focused_pane = FocusedPane::Actions;
-                        self.action = Action::Cancel;
-                    }
-                    FocusedPane::Description => self.focused_pane = FocusedPane::Title,
-                    FocusedPane::Actions => match self.action {
-                        Action::Save => self.focused_pane = FocusedPane::Description,
-                        Action::Cancel => self.action = Action::Save,
-                    },
-                },
+                KeyCode::Char('q') => {
+                    app.state.mode = Mode::Navigation;
+                    self.reset();
+                }
+                KeyCode::Char('j') => self.next_pane(),
+                KeyCode::Char('k') => self.prev_pane(),
                 KeyCode::Enter => {
-                    if self.focused_pane == FocusedPane::Actions {
-                        if self.action == Action::Save {
-                            let id = if self.is_new {
-                                Some(self.db_new_card(app).unwrap_or_else(|e| panic!("{e}")))
-                            } else {
-                                Some(self.db_edit_card(app).unwrap_or_else(|e| panic!("{e}")))
-                            };
-                            self.reset(app);
-                            return id;
-                        } else if self.action == Action::Cancel {
-                            self.reset(app);
-                        }
+                    if let Some(id) = self.submit(app) {
+                        return Some(id);
                     }
                 }
                 _ => {}
             }
         }
 
+        None
+    }
+}
+
+impl CardEditor {
+    fn next_pane(&mut self) {
+        match self.focused_pane {
+            FocusedPane::Title => self.focused_pane = FocusedPane::Description,
+            FocusedPane::Description => self.focused_pane = FocusedPane::Labels,
+            FocusedPane::Labels => self
+                .inputs
+                .labels
+                .focus_next_or(|| self.focused_pane = FocusedPane::Actions),
+            FocusedPane::Actions => match self.action {
+                Action::Save => self.action = Action::Cancel,
+                Action::Cancel => {
+                    self.focused_pane = FocusedPane::Title;
+                    self.action = Action::Save
+                }
+            },
+        }
+    }
+
+    fn prev_pane(&mut self) {
+        match self.focused_pane {
+            FocusedPane::Title => {
+                self.focused_pane = FocusedPane::Actions;
+                self.action = Action::Cancel;
+            }
+            FocusedPane::Description => self.focused_pane = FocusedPane::Title,
+            FocusedPane::Labels => self
+                .inputs
+                .labels
+                .focus_prev_or(|| self.focused_pane = FocusedPane::Description),
+            FocusedPane::Actions => match self.action {
+                Action::Save => self.focused_pane = FocusedPane::Labels,
+                Action::Cancel => self.action = Action::Save,
+            },
+        }
+    }
+
+    fn submit(&mut self, app: &mut App) -> Option<i32> {
+        if self.focused_pane == FocusedPane::Actions {
+            if self.action == Action::Save {
+                let id = if self.is_new {
+                    Some(self.db_new_card(app).unwrap_or_else(|e| panic!("{e}")))
+                } else {
+                    Some(self.db_edit_card(app).unwrap_or_else(|e| panic!("{e}")))
+                };
+                self.reset();
+                app.state.mode = Mode::Navigation;
+                return id;
+            } else if self.action == Action::Cancel {
+                self.reset();
+                app.state.mode = Mode::Navigation;
+            }
+        }
         None
     }
 }
@@ -239,12 +285,13 @@ impl RenderPopupContained for CardEditor {
             .size(self.size.clone())
             .render(frame);
 
-        let [title_layout, description_layout, actions_layout] = Layout::default()
+        let [title_layout, description_layout, label_layout, actions_layout] = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(2)
             .constraints([
                 Constraint::Length(3),
                 Constraint::Length(10),
+                Constraint::Length(self.inputs.labels.options.len() as u16 + 2),
                 Constraint::Length(6),
             ])
             .areas(popup.area);
@@ -258,6 +305,7 @@ impl RenderPopupContained for CardEditor {
             ),
             title_layout,
         );
+
         frame.render_widget(
             self.inputs.description.render_block(
                 app,
@@ -268,7 +316,9 @@ impl RenderPopupContained for CardEditor {
             description_layout,
         );
 
-        let actions = self.actions(colors, actions_layout);
+        frame.render_widget(self.render_labels(colors), label_layout);
+
+        let actions = self.render_actions(colors, actions_layout);
         frame.render_widget(Block::new(), actions.1 .0);
         frame.render_widget(actions.0, actions.1 .1);
         frame.render_widget(Block::new(), actions.1 .0);
@@ -276,24 +326,33 @@ impl RenderPopupContained for CardEditor {
 }
 
 impl CardEditor {
-    fn actions(&self, colors: &ColorsConfig, area: Rect) -> (impl Widget, (Rect, Rect, Rect)) {
-        Buttons::new()
-            .set_width(30)
-            .set_buttons(vec![
-                (
-                    if self.is_new {
-                        "Create New Card"
-                    } else {
-                        "Save Card"
-                    },
-                    self.focused_pane == FocusedPane::Actions && self.action == Action::Save,
-                ),
-                (
-                    "Cancel",
-                    self.focused_pane == FocusedPane::Actions && self.action == Action::Cancel,
-                ),
-            ])
-            .render(colors, area, self.focused_pane == FocusedPane::Actions)
+    fn render_labels<'b>(&self, colors: &ColorsConfig) -> Paragraph<'b> {
+        self.inputs
+            .labels
+            .render(colors, self.focused_pane == FocusedPane::Labels)
+    }
+
+    fn render_actions(
+        &self,
+        colors: &ColorsConfig,
+        area: Rect,
+    ) -> (impl Widget, (Rect, Rect, Rect)) {
+        Buttons::new(vec![
+            (
+                if self.is_new {
+                    "Create New Card"
+                } else {
+                    "Save Card"
+                },
+                self.focused_pane == FocusedPane::Actions && self.action == Action::Save,
+            ),
+            (
+                "Cancel",
+                self.focused_pane == FocusedPane::Actions && self.action == Action::Cancel,
+            ),
+        ])
+        .set_width(30)
+        .render(colors, area, self.focused_pane == FocusedPane::Actions)
     }
 }
 
@@ -308,11 +367,38 @@ impl CardEditor {
         self.list_id = Some(list_id);
     }
 
-    pub fn set(&mut self, app: &App, card_id: i32) -> rusqlite::Result<()> {
+    pub fn labels(&mut self, colors: &ColorsConfig, labels: Vec<ProjectLabel>) {
+        self.inputs.labels.options(
+            labels
+                .iter()
+                .enumerate()
+                .map(|(i, l)| {
+                    (
+                        l.id,
+                        Span::from(l.title.clone())
+                            .style(
+                                if self.focused_pane == FocusedPane::Labels
+                                    && self.inputs.labels.focused_option == i
+                                {
+                                    Style::new().bold()
+                                } else {
+                                    Style::new()
+                                },
+                            )
+                            .fg(Color::from_str(&l.color.clone()).unwrap_or(colors.fg)),
+                    )
+                })
+                .collect::<Vec<(i32, Span)>>(),
+        );
+    }
+
+    pub fn set_data(&mut self, app: &App, card_id: i32) -> rusqlite::Result<()> {
+        self.reset();
+
         let query = "SELECT id, list_id, title, description, important, due_date, reminder, \
                      position, created_at, updated_at FROM project_card WHERE id = ?1";
         let mut stmt = app.db.conn.prepare(query)?;
-        let card = stmt.query_row([card_id], |r| {
+        let mut card = stmt.query_row([card_id], |r| {
             Ok(CardData {
                 id: r.get(0)?,
                 list_id: r.get(1)?,
@@ -324,24 +410,49 @@ impl CardEditor {
                 position: r.get(7)?,
                 created_at: r.get(8)?,
                 updated_at: r.get(9)?,
-                labels: vec![],
                 subtasks: vec![],
             })
         })?;
 
-        self.data = Some(card.clone());
-        self.inputs.title.input(card.title);
-        if let Some(description) = card.description {
-            self.inputs.description.input(description);
+        self.db_get_card_labels(app, &mut card)?;
+        self.data = Some(card);
+
+        if let Some(data) = &self.data {
+            self.inputs.title.input(data.title.clone());
+            if let Some(description) = &data.description {
+                self.inputs.description.input(description.clone());
+            }
         }
 
         Ok(())
     }
 
-    pub fn reset(&mut self, app: &mut App) {
-        app.state.mode = Mode::Navigation;
+    fn db_get_card_labels(&mut self, app: &App, data: &mut CardData) -> rusqlite::Result<()> {
+        let query = "SELECT label_id from card_label WHERE card_id = ?1";
+        let mut stmt = app.db.conn.prepare(query)?;
+        let label_id_iter = stmt.query_map([data.id], |r| r.get(0))?;
+
+        for label in label_id_iter {
+            let label_id = label.unwrap();
+            let index_in_project_labels = self
+                .inputs
+                .labels
+                .options
+                .iter()
+                .position(|l| l.0 == label_id)
+                .unwrap();
+            self.inputs.labels.selected.insert(index_in_project_labels);
+            self.original_labels.insert(index_in_project_labels);
+        }
+
+        Ok(())
+    }
+
+    pub fn reset(&mut self) {
         self.inputs.title.reset();
         self.inputs.description.reset();
+        self.inputs.labels.reset();
+        self.original_labels.clear();
         self.focused_pane = FocusedPane::Title;
         self.action = Action::Save;
     }

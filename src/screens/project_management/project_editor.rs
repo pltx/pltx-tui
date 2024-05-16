@@ -14,8 +14,7 @@ use crate::{
     components::{TextInput, TextInputEvent},
     config::ColorsConfig,
     state::{Mode, State},
-    trace_debug,
-    utils::{Init, KeyEventHandler, RenderPage},
+    utils::{current_timestamp, Init, KeyEventHandler, RenderPage},
     App,
 };
 
@@ -52,7 +51,6 @@ pub struct ProjectLabel {
     pub color: String,
 }
 
-#[derive(Clone)]
 struct ProjectData {
     id: i32,
     title: String,
@@ -114,7 +112,7 @@ impl ProjectEditor {
             Some(self.inputs.description.input_string())
         };
 
-        let highest_position = app.db.get_highest_position("project").unwrap();
+        let highest_position = app.db.get_highest_position("project").unwrap_or(-1);
         app.db.conn.execute(
             "INSERT INTO project (title, description, position) VALUES (?1, ?2, ?3)",
             (
@@ -167,15 +165,15 @@ impl ProjectEditor {
     }
 
     fn db_edit_labels(&self, app: &App, project_id: i32) -> rusqlite::Result<()> {
-        trace_debug!(self.inputs.labels.len());
         for (i, label) in self.inputs.labels.iter().enumerate() {
             if let Some(label_id) = label.0 {
-                let query = "UPDATE project_label SET title = ?1, color = ?2 WHERE project_id = \
-                             ?3 and id = ?4";
+                let query = "UPDATE project_label SET title = ?1, color = ?2, updated_at = ?3 \
+                             WHERE project_id = ?4 and id = ?5";
                 let mut stmt = app.db.conn.prepare(query)?;
                 stmt.execute((
                     label.1.input_string(),
                     label.2.input_string(),
+                    current_timestamp(),
                     project_id,
                     label_id,
                 ))?;
@@ -201,18 +199,18 @@ impl ProjectEditor {
 impl KeyEventHandler<bool> for ProjectEditor {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
         match self.focused_pane {
-            FocusedPane::Title => self.inputs.title.handle_key_event(app, key_event),
-            FocusedPane::Description => self.inputs.description.handle_key_event(app, key_event),
+            FocusedPane::Title => self.inputs.title.key_event_handler(app, key_event),
+            FocusedPane::Description => self.inputs.description.key_event_handler(app, key_event),
             FocusedPane::Labels => {
                 if !self.inputs.labels.is_empty() {
                     if self.label_col == LabelCol::Title {
                         self.inputs.labels[self.selected_label]
                             .1
-                            .handle_key_event(app, key_event)
+                            .key_event_handler(app, key_event)
                     } else {
                         self.inputs.labels[self.selected_label]
                             .2
-                            .handle_key_event(app, key_event)
+                            .key_event_handler(app, key_event)
                     };
                     TextInputEvent::None
                 } else {
@@ -634,22 +632,25 @@ impl ProjectEditor {
 
         project.labels = self.db_get_labels(app, project_id)?;
 
-        self.data = Some(project.clone());
+        self.data = Some(project);
 
-        self.inputs.title.input(project.title);
-        self.inputs
-            .description
-            .input(if let Some(desc) = project.description {
-                desc
-            } else {
-                String::from("")
-            });
+        if let Some(data) = &self.data {
+            self.inputs.title.input(data.title.clone());
+            self.inputs
+                .description
+                .input(if let Some(description) = &data.description {
+                    description.clone()
+                } else {
+                    String::from("")
+                });
+        }
 
         Ok(())
     }
 
     fn db_get_labels(&mut self, app: &App, project_id: i32) -> rusqlite::Result<Vec<ProjectLabel>> {
-        let query = "SELECT project_id, id, title, color FROM project_label WHERE project_id = ?1";
+        let query = "SELECT project_id, id, title, color FROM project_label WHERE project_id = ?1 \
+                     ORDER BY position";
         let mut stmt = app.db.conn.prepare(query)?;
         let labels_iter = stmt.query_map([project_id], |r| {
             Ok(ProjectLabel {
