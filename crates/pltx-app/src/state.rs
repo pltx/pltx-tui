@@ -17,8 +17,6 @@ pub enum Mode {
 pub enum Screen {
     Dashboard,
     ProjectManagement,
-    Sleep,
-    Settings,
     None,
 }
 

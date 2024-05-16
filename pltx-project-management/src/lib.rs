@@ -5,6 +5,7 @@ use pltx_app::{
 };
 use pltx_config::ColorsConfig;
 use pltx_utils::{Init, InitData, KeyEventHandler, RenderPage, RenderScreen};
+use projects::{Projects, ProjectsState};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
@@ -13,7 +14,12 @@ use ratatui::{
     Frame,
 };
 
-use super::projects::{Projects, ProjectsState};
+mod card_editor;
+mod list_editor;
+mod list_projects;
+mod open_project;
+mod project_editor;
+mod projects;
 
 #[derive(PartialEq, Clone)]
 enum Tab {

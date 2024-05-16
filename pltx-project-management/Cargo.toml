@@ -1,0 +1,20 @@
+[package]
+name = "pltx_project_management"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+documentation.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+pltx_app = { workspace = true }
+pltx_config = { workspace = true }
+pltx_tracing = { workspace = true }
+pltx_utils = { workspace = true }
+pltx_widgets = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+rusqlite = { workspace = true }
+tracing = { workspace = true }

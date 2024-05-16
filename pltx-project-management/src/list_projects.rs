@@ -11,7 +11,8 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table},
 };
 
-use super::{project_editor::ProjectLabel, projects::ProjectsState, screen::ScreenPane};
+use super::{project_editor::ProjectLabel, projects::ProjectsState};
+use crate::ScreenPane;
 
 #[derive(Clone)]
 struct ListProjectCard {

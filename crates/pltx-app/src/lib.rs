@@ -88,8 +88,6 @@ impl App {
         vec![
             (Screen::Dashboard, "Dashboard"),
             (Screen::ProjectManagement, "Project Management"),
-            (Screen::Sleep, "Sleep"),
-            (Screen::Settings, "Settings"),
         ]
     }
 }

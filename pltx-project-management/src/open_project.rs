@@ -19,9 +19,8 @@ use ratatui::{
     Frame,
 };
 
-use super::{
-    card_editor::CardEditor, list_editor::ListEditor, projects::ProjectsState, screen::ScreenPane,
-};
+use super::{card_editor::CardEditor, list_editor::ListEditor, projects::ProjectsState};
+use crate::ScreenPane;
 
 #[derive(Clone)]
 pub struct ProjectLabel {

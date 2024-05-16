@@ -3,6 +3,8 @@ use pltx_app::{
     App,
 };
 use pltx_config::ColorsConfig;
+use pltx_dashboard::Dashboard;
+use pltx_project_management::ProjectManagement;
 use pltx_utils::{Init, InitData, RenderPopup, RenderScreen, RenderScrollPopup};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -12,14 +14,12 @@ use ratatui::{
     Frame,
 };
 
-use crate::{command_handler::CommandHandler, popups, screens};
+use crate::{command_handler::CommandHandler, popups};
 
 /// States for each screen
 pub struct ScreenState {
-    pub dashboard: screens::Dashboard,
-    pub project_management: screens::ProjectManagement,
-    pub sleep: screens::Sleep,
-    pub settings: screens::Settings,
+    pub dashboard: Dashboard,
+    pub project_management: ProjectManagement,
 }
 
 /// States for each popup
@@ -38,10 +38,8 @@ impl Interface {
     pub fn init(app: &mut App) -> Interface {
         Interface {
             screens: ScreenState {
-                dashboard: screens::Dashboard::init(app),
-                project_management: screens::ProjectManagement::init(app),
-                sleep: screens::Sleep::init(app),
-                settings: screens::Settings::init(app),
+                dashboard: Dashboard::init(app),
+                project_management: ProjectManagement::init(app),
             },
             popups: PopupState {
                 help: popups::Help::init(app),
@@ -127,8 +125,6 @@ impl Interface {
                     .project_management
                     .render(app, frame, screen_layout)
             }
-            Screen::Sleep => self.screens.sleep.render(app, frame, screen_layout),
-            Screen::Settings => self.screens.settings.render(app, frame, screen_layout),
             Screen::None => {}
         };
 

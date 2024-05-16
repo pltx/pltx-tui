@@ -75,7 +75,7 @@ pub struct CardEditor {
 }
 
 impl Init for CardEditor {
-    fn init(_: &mut crate::App) -> CardEditor {
+    fn init(_: &mut App) -> CardEditor {
         CardEditor {
             is_new: false,
             data: None,

@@ -9,8 +9,8 @@ use ratatui::{layout::Rect, Frame};
 
 use super::{
     list_projects::ListProjects, open_project::OpenProject, project_editor::ProjectEditor,
-    screen::ScreenPane,
 };
+use crate::ScreenPane;
 
 #[derive(PartialEq)]
 enum Page {

@@ -7,6 +7,8 @@ members = [
   "crates/pltx-tracing",
   "crates/pltx-utils",
   "crates/pltx-widgets",
+  "pltx-dashboard",
+  "pltx-project-management",
 ]
 
 [workspace.package]
@@ -64,6 +66,10 @@ pltx_database = { path = "crates/pltx-database" }
 pltx_tracing = { path = "crates/pltx-tracing" }
 pltx_utils = { path = "crates/pltx-utils" }
 pltx_widgets = { path = "crates/pltx-widgets" }
+
+pltx_dashboard = { path = "pltx-dashboard" }
+pltx_project_management = { path = "pltx-project-management" }
+
 color-eyre = "0.6.3"
 crossterm = "0.27.0"
 ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
@@ -79,6 +85,10 @@ pltx_config = { workspace = true }
 pltx_tracing = { workspace = true }
 pltx_utils = { workspace = true }
 pltx_widgets = { workspace = true }
+
+pltx_dashboard = { workspace = true }
+pltx_project_management = { workspace = true }
+
 color-eyre = { workspace = true }
 crossterm = { workspace = true }
 fst = { version = "0.4.7", features = ["levenshtein"] }

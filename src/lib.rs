@@ -5,7 +5,6 @@ mod command_handler;
 pub mod errors;
 mod keybinds;
 mod popups;
-mod screens;
 pub mod tui;
 mod ui;
 

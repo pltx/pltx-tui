@@ -29,7 +29,7 @@ pub struct ListEditor {
 }
 
 impl Init for ListEditor {
-    fn init(_: &mut crate::App) -> ListEditor {
+    fn init(_: &mut App) -> ListEditor {
         ListEditor {
             is_new: false,
             data: None,

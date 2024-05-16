@@ -677,7 +677,9 @@ dependencies = [
  "fst",
  "pltx_app",
  "pltx_config",
+ "pltx_dashboard",
  "pltx_database",
+ "pltx_project_management",
  "pltx_tracing",
  "pltx_utils",
  "pltx_widgets",
@@ -710,11 +712,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "pltx_dashboard"
+version = "0.0.1"
+dependencies = [
+ "crossterm",
+ "pltx_app",
+ "pltx_database",
+ "pltx_utils",
+ "ratatui",
+]
+
+[[package]]
 name = "pltx_database"
 version = "0.0.1"
 dependencies = [
  "home",
  "rusqlite",
+]
+
+[[package]]
+name = "pltx_project_management"
+version = "0.0.1"
+dependencies = [
+ "crossterm",
+ "pltx_app",
+ "pltx_config",
+ "pltx_tracing",
+ "pltx_utils",
+ "pltx_widgets",
+ "ratatui",
+ "rusqlite",
+ "tracing",
 ]
 
 [[package]]

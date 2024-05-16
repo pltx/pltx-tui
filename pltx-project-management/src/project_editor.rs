@@ -16,7 +16,8 @@ use ratatui::{
     Frame,
 };
 
-use super::{projects::ProjectsState, screen::ScreenPane};
+use super::projects::ProjectsState;
+use crate::ScreenPane;
 
 const PROJECT_TITLE_MAX_LENGTH: usize = 100;
 const PROJECT_DESCRIPTION_MAX_LENGTH: usize = 500;
