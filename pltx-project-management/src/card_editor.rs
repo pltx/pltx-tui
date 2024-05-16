@@ -284,13 +284,16 @@ impl RenderPopupContained for CardEditor {
             .size(self.size.clone())
             .render(frame);
 
+        let label_len = self.inputs.labels.options.len() as u16;
+        let label_height = if label_len > 0 { label_len + 2 } else { 0 };
+
         let [title_layout, description_layout, label_layout, actions_layout] = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(2)
             .constraints([
                 Constraint::Length(3),
                 Constraint::Length(10),
-                Constraint::Length(self.inputs.labels.options.len() as u16 + 2),
+                Constraint::Length(label_height),
                 Constraint::Length(6),
             ])
             .areas(popup.area);
