@@ -39,7 +39,7 @@ struct ProjectCardLabel {
 #[derive(Clone)]
 struct ProjectCardSubtask {
     card_id: i32,
-    completed: i32,
+    // completed: i32,
 }
 
 #[derive(Clone)]
@@ -47,13 +47,13 @@ struct ProjectCard {
     id: i32,
     list_id: i32,
     title: String,
-    description: Option<String>,
-    important: i32,
-    due_date: Option<String>,
-    reminder: Option<String>,
-    position: i32,
-    created_at: String,
-    updated_at: String,
+    // description: Option<String>,
+    // important: i32,
+    // due_date: Option<String>,
+    // reminder: Option<String>,
+    // position: i32,
+    // created_at: String,
+    // updated_at: String,
     labels: HashSet<i32>,
     subtasks: Vec<ProjectCardSubtask>,
 }
@@ -62,21 +62,20 @@ struct ProjectCard {
 struct ProjectList {
     id: i32,
     title: String,
-    color: Option<String>,
-    position: i32,
-    created_at: String,
-    updated_at: String,
+    // color: Option<String>,
+    // position: i32,
+    // created_at: String,
+    // updated_at: String,
     cards: Vec<ProjectCard>,
 }
 
 #[derive(Default, Clone)]
 struct ProjectData {
-    id: i32,
     title: String,
-    description: Option<String>,
-    position: i32,
-    created_at: String,
-    updated_at: String,
+    // description: Option<String>,
+    // position: i32,
+    // created_at: String,
+    // updated_at: String,
     labels: Vec<ProjectLabel>,
     lists: Vec<ProjectList>,
 }
@@ -95,13 +94,6 @@ struct Popups {
     edit_list: ListEditor,
     new_card: CardEditor,
     edit_card: CardEditor,
-}
-
-#[derive(PartialEq)]
-enum FocusedPane {
-    List,
-    Card,
-    None,
 }
 
 #[derive(PartialEq)]
@@ -148,12 +140,11 @@ impl OpenProject {
         let mut project = stmt
             .query_row([&self.project_id], |r| {
                 Ok(ProjectData {
-                    id: r.get(0)?,
-                    title: r.get(1)?,
-                    description: r.get(2)?,
-                    position: r.get(3)?,
-                    created_at: r.get(4)?,
-                    updated_at: r.get(5)?,
+                    title: r.get(0)?,
+                    // description: r.get(1)?,
+                    // position: r.get(2)?,
+                    // created_at: r.get(3)?,
+                    // updated_at: r.get(4)?,
                     labels: vec![],
                     lists: vec![],
                 })
@@ -240,10 +231,10 @@ impl OpenProject {
             Ok(ProjectList {
                 id: r.get(0)?,
                 title: r.get(1)?,
-                color: r.get(2)?,
-                position: r.get(3)?,
-                created_at: r.get(4)?,
-                updated_at: r.get(5)?,
+                // color: r.get(2)?,
+                // position: r.get(3)?,
+                // created_at: r.get(4)?,
+                // updated_at: r.get(5)?,
                 cards: vec![],
             })
         })?;
@@ -263,13 +254,13 @@ impl OpenProject {
                 id: r.get(0)?,
                 list_id: r.get(1)?,
                 title: r.get(2)?,
-                description: r.get(3)?,
-                important: r.get(4)?,
-                due_date: r.get(5)?,
-                reminder: r.get(6)?,
-                position: r.get(7)?,
-                created_at: r.get(8)?,
-                updated_at: r.get(9)?,
+                // description: r.get(3)?,
+                // important: r.get(4)?,
+                // due_date: r.get(5)?,
+                // reminder: r.get(6)?,
+                // position: r.get(7)?,
+                // created_at: r.get(8)?,
+                // updated_at: r.get(9)?,
                 labels: HashSet::new(),
                 subtasks: vec![],
             })
@@ -326,13 +317,13 @@ impl OpenProject {
         app: &App,
         project: &mut ProjectData,
     ) -> rusqlite::Result<ProjectData> {
-        let card_subtask_query = "SELECT id, card_id, value, completed, created_at, updated_at \
-                                  FROM card_subtask WHERE project_id = ?1";
+        let card_subtask_query =
+            "SELECT card_id, completed FROM card_subtask WHERE project_id = ?1";
         let mut card_subtask_stmt = app.db.conn.prepare(card_subtask_query)?;
         let card_subtask_iter = card_subtask_stmt.query_map([&self.project_id], |r| {
             Ok(ProjectCardSubtask {
                 card_id: r.get(0)?,
-                completed: r.get(0)?,
+                // completed: r.get(0)?,
             })
         })?;
         for card_subtask in card_subtask_iter {

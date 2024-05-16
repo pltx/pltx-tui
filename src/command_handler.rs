@@ -25,7 +25,7 @@ enum Command {
 #[derive(PartialEq)]
 enum Display {
     CommandInput,
-    Output,
+    // Output,
 }
 
 #[derive(PartialEq)]

@@ -24,29 +24,28 @@ struct Inputs {
     labels: Selection<i32>,
 }
 
-#[derive(Clone)]
-struct CardSubtask {
-    id: i32,
-    card_id: i32,
-    value: String,
-    completed: bool,
-    created_at: String,
-    updated_at: String,
-}
+// #[derive(Clone)]
+// struct CardSubtask {
+//     id: i32,
+//     card_id: i32,
+//     value: String,
+//     completed: bool,
+//     created_at: String,
+//     updated_at: String,
+// }
 
 #[derive(Clone)]
 struct CardData {
     id: i32,
-    list_id: i32,
     title: String,
     description: Option<String>,
-    important: bool,
-    due_date: Option<String>,
-    reminder: Option<String>,
-    position: i32,
-    created_at: String,
-    updated_at: String,
-    subtasks: Vec<CardSubtask>,
+    // important: bool,
+    // due_date: Option<String>,
+    // reminder: Option<String>,
+    // position: i32,
+    // created_at: String,
+    // updated_at: String,
+    // subtasks: Vec<CardSubtask>,
 }
 
 #[derive(PartialEq)]
@@ -401,16 +400,15 @@ impl CardEditor {
         let mut card = stmt.query_row([card_id], |r| {
             Ok(CardData {
                 id: r.get(0)?,
-                list_id: r.get(1)?,
-                title: r.get(2)?,
-                description: r.get(3)?,
-                important: r.get(4)?,
-                due_date: r.get(5)?,
-                reminder: r.get(6)?,
-                position: r.get(7)?,
-                created_at: r.get(8)?,
-                updated_at: r.get(9)?,
-                subtasks: vec![],
+                title: r.get(1)?,
+                description: r.get(2)?,
+                // important: r.get(3)?,
+                // due_date: r.get(4)?,
+                // reminder: r.get(5)?,
+                // position: r.get(6)?,
+                // created_at: r.get(7)?,
+                // updated_at: r.get(8)?,
+                // subtasks: vec![],
             })
         })?;
 

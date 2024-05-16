@@ -18,7 +18,6 @@ struct Inputs {
 
 #[derive(Clone)]
 struct ListData {
-    project_id: i32,
     id: i32,
     title: String,
 }
@@ -152,15 +151,13 @@ impl ListEditor {
     }
 
     pub fn set(&mut self, app: &App, list_id: i32) -> Result<(), &str> {
-
-        let query = "SELECT id, project_id, title FROM project_list WHERE id = ?1";
+        let query = "SELECT id, title FROM project_list WHERE id = ?1";
         let mut stmt = app.db.conn.prepare(query).unwrap();
         let list = stmt
             .query_row([list_id], |r| {
                 Ok(ListData {
                     id: r.get(0)?,
-                    project_id: r.get(1)?,
-                    title: r.get(2)?,
+                    title: r.get(1)?,
                 })
             })
             .unwrap_or_else(|e| trace_panic!("{e}"));

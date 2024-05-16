@@ -16,7 +16,7 @@ use crate::{
 #[derive(Clone)]
 struct ListProjectCard {
     project_id: i32,
-    due_date: Option<String>,
+    // due_date: Option<String>,
 }
 
 #[derive(Clone)]
@@ -93,7 +93,7 @@ impl ListProjects {
         let card_iter = stmt.query_map([], |row| {
             Ok(ListProjectCard {
                 project_id: row.get(0)?,
-                due_date: row.get(1)?,
+                // due_date: row.get(1)?,
             })
         })?;
 

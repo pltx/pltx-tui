@@ -34,7 +34,6 @@ use ui::Interface;
 pub struct App {
     exit: bool,
     config: Config,
-    command_handler: CommandHandler,
     db: Database,
     state: State,
     scroll_view_state: ScrollViewState,
@@ -45,7 +44,6 @@ impl App {
         App {
             exit: false,
             config,
-            command_handler: CommandHandler::new(),
             db: Database::init(),
             state: State {
                 mode: Mode::Navigation,
