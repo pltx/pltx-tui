@@ -222,7 +222,13 @@ impl CardEditor {
     fn next_pane(&mut self) {
         match self.focused_pane {
             FocusedPane::Title => self.focused_pane = FocusedPane::Description,
-            FocusedPane::Description => self.focused_pane = FocusedPane::Labels,
+            FocusedPane::Description => {
+                if self.inputs.labels.options.is_empty() {
+                    self.focused_pane = FocusedPane::Actions;
+                } else {
+                    self.focused_pane = FocusedPane::Labels;
+                }
+            }
             FocusedPane::Labels => self
                 .inputs
                 .labels
@@ -249,7 +255,13 @@ impl CardEditor {
                 .labels
                 .focus_prev_or(|| self.focused_pane = FocusedPane::Description),
             FocusedPane::Actions => match self.action {
-                Action::Save => self.focused_pane = FocusedPane::Labels,
+                Action::Save => {
+                    if self.inputs.labels.options.is_empty() {
+                        self.focused_pane = FocusedPane::Description;
+                    } else {
+                        self.focused_pane = FocusedPane::Labels;
+                    }
+                }
                 Action::Cancel => self.action = Action::Save,
             },
         }
