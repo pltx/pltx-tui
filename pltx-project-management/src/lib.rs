@@ -74,6 +74,7 @@ impl InitData for ProjectManagement {
                 title TEXT NOT NULL,
                 description TEXT,
                 position INTEGER NOT NULL,
+                archived BOOLEAN NOT NULL CHECK (archived IN (0, 1)),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
@@ -87,6 +88,7 @@ impl InitData for ProjectManagement {
                 title TEXT NOT NULL,
                 color TEXT NOT NULL,
                 position INTEGER NOT NULL,
+                archived BOOLEAN NOT NULL CHECK (archived IN (0, 1)),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id)
@@ -104,6 +106,7 @@ impl InitData for ProjectManagement {
                 title TEXT NOT NULL,
                 color TEXT,
                 position INTEGER NOT NULL,
+                archived BOOLEAN NOT NULL CHECK (archived IN (0, 1)),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id)
@@ -122,9 +125,11 @@ impl InitData for ProjectManagement {
                 title TEXT NOT NULL,
                 description TEXT,
                 important BOOLEAN NOT NULL CHECK (important IN (0, 1)),
+                start_date DATETIME,
                 due_date DATETIME,
                 reminder DATETIME,
                 position INTEGER NOT NULL,
+                archived BOOLEAN NOT NULL CHECK (archived IN (0, 1)),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (list_id)
@@ -145,6 +150,7 @@ impl InitData for ProjectManagement {
                 project_id INTEGER NOT NULL,
                 card_id INTEGER NOT NULL,
                 label_id INTEGER NOT NULL,
+                archived BOOLEAN NOT NULL CHECK (archived IN (0, 1)),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id)
@@ -170,6 +176,7 @@ impl InitData for ProjectManagement {
                 card_id INTEGER NOT NULL,
                 value TEXT NOT NULL,
                 completed BOOLEAN NOT NULL CHECK (completed IN (0, 1)),
+                archived BOOLEAN NOT NULL CHECK (archived IN (0, 1)),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id)
