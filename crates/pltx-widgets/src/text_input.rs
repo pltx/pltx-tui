@@ -161,6 +161,7 @@ impl TextInput {
     }
 
     // TODO:
+    // implement the CustomWidget trait
     // j = move up (if multiline)
     // k = move down (if multiline)
     // w = next word

@@ -6,11 +6,13 @@ use pltx_app::{
     App,
 };
 use pltx_config::ColorsConfig;
-use pltx_utils::KeyEventHandler;
+use pltx_utils::{CustomWidget, KeyEventHandler};
 use ratatui::{
+    layout::Rect,
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
+    Frame,
 };
 
 type SelectionOptions<T = String> = Vec<(T, Span<'static>)>;
@@ -21,6 +23,45 @@ pub struct Selection<T> {
     pub focused_option: usize,
     pub selected: HashSet<usize>,
     mode: Mode,
+}
+
+impl<T> CustomWidget for Selection<T> {
+    fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused_widget: bool) {
+        let colors = &app.config.colors;
+
+        let mut text = vec![];
+
+        for (i, option) in self.options.iter().enumerate() {
+            let focused = focused_widget && self.focused_option == i;
+
+            text.push(Line::from(vec![
+                Span::from(if focused { "❯" } else { " " })
+                    .bold()
+                    .fg(colors.primary),
+                Span::from("[").fg(colors.secondary),
+                Span::from(if self.selected.contains(&i) { "x" } else { " " }),
+                Span::from("] ").fg(colors.secondary),
+                if focused {
+                    option.1.clone().bold()
+                } else {
+                    option.1.clone()
+                },
+            ]))
+        }
+
+        let block = Block::new()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::new().fg(if focused_widget {
+                colors.primary
+            } else {
+                colors.border
+            }));
+
+        let paragraph = Paragraph::new(text).block(block);
+
+        frame.render_widget(paragraph, area);
+    }
 }
 
 impl<T> Selection<T> {
@@ -102,39 +143,6 @@ impl<T> Selection<T> {
 
     pub fn is_focus_last(&self) -> bool {
         self.focused_option == self.options.len().saturating_sub(1)
-    }
-
-    pub fn render<'b>(&self, colors: &ColorsConfig, focused_widget: bool) -> Paragraph<'b> {
-        let mut text = vec![];
-
-        for (i, option) in self.options.iter().enumerate() {
-            let focused = focused_widget && self.focused_option == i;
-
-            text.push(Line::from(vec![
-                Span::from(if focused { "❯" } else { " " })
-                    .bold()
-                    .fg(colors.primary),
-                Span::from("[").fg(colors.secondary),
-                Span::from(if self.selected.contains(&i) { "x" } else { " " }),
-                Span::from("] ").fg(colors.secondary),
-                if focused {
-                    option.1.clone().bold()
-                } else {
-                    option.1.clone()
-                },
-            ]))
-        }
-
-        let block = Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(if focused_widget {
-                colors.primary
-            } else {
-                colors.border
-            }));
-
-        Paragraph::new(text).block(block)
     }
 
     pub fn reset(&mut self) {

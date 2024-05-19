@@ -33,12 +33,6 @@ impl EventHandler {
         // then it will immediately close the popup when the user presses `?`, thus the
         // popup will never open.
         let event_state = &app.state.clone();
-        // Pass the event for the popup to handle
-        // if self.state.mode == Mode::Popup {
-        //     match self.state.popup {
-        //         _ => {}
-        //     }
-        // }
         match e {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => self
                 .key_event_handler(app, interface, command_handler, key_event, event_state)

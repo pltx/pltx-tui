@@ -5,8 +5,7 @@ use pltx_app::{
     state::{Mode, State},
     App,
 };
-use pltx_config::ColorsConfig;
-use pltx_utils::{current_timestamp, Init, KeyEventHandler, RenderPage};
+use pltx_utils::{current_timestamp, CustomWidget, Init, KeyEventHandler, RenderPage};
 use pltx_widgets::{Buttons, TextInput, TextInputEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -32,7 +31,7 @@ enum FocusedPane {
     Actions,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 enum Action {
     Save,
     Cancel,
@@ -42,6 +41,7 @@ struct Inputs {
     title: TextInput,
     description: TextInput,
     labels: Vec<(Option<i32>, TextInput, TextInput)>,
+    actions: Buttons<Action>,
 }
 
 #[derive(Clone)]
@@ -75,7 +75,6 @@ pub struct ProjectEditor {
     new: bool,
     data: Option<ProjectData>,
     focused_pane: FocusedPane,
-    action: Action,
     inputs: Inputs,
     selected_label: usize,
     focused_label_option: LabelOption,
@@ -88,7 +87,6 @@ impl Init for ProjectEditor {
             new: false,
             data: None,
             focused_pane: FocusedPane::Title,
-            action: Action::Save,
             inputs: Inputs {
                 title: TextInput::new(Mode::Navigation)
                     .title("Title")
@@ -96,7 +94,12 @@ impl Init for ProjectEditor {
                 description: TextInput::new(Mode::Navigation)
                     .title("Description")
                     .max(PROJECT_DESCRIPTION_MAX_LENGTH),
+
                 labels: vec![],
+                actions: Buttons::from([
+                    (Action::Save, "Save Project"),
+                    (Action::Cancel, "Cancel"),
+                ]),
             },
             selected_label: 0,
             focused_label_option: LabelOption::Labels,
@@ -270,15 +273,13 @@ impl ProjectEditor {
                     self.focused_label_option = LabelOption::AddLabel;
                 } else {
                     self.focused_pane = FocusedPane::Actions;
+                    self.inputs.actions.focus_first();
                 }
             }
             FocusedPane::Actions => {
-                if self.action == Action::Save {
-                    self.action = Action::Cancel;
-                } else if self.action == Action::Cancel {
-                    self.focused_pane = FocusedPane::Title;
-                    self.action = Action::Save;
-                }
+                self.inputs
+                    .actions
+                    .focus_next_or(|| self.focused_pane = FocusedPane::Title);
             }
         }
     }
@@ -287,7 +288,7 @@ impl ProjectEditor {
         match self.focused_pane {
             FocusedPane::Title => {
                 self.focused_pane = FocusedPane::Actions;
-                self.action = Action::Cancel;
+                self.inputs.actions.focus_last();
             }
             FocusedPane::Description => self.focused_pane = FocusedPane::Title,
             FocusedPane::Labels => {
@@ -300,12 +301,10 @@ impl ProjectEditor {
                 }
             }
             FocusedPane::Actions => {
-                if self.action == Action::Save {
+                self.inputs.actions.focus_prev_or(|| {
                     self.focused_pane = FocusedPane::Labels;
-                    self.focused_label_option = LabelOption::AddLabel;
-                } else if self.action == Action::Cancel {
-                    self.action = Action::Save;
-                }
+                    self.focused_label_option = LabelOption::AddLabel
+                });
             }
         }
     }
@@ -362,14 +361,14 @@ impl ProjectEditor {
 
     fn save_project(&mut self, app: &mut App) -> bool {
         if self.focused_pane == FocusedPane::Actions {
-            if self.action == Action::Save {
+            if self.inputs.actions.button_is_focused(Action::Save) {
                 if self.new {
                     self.db_new_project(app).unwrap_or_else(|e| panic!("{e}"));
                 } else {
                     self.db_edit_project(app).unwrap_or_else(|e| panic!("{e}"));
                 }
                 self.reset()
-            } else if self.action == Action::Cancel {
+            } else if self.inputs.actions.button_is_focused(Action::Cancel) {
                 self.reset()
             }
             return true;
@@ -432,8 +431,12 @@ impl RenderPage<ProjectsState> for ProjectEditor {
         }
         frame.render_widget(labels.2 .0, labels.2 .1);
 
-        let actions = self.render_actions(colors, actions_layout, main_sp);
-        frame.render_widget(actions.0, actions.1);
+        self.inputs.actions.render(
+            frame,
+            app,
+            actions_layout,
+            self.focused_pane == FocusedPane::Actions && main_sp,
+        );
     }
 }
 
@@ -450,30 +453,6 @@ impl ProjectEditor {
         self.inputs
             .description
             .render_block(app, area.width - 2, area.height - 2, focused)
-    }
-
-    fn render_actions(
-        &self,
-        colors: &ColorsConfig,
-        area: Rect,
-        main_sp: bool,
-    ) -> (impl Widget, Rect) {
-        Buttons::from(vec![
-            (
-                if self.new {
-                    "Create New Project"
-                } else {
-                    "Save Project"
-                },
-                self.action == Action::Save,
-            ),
-            ("Cancel", self.action == Action::Cancel),
-        ])
-        .render(
-            colors,
-            area,
-            self.focused_pane == FocusedPane::Actions && main_sp,
-        )
     }
 
     #[allow(clippy::type_complexity)]
@@ -578,6 +557,7 @@ impl ProjectEditor {
 
     pub fn set_new(mut self) -> Self {
         self.new = true;
+        self.inputs.actions.buttons[0].1 = String::from("Create New Project");
         self
     }
 
@@ -665,7 +645,7 @@ impl ProjectEditor {
 
     fn reset(&mut self) {
         self.focused_pane = FocusedPane::Title;
-        self.action = Action::Save;
+        self.inputs.actions.reset();
         self.inputs.title.reset();
         self.inputs.description.reset();
     }

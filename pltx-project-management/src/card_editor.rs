@@ -6,22 +6,30 @@ use pltx_app::{
     App,
 };
 use pltx_config::ColorsConfig;
-use pltx_utils::{current_timestamp, Init, KeyEventHandler, RenderPopupContained};
-use pltx_widgets::{self, Buttons, Popup, PopupSize, Selection, TextInput, TextInputEvent};
+use pltx_utils::{current_timestamp, CustomWidget, Init, KeyEventHandler, RenderPopupContained};
+use pltx_widgets::{self, Buttons, Form, Popup, PopupSize, Selection, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
     text::Span,
-    widgets::{Paragraph, Widget},
+    widgets::Paragraph,
     Frame,
 };
 
 use super::open_project::ProjectLabel;
 
+#[derive(PartialEq, Clone, Copy)]
+enum Action {
+    Save,
+    Cancel,
+}
+
 struct Inputs {
     title: TextInput,
     description: TextInput,
     labels: Selection<i32>,
+    properties: Form,
+    actions: Buttons<Action>,
 }
 
 // #[derive(Clone)]
@@ -39,13 +47,13 @@ struct CardData {
     id: i32,
     title: String,
     description: Option<String>,
-    // important: bool,
-    // due_date: Option<String>,
-    // reminder: Option<String>,
+    important: bool,
+    start_date: Option<String>,
+    due_date: Option<String>,
+    reminder: Option<String>,
     // position: i32,
     // created_at: String,
     // updated_at: String,
-    // subtasks: Vec<CardSubtask>,
 }
 
 #[derive(PartialEq)]
@@ -53,13 +61,8 @@ enum FocusedPane {
     Title,
     Description,
     Labels,
+    Properties,
     Actions,
-}
-
-#[derive(PartialEq)]
-enum Action {
-    Save,
-    Cancel,
 }
 
 pub struct CardEditor {
@@ -86,6 +89,8 @@ impl Init for CardEditor {
                 title: TextInput::new(Mode::Popup).title("Title").max(100),
                 description: TextInput::new(Mode::Popup).title("Description").max(4000),
                 labels: Selection::new(Mode::Popup),
+                properties: Form::new(Mode::Popup),
+                actions: Buttons::from([(Action::Save, "Save Card"), (Action::Cancel, "Cancel")]),
             },
             original_labels: HashSet::new(),
             focused_pane: FocusedPane::Title,
@@ -186,15 +191,23 @@ impl KeyEventHandler<Option<i32>> for CardEditor {
         event_state: &State,
     ) -> Option<i32> {
         match self.focused_pane {
-            FocusedPane::Title => self.inputs.title.key_event_handler(app, key_event),
-            FocusedPane::Description => self.inputs.description.key_event_handler(app, key_event),
+            FocusedPane::Title => {
+                self.inputs.title.key_event_handler(app, key_event);
+            }
+            FocusedPane::Description => {
+                self.inputs.description.key_event_handler(app, key_event);
+            }
             FocusedPane::Labels => {
                 self.inputs
                     .labels
                     .key_event_handler(app, key_event, event_state);
-                TextInputEvent::None
             }
-            FocusedPane::Actions => TextInputEvent::None,
+            FocusedPane::Properties => {
+                self.inputs
+                    .properties
+                    .key_event_handler(app, key_event, event_state)
+            }
+            FocusedPane::Actions => {}
         };
 
         if app.state.mode == Mode::Popup {
@@ -232,7 +245,8 @@ impl CardEditor {
             FocusedPane::Labels => self
                 .inputs
                 .labels
-                .focus_next_or(|| self.focused_pane = FocusedPane::Actions),
+                .focus_next_or(|| self.focused_pane = FocusedPane::Properties),
+            FocusedPane::Properties => self.focused_pane = FocusedPane::Actions,
             FocusedPane::Actions => match self.action {
                 Action::Save => self.action = Action::Cancel,
                 Action::Cancel => {
@@ -254,14 +268,15 @@ impl CardEditor {
                 .inputs
                 .labels
                 .focus_prev_or(|| self.focused_pane = FocusedPane::Description),
-            FocusedPane::Actions => match self.action {
-                Action::Save => {
-                    if self.inputs.labels.options.is_empty() {
-                        self.focused_pane = FocusedPane::Description;
-                    } else {
-                        self.focused_pane = FocusedPane::Labels;
-                    }
+            FocusedPane::Properties => {
+                if self.inputs.labels.options.is_empty() {
+                    self.focused_pane = FocusedPane::Description;
+                } else {
+                    self.focused_pane = FocusedPane::Labels;
                 }
+            }
+            FocusedPane::Actions => match self.action {
+                Action::Save => self.focused_pane = FocusedPane::Properties,
                 Action::Cancel => self.action = Action::Save,
             },
         }
@@ -299,16 +314,18 @@ impl RenderPopupContained for CardEditor {
         let label_len = self.inputs.labels.options.len() as u16;
         let label_height = if label_len > 0 { label_len + 2 } else { 0 };
 
-        let [title_layout, description_layout, label_layout, actions_layout] = Layout::default()
-            .vertical_margin(1)
-            .horizontal_margin(2)
-            .constraints([
-                Constraint::Length(3),
-                Constraint::Length(10),
-                Constraint::Length(label_height),
-                Constraint::Length(4),
-            ])
-            .areas(popup.area);
+        let [title_layout, description_layout, label_layout, properties_layout, actions_layout] =
+            Layout::default()
+                .vertical_margin(1)
+                .horizontal_margin(2)
+                .constraints([
+                    Constraint::Length(3),
+                    Constraint::Length(10),
+                    Constraint::Length(label_height),
+                    Constraint::Length(self.inputs.properties.inputs.len() as u16 + 2),
+                    Constraint::Length(4),
+                ])
+                .areas(popup.area);
 
         frame.render_widget(
             self.inputs.title.render_block(
@@ -330,39 +347,30 @@ impl RenderPopupContained for CardEditor {
             description_layout,
         );
 
-        frame.render_widget(self.render_labels(colors), label_layout);
-
-        let actions = self.render_actions(colors, actions_layout);
-        frame.render_widget(actions.0, actions.1);
-    }
-}
-
-impl CardEditor {
-    fn render_labels<'b>(&self, colors: &ColorsConfig) -> Paragraph<'b> {
         self.inputs
             .labels
-            .render(colors, self.focused_pane == FocusedPane::Labels)
-    }
+            .render(frame, app, area, self.focused_pane == FocusedPane::Labels);
 
-    fn render_actions(&self, colors: &ColorsConfig, area: Rect) -> (impl Widget, Rect) {
-        Buttons::from(vec![
-            (
-                if self.is_new {
-                    "Create New Card"
-                } else {
-                    "Save Card"
-                },
-                self.action == Action::Save,
-            ),
-            ("Cancel", self.action == Action::Cancel),
-        ])
-        .render(colors, area, self.focused_pane == FocusedPane::Actions)
+        self.inputs.properties.render(
+            frame,
+            app,
+            properties_layout,
+            self.focused_pane == FocusedPane::Properties,
+        );
+
+        self.inputs.actions.render(
+            frame,
+            app,
+            actions_layout,
+            self.focused_pane == FocusedPane::Actions,
+        );
     }
 }
 
 impl CardEditor {
-    pub fn empty(mut self) -> Self {
+    pub fn is_new(mut self) -> Self {
         self.is_new = true;
+        self.inputs.actions.buttons[0].1 = String::from("Create New Card");
         self
     }
 
@@ -399,21 +407,21 @@ impl CardEditor {
     pub fn set_data(&mut self, app: &App, card_id: i32) -> rusqlite::Result<()> {
         self.reset();
 
-        let query = "SELECT id, title, description, important, due_date, reminder, position, \
-                     created_at, updated_at FROM project_card WHERE id = ?1";
+        let query = "SELECT id, title, description, important, start_date, due_date, reminder, \
+                     position, created_at, updated_at FROM project_card WHERE id = ?1";
         let mut stmt = app.db.conn.prepare(query)?;
         let mut card = stmt.query_row([card_id], |r| {
             Ok(CardData {
                 id: r.get(0)?,
                 title: r.get(1)?,
                 description: r.get(2)?,
-                // important: r.get(3)?,
-                // due_date: r.get(4)?,
-                // reminder: r.get(5)?,
+                important: r.get(3)?,
+                start_date: r.get(3)?,
+                due_date: r.get(4)?,
+                reminder: r.get(5)?,
                 // position: r.get(6)?,
                 // created_at: r.get(7)?,
                 // updated_at: r.get(8)?,
-                // subtasks: vec![],
             })
         })?;
 

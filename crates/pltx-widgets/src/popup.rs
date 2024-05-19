@@ -1,6 +1,6 @@
 use pltx_app::App;
 use pltx_config::ColorsConfig;
-use pltx_utils::centered_rect;
+use pltx_utils::{centered_rect, CustomWidget};
 use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Style, Stylize},
@@ -66,6 +66,26 @@ pub struct Popup<'a> {
     colors: &'a ColorsConfig,
 }
 
+// TODO: implement the CustomWidget trait
+impl<'a> Popup<'a> {
+    pub fn render(self, frame: &mut Frame) -> Self {
+        let mut block = Block::new()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .title_style(Style::new().fg(self.colors.fg))
+            .border_style(Style::new().fg(self.colors.popup_border))
+            .bg(self.colors.popup_bg);
+
+        if let Some(title) = self.title_top {
+            block = block.title(Title::from(format!(" {title} ")).alignment(Alignment::Center))
+        }
+
+        frame.render_widget(Clear, self.area);
+        frame.render_widget(block, self.area);
+        self
+    }
+}
+
 impl<'a> Popup<'a> {
     pub fn new(app: &'a App, rect: Rect) -> Popup<'a> {
         let colors = &app.config.colors;
@@ -118,23 +138,6 @@ impl<'a> Popup<'a> {
 
     pub fn title_bottom(mut self, title: &'a str) -> Self {
         self.title_bottom = Some(title);
-        self
-    }
-
-    pub fn render(self, frame: &mut Frame) -> Self {
-        let mut block = Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .title_style(Style::new().fg(self.colors.fg))
-            .border_style(Style::new().fg(self.colors.popup_border))
-            .bg(self.colors.popup_bg);
-
-        if let Some(title) = self.title_top {
-            block = block.title(Title::from(format!(" {title} ")).alignment(Alignment::Center))
-        }
-
-        frame.render_widget(Clear, self.area);
-        frame.render_widget(block, self.area);
         self
     }
 }

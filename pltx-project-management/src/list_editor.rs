@@ -140,7 +140,7 @@ impl RenderPopupContained for ListEditor {
 }
 
 impl ListEditor {
-    pub fn empty(mut self) -> Self {
+    pub fn is_new(mut self) -> Self {
         self.is_new = true;
         self
     }

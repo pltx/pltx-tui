@@ -1,9 +1,11 @@
-use pltx_config::ColorsConfig;
+use pltx_app::App;
+use pltx_utils::CustomWidget;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, BorderType, Borders, Paragraph, Widget},
+    widgets::{Block, BorderType, Borders, Paragraph},
+    Frame,
 };
 
 struct SideSpacing {
@@ -12,44 +14,24 @@ struct SideSpacing {
 }
 
 /// Buttons widget
-pub struct Buttons {
+pub struct Buttons<T> {
     width: u16,
     side_spacing: SideSpacing,
     auto_width: bool,
-    buttons: Vec<(String, bool)>,
+    pub buttons: Vec<(T, String)>,
+    focused_button: usize,
 }
 
-impl Buttons {
-    pub fn from(buttons: Vec<(&str, bool)>) -> Self {
-        Self {
-            width: 0,
-            side_spacing: SideSpacing { left: 1, right: 2 },
-            auto_width: true,
-            buttons: buttons
-                .iter()
-                .map(|b| (b.0.to_string(), b.1))
-                .collect::<Vec<(String, bool)>>(),
-        }
-    }
+impl<T> CustomWidget for Buttons<T> {
+    fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused: bool) {
+        let colors = &app.config.colors;
 
-    pub fn fixed_width(mut self, width: u16) -> Self {
-        self.width = width;
-        self.auto_width = false;
-        self
-    }
-
-    pub fn side_spacing(mut self, left: u8, right: u8) -> Self {
-        self.side_spacing = SideSpacing { left, right };
-        self
-    }
-
-    pub fn render(&self, colors: &ColorsConfig, area: Rect, focused: bool) -> (impl Widget, Rect) {
         let layout_border_width: u16 = 2;
 
         let width = if self.auto_width {
             let mut longest_title = 0;
             for btn in self.buttons.iter() {
-                let title_len = btn.0.chars().count();
+                let title_len = btn.1.chars().count();
                 if title_len > longest_title {
                     longest_title = title_len;
                 }
@@ -81,7 +63,7 @@ impl Buttons {
                 colors.border
             }));
 
-        let button_line = |(title, btn_focused): &(String, bool)| -> Line {
+        let button_line = |(i, (_, title)): (usize, &(T, String))| -> Line {
             Line::from(vec![
                 Span::from(format!(
                     "{}{}{}",
@@ -95,7 +77,7 @@ impl Buttons {
                         + self.side_spacing.right as usize,
                 ))),
             ])
-            .style(if focused && *btn_focused {
+            .style(if focused && i == self.focused_button {
                 Style::new()
                     .bold()
                     .fg(colors.active_fg)
@@ -106,10 +88,94 @@ impl Buttons {
         };
 
         let paragraph = Paragraph::new(Text::from(
-            self.buttons.iter().map(button_line).collect::<Vec<Line>>(),
+            self.buttons
+                .iter()
+                .enumerate()
+                .map(button_line)
+                .collect::<Vec<Line>>(),
         ))
         .block(block);
 
-        (paragraph, layout)
+        frame.render_widget(paragraph, layout);
+    }
+}
+
+impl<T, const N: usize> From<[(T, &str); N]> for Buttons<T>
+where
+    T: Copy,
+{
+    fn from(buttons: [(T, &str); N]) -> Self {
+        Self {
+            width: 0,
+            side_spacing: SideSpacing { left: 1, right: 2 },
+            auto_width: true,
+            buttons: buttons
+                .iter()
+                .map(|b| (b.0, b.1.to_string()))
+                .collect::<Vec<(T, String)>>(),
+            focused_button: 0,
+        }
+    }
+}
+
+impl<T> Buttons<T>
+where
+    T: PartialEq,
+{
+    pub fn fixed_width(mut self, width: u16) -> Self {
+        self.width = width;
+        self.auto_width = false;
+        self
+    }
+
+    pub fn side_spacing(mut self, left: u8, right: u8) -> Self {
+        self.side_spacing = SideSpacing { left, right };
+        self
+    }
+
+    pub fn focus_first(&mut self) {
+        self.focused_button = 0;
+    }
+
+    pub fn focus_last(&mut self) {
+        self.focused_button = self.buttons.len() - 1;
+    }
+
+    pub fn focus_next_or<F>(&mut self, cb: F)
+    where
+        F: FnOnce(),
+    {
+        if self.is_focus_last() {
+            cb()
+        } else {
+            self.focused_button = self.focused_button.saturating_add(1);
+        }
+    }
+
+    pub fn focus_prev_or<F>(&mut self, cb: F)
+    where
+        F: FnOnce(),
+    {
+        if self.is_focus_first() {
+            cb()
+        } else {
+            self.focused_button = self.focused_button.saturating_sub(1);
+        }
+    }
+
+    pub fn is_focus_first(&self) -> bool {
+        self.focused_button == 0
+    }
+
+    pub fn is_focus_last(&self) -> bool {
+        self.focused_button == self.buttons.len().saturating_sub(1)
+    }
+
+    pub fn button_is_focused(&self, compare_to: T) -> bool {
+        self.buttons[self.focused_button].0 == compare_to
+    }
+
+    pub fn reset(&mut self) {
+        self.focus_first();
     }
 }
