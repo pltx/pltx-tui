@@ -5,13 +5,15 @@ use pltx_app::{
     state::{Mode, State},
     App,
 };
-use pltx_utils::{current_timestamp, CustomWidget, Init, KeyEventHandler, RenderPage};
-use pltx_widgets::{Buttons, TextInput, TextInputEvent};
+use pltx_utils::{
+    current_timestamp, CompositeWidget, DefaultWidget, Init, KeyEventHandler, RenderPage,
+};
+use pltx_widgets::{Buttons, TextInput};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
     text::Line,
-    widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
+    widgets::{Block, BorderType, Borders, Padding, Paragraph},
     Frame,
 };
 
@@ -88,12 +90,8 @@ impl Init for ProjectEditor {
             data: None,
             focused_pane: FocusedPane::Title,
             inputs: Inputs {
-                title: TextInput::new(Mode::Navigation)
-                    .title("Title")
-                    .max(PROJECT_TITLE_MAX_LENGTH),
-                description: TextInput::new(Mode::Navigation)
-                    .title("Description")
-                    .max(PROJECT_DESCRIPTION_MAX_LENGTH),
+                title: TextInput::new("Title").max(PROJECT_TITLE_MAX_LENGTH),
+                description: TextInput::new("Description").max(PROJECT_DESCRIPTION_MAX_LENGTH),
 
                 labels: vec![],
                 actions: Buttons::from([
@@ -116,13 +114,13 @@ impl ProjectEditor {
             Some(self.inputs.description.input_string())
         };
 
-        let highest_position = app.db.get_highest_position("project").unwrap_or(-1);
+        let highest_position = app.db.get_highest_position("project").unwrap();
         app.db.conn.execute(
             "INSERT INTO project (title, description, position) VALUES (?1, ?2, ?3)",
             (
                 self.inputs.title.input_string(),
                 description,
-                highest_position.saturating_add(1),
+                highest_position + 1,
             ),
         )?;
 
@@ -201,27 +199,40 @@ impl ProjectEditor {
 }
 
 impl KeyEventHandler<bool> for ProjectEditor {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
+    fn key_event_handler(
+        &mut self,
+        app: &mut App,
+        key_event: KeyEvent,
+        event_state: &State,
+    ) -> bool {
         match self.focused_pane {
-            FocusedPane::Title => self.inputs.title.key_event_handler(app, key_event),
-            FocusedPane::Description => self.inputs.description.key_event_handler(app, key_event),
+            FocusedPane::Title => self
+                .inputs
+                .title
+                .key_event_handler(app, key_event, event_state),
+            FocusedPane::Description => {
+                self.inputs
+                    .description
+                    .key_event_handler(app, key_event, event_state)
+            }
             FocusedPane::Labels => {
                 if !self.inputs.labels.is_empty() {
                     if self.label_col == LabelCol::Title {
-                        self.inputs.labels[self.selected_label]
-                            .1
-                            .key_event_handler(app, key_event)
+                        self.inputs.labels[self.selected_label].1.key_event_handler(
+                            app,
+                            key_event,
+                            event_state,
+                        )
                     } else {
-                        self.inputs.labels[self.selected_label]
-                            .2
-                            .key_event_handler(app, key_event)
+                        self.inputs.labels[self.selected_label].2.key_event_handler(
+                            app,
+                            key_event,
+                            event_state,
+                        )
                     };
-                    TextInputEvent::None
-                } else {
-                    TextInputEvent::None
                 }
             }
-            _ => TextInputEvent::None,
+            _ => {}
         };
 
         if app.state.mode == Mode::Navigation {
@@ -344,11 +355,11 @@ impl ProjectEditor {
     }
 
     fn add_label(&mut self, app: &mut App) {
-        let title_input = TextInput::new(Mode::Navigation)
+        let title_input = TextInput::new("Title")
             .placeholder("Title")
             .required()
             .max(LABEL_TITLE_MAX_LENTH);
-        let mut color_input = TextInput::new(Mode::Navigation)
+        let mut color_input = TextInput::new("Title")
             .placeholder("Color")
             .required_len(LABEL_COLOR_REQUIRED_LENTH);
         color_input.input(app.config.colors.fg.to_string());
@@ -361,14 +372,14 @@ impl ProjectEditor {
 
     fn save_project(&mut self, app: &mut App) -> bool {
         if self.focused_pane == FocusedPane::Actions {
-            if self.inputs.actions.button_is_focused(Action::Save) {
+            if self.inputs.actions.is_focused(Action::Save) {
                 if self.new {
                     self.db_new_project(app).unwrap_or_else(|e| panic!("{e}"));
                 } else {
                     self.db_edit_project(app).unwrap_or_else(|e| panic!("{e}"));
                 }
                 self.reset()
-            } else if self.inputs.actions.button_is_focused(Action::Cancel) {
+            } else if self.inputs.actions.is_focused(Action::Cancel) {
                 self.reset()
             }
             return true;
@@ -415,21 +426,21 @@ impl RenderPage<ProjectsState> for ProjectEditor {
             .constraints([Constraint::Length(60)])
             .areas(label_layout);
 
-        frame.render_widget(self.render_title(app, title_layout, main_sp), title_layout);
-
-        frame.render_widget(
-            self.render_description(app, description_layout, main_sp),
-            description_layout,
+        self.inputs.title.render(
+            frame,
+            app,
+            title_layout,
+            self.focused_pane == FocusedPane::Title && main_sp,
         );
 
-        let labels = self.render_labels(app, fixed_width_label_layout, main_sp);
-        frame.render_widget(labels.0, fixed_width_label_layout);
-        for label_widget in labels.1 {
-            frame.render_widget(label_widget.0 .0, label_widget.0 .1);
-            frame.render_widget(label_widget.1 .0, label_widget.1 .1);
-            frame.render_widget(label_widget.2 .0, label_widget.2 .1);
-        }
-        frame.render_widget(labels.2 .0, labels.2 .1);
+        self.inputs.description.render(
+            frame,
+            app,
+            description_layout,
+            self.focused_pane == FocusedPane::Description && main_sp,
+        );
+
+        self.render_labels(frame, app, fixed_width_label_layout, main_sp);
 
         self.inputs.actions.render(
             frame,
@@ -441,38 +452,9 @@ impl RenderPage<ProjectsState> for ProjectEditor {
 }
 
 impl ProjectEditor {
-    fn render_title(&self, app: &mut App, area: Rect, main_sp: bool) -> impl Widget {
-        let focused = self.focused_pane == FocusedPane::Title && main_sp;
-        self.inputs
-            .title
-            .render_block(app, area.width - 2, area.height - 2, focused)
-    }
-
-    fn render_description(&self, app: &mut App, area: Rect, main_sp: bool) -> impl Widget {
-        let focused = self.focused_pane == FocusedPane::Description && main_sp;
-        self.inputs
-            .description
-            .render_block(app, area.width - 2, area.height - 2, focused)
-    }
-
     #[allow(clippy::type_complexity)]
-    fn render_labels(
-        &self,
-        app: &App,
-        area: Rect,
-        main_sp: bool,
-    ) -> (
-        impl Widget,
-        Vec<(
-            (impl Widget, Rect),
-            (impl Widget, Rect),
-            (impl Widget, Rect),
-        )>,
-        (impl Widget, Rect),
-    ) {
+    fn render_labels(&self, frame: &mut Frame, app: &App, area: Rect, main_sp: bool) {
         let colors = &app.config.colors;
-
-        let mut label_widgets = vec![];
 
         let [label_list_layout, add_label_layout] = Layout::default()
             .margin(1)
@@ -501,6 +483,8 @@ impl ProjectEditor {
                 },
             ));
 
+        frame.render_widget(block, area);
+
         for (i, label_input) in self.inputs.labels.iter().enumerate() {
             let [title_layout, color_layout, preview_layout] = Layout::default()
                 .direction(Direction::Horizontal)
@@ -515,28 +499,24 @@ impl ProjectEditor {
                 && self.focused_label_option == LabelOption::Labels
                 && self.selected_label == i;
 
-            let label_title_input = label_input.1.render_text(
+            label_input.1.render(
+                frame,
                 app,
-                title_layout.width,
-                title_layout.height,
+                title_layout,
                 is_focused && self.label_col == LabelCol::Title,
             );
 
-            let label_color_input = label_input.2.render_text(
+            label_input.2.render(
+                frame,
                 app,
-                color_layout.width,
-                color_layout.height,
+                color_layout,
                 is_focused && self.label_col == LabelCol::Color,
             );
 
             let label_preview_input = Paragraph::new(format!(" {} ", label_input.1.input_string()))
                 .fg(Color::from_str(&label_input.2.input_string()).unwrap_or(colors.bg));
 
-            label_widgets.push((
-                (label_title_input, title_layout),
-                (label_color_input, color_layout),
-                (label_preview_input, preview_layout),
-            ))
+            frame.render_widget(label_preview_input, preview_layout)
         }
 
         let add_label = Line::from(" Add Label ").style(
@@ -552,7 +532,7 @@ impl ProjectEditor {
             },
         );
 
-        (block, label_widgets, (add_label, add_label_layout))
+        frame.render_widget(add_label, add_label_layout);
     }
 
     pub fn set_new(mut self) -> Self {
@@ -608,13 +588,15 @@ impl ProjectEditor {
         for l in labels_iter {
             let label = l.unwrap();
 
-            let mut title_input = TextInput::new(Mode::Navigation)
-                .placeholder("Title")
+            let mut title_input = TextInput::new("Title")
+                .title_as_placeholder()
+                .inline()
                 .required()
                 .max(LABEL_TITLE_MAX_LENTH);
             title_input.input(label.title.clone());
-            let mut color_input = TextInput::new(Mode::Navigation)
-                .placeholder("Color")
+            let mut color_input = TextInput::new("Color")
+                .title_as_placeholder()
+                .inline()
                 .max(LABEL_COLOR_REQUIRED_LENTH);
             color_input.input(label.color.clone());
 

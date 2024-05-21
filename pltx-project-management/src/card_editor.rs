@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr};
+use std::{cell::RefCell, collections::HashSet, convert::From, rc::Rc, str::FromStr};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{
@@ -6,13 +6,15 @@ use pltx_app::{
     App,
 };
 use pltx_config::ColorsConfig;
-use pltx_utils::{current_timestamp, CustomWidget, Init, KeyEventHandler, RenderPopupContained};
-use pltx_widgets::{self, Buttons, Form, Popup, PopupSize, Selection, TextInput};
+use pltx_utils::{
+    current_timestamp, db_datetime, parse_user_datetime_option, CompositeWidget, DefaultWidget,
+    FormWidget, Init, KeyEventHandler, RenderPopupContained,
+};
+use pltx_widgets::{self, Buttons, Form, Popup, PopupSize, Selection, Switch, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
     text::Span,
-    widgets::Paragraph,
     Frame,
 };
 
@@ -24,11 +26,18 @@ enum Action {
     Cancel,
 }
 
+struct Properties {
+    important: Rc<RefCell<Switch>>,
+    start_date: Rc<RefCell<TextInput>>,
+    due_date: Rc<RefCell<TextInput>>,
+    reminder: Rc<RefCell<TextInput>>,
+}
+
 struct Inputs {
     title: TextInput,
     description: TextInput,
     labels: Selection<i32>,
-    properties: Form,
+    properties: Form<Properties>,
     actions: Buttons<Action>,
 }
 
@@ -50,7 +59,7 @@ struct CardData {
     important: bool,
     start_date: Option<String>,
     due_date: Option<String>,
-    reminder: Option<String>,
+    reminder: Option<i32>,
     // position: i32,
     // created_at: String,
     // updated_at: String,
@@ -68,53 +77,77 @@ enum FocusedPane {
 pub struct CardEditor {
     is_new: bool,
     data: Option<CardData>,
-    size: PopupSize,
     project_id: Option<i32>,
     list_id: Option<i32>,
     inputs: Inputs,
+    size: PopupSize,
     original_labels: HashSet<usize>,
     focused_pane: FocusedPane,
-    action: Action,
 }
 
 impl Init for CardEditor {
-    fn init(_: &mut App) -> CardEditor {
-        CardEditor {
+    fn init(_: &mut App) -> Self {
+        let size = PopupSize::default().percentage_based().width(80).height(80);
+
+        let important_input = Rc::new(RefCell::new(Switch::from("Important")));
+        let start_date_input = Rc::new(RefCell::new(TextInput::new("Start Date").datetime_input()));
+        let due_date_input = Rc::new(RefCell::new(TextInput::new("Due Date").datetime_input()));
+        let reminder_input = Rc::new(RefCell::new(TextInput::new("Reminder").datetime_input()));
+
+        let properties = Properties {
+            important: Rc::clone(&important_input),
+            start_date: Rc::clone(&start_date_input),
+            due_date: Rc::clone(&due_date_input),
+            reminder: Rc::clone(&reminder_input),
+        };
+
+        Self {
             is_new: false,
             data: None,
-            size: PopupSize::default().percentage_based().width(80).height(80),
             project_id: None,
             list_id: None,
             inputs: Inputs {
-                title: TextInput::new(Mode::Popup).title("Title").max(100),
-                description: TextInput::new(Mode::Popup).title("Description").max(4000),
+                title: TextInput::new("Title")
+                    .mode(Mode::Popup)
+                    .max(100)
+                    .size((size.width - 2, size.height - 2)),
+                description: TextInput::new("Description")
+                    .mode(Mode::Popup)
+                    .max(4000)
+                    .size((size.width - 2, size.height - 2)),
                 labels: Selection::new(Mode::Popup),
-                properties: Form::new(Mode::Popup),
+                properties: Form::new(
+                    vec![important_input, start_date_input, due_date_input],
+                    properties,
+                    Mode::Popup,
+                ),
                 actions: Buttons::from([(Action::Save, "Save Card"), (Action::Cancel, "Cancel")]),
             },
+            size,
             original_labels: HashSet::new(),
             focused_pane: FocusedPane::Title,
-            action: Action::Save,
         }
     }
 }
 
 impl CardEditor {
     fn db_new_card(&self, app: &mut App) -> Result<i32, &str> {
-        let highest_position = app.db.get_highest_position("project_card").unwrap_or(-1);
+        let highest_position = app.db.get_highest_position("project_card").unwrap();
 
         let query = "INSERT INTO project_card (project_id, list_id, title, description, \
-                     important, due_date, reminder, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, \
-                     ?8)";
+                     important, start_date, due_date, reminder, position) VALUES (?1, ?2, ?3, ?4, \
+                     ?5, ?6, ?7, ?8, ?9)";
+        let inputs = &self.inputs.properties.inputs;
         let params = (
             Some(self.project_id),
             Some(self.list_id),
             self.inputs.title.input_string(),
             self.inputs.description.input_string(),
-            true,
+            (*inputs.important).borrow().state,
+            parse_user_datetime_option((*inputs.start_date).borrow().input_string()),
+            parse_user_datetime_option((*inputs.due_date).borrow().input_string()),
             Option::<String>::None,
-            Option::<String>::None,
-            highest_position.saturating_add(1),
+            highest_position + 1,
         );
         app.db.conn.execute(query, params).unwrap();
 
@@ -141,13 +174,16 @@ impl CardEditor {
     fn db_edit_card(&self, app: &mut App) -> Result<i32, &str> {
         if let Some(data) = &self.data {
             let query = "UPDATE project_card SET title = ?1, description = ?2, important = ?3, \
-                         due_date = ?4, reminder = ?5, updated_at = ?6 WHERE id = ?7";
+                         start_date = ?4, due_date = ?5, reminder = ?6, updated_at = ?7 WHERE id \
+                         = ?8";
             let mut stmt = app.db.conn.prepare(query).unwrap();
+            let inputs = &self.inputs.properties.inputs;
             stmt.execute((
                 self.inputs.title.input_string(),
                 self.inputs.description.input_string(),
-                true,
-                Option::<String>::None,
+                (*inputs.important).borrow().state,
+                parse_user_datetime_option((*inputs.start_date).borrow().input_string()),
+                parse_user_datetime_option((*inputs.due_date).borrow().input_string()),
                 Option::<String>::None,
                 current_timestamp(),
                 data.id,
@@ -192,10 +228,14 @@ impl KeyEventHandler<Option<i32>> for CardEditor {
     ) -> Option<i32> {
         match self.focused_pane {
             FocusedPane::Title => {
-                self.inputs.title.key_event_handler(app, key_event);
+                self.inputs
+                    .title
+                    .key_event_handler(app, key_event, event_state);
             }
             FocusedPane::Description => {
-                self.inputs.description.key_event_handler(app, key_event);
+                self.inputs
+                    .description
+                    .key_event_handler(app, key_event, event_state);
             }
             FocusedPane::Labels => {
                 self.inputs
@@ -237,7 +277,7 @@ impl CardEditor {
             FocusedPane::Title => self.focused_pane = FocusedPane::Description,
             FocusedPane::Description => {
                 if self.inputs.labels.options.is_empty() {
-                    self.focused_pane = FocusedPane::Actions;
+                    self.focused_pane = FocusedPane::Properties;
                 } else {
                     self.focused_pane = FocusedPane::Labels;
                 }
@@ -246,14 +286,14 @@ impl CardEditor {
                 .inputs
                 .labels
                 .focus_next_or(|| self.focused_pane = FocusedPane::Properties),
-            FocusedPane::Properties => self.focused_pane = FocusedPane::Actions,
-            FocusedPane::Actions => match self.action {
-                Action::Save => self.action = Action::Cancel,
-                Action::Cancel => {
-                    self.focused_pane = FocusedPane::Title;
-                    self.action = Action::Save
-                }
-            },
+            FocusedPane::Properties => self
+                .inputs
+                .properties
+                .focus_next_or(|| self.focused_pane = FocusedPane::Actions),
+            FocusedPane::Actions => self
+                .inputs
+                .actions
+                .focus_next_or(|| self.focused_pane = FocusedPane::Title),
         }
     }
 
@@ -261,30 +301,30 @@ impl CardEditor {
         match self.focused_pane {
             FocusedPane::Title => {
                 self.focused_pane = FocusedPane::Actions;
-                self.action = Action::Cancel;
+                self.inputs.actions.focus_last();
             }
             FocusedPane::Description => self.focused_pane = FocusedPane::Title,
             FocusedPane::Labels => self
                 .inputs
                 .labels
                 .focus_prev_or(|| self.focused_pane = FocusedPane::Description),
-            FocusedPane::Properties => {
+            FocusedPane::Properties => self.inputs.properties.focus_prev_or(|| {
                 if self.inputs.labels.options.is_empty() {
                     self.focused_pane = FocusedPane::Description;
                 } else {
                     self.focused_pane = FocusedPane::Labels;
                 }
-            }
-            FocusedPane::Actions => match self.action {
-                Action::Save => self.focused_pane = FocusedPane::Properties,
-                Action::Cancel => self.action = Action::Save,
-            },
+            }),
+            FocusedPane::Actions => self
+                .inputs
+                .actions
+                .focus_prev_or(|| self.focused_pane = FocusedPane::Properties),
         }
     }
 
     fn submit(&mut self, app: &mut App) -> Option<i32> {
         if self.focused_pane == FocusedPane::Actions {
-            if self.action == Action::Save {
+            if self.inputs.actions.is_focused(Action::Save) {
                 let id = if self.is_new {
                     Some(self.db_new_card(app).unwrap_or_else(|e| panic!("{e}")))
                 } else {
@@ -293,7 +333,7 @@ impl CardEditor {
                 self.reset();
                 app.state.mode = Mode::Navigation;
                 return id;
-            } else if self.action == Action::Cancel {
+            } else if self.inputs.actions.is_focused(Action::Cancel) {
                 self.reset();
                 app.state.mode = Mode::Navigation;
             }
@@ -304,8 +344,6 @@ impl CardEditor {
 
 impl RenderPopupContained for CardEditor {
     fn render(&mut self, frame: &mut Frame, app: &App, area: Rect) {
-        let colors = &app.config.colors;
-
         let popup = Popup::new(app, area)
             .title_top(if self.is_new { "New Card" } else { "Edit Card" })
             .size(self.size.clone())
@@ -322,34 +360,31 @@ impl RenderPopupContained for CardEditor {
                     Constraint::Length(3),
                     Constraint::Length(10),
                     Constraint::Length(label_height),
-                    Constraint::Length(self.inputs.properties.inputs.len() as u16 + 2),
+                    Constraint::Length(self.inputs.properties.input_widgets.len() as u16 + 2),
                     Constraint::Length(4),
                 ])
                 .areas(popup.area);
 
-        frame.render_widget(
-            self.inputs.title.render_block(
-                app,
-                self.size.width - 2,
-                self.size.height - 2,
-                self.focused_pane == FocusedPane::Title,
-            ),
+        self.inputs.title.render(
+            frame,
+            app,
             title_layout,
+            self.focused_pane == FocusedPane::Title,
         );
 
-        frame.render_widget(
-            self.inputs.description.render_block(
-                app,
-                self.size.width - 2,
-                self.size.height - 2,
-                self.focused_pane == FocusedPane::Description,
-            ),
+        self.inputs.description.render(
+            frame,
+            app,
             description_layout,
+            self.focused_pane == FocusedPane::Description,
         );
 
-        self.inputs
-            .labels
-            .render(frame, app, area, self.focused_pane == FocusedPane::Labels);
+        self.inputs.labels.render(
+            frame,
+            app,
+            label_layout,
+            self.focused_pane == FocusedPane::Labels,
+        );
 
         self.inputs.properties.render(
             frame,
@@ -368,7 +403,7 @@ impl RenderPopupContained for CardEditor {
 }
 
 impl CardEditor {
-    pub fn is_new(mut self) -> Self {
+    pub fn set_new(mut self) -> Self {
         self.is_new = true;
         self.inputs.actions.buttons[0].1 = String::from("Create New Card");
         self
@@ -416,12 +451,12 @@ impl CardEditor {
                 title: r.get(1)?,
                 description: r.get(2)?,
                 important: r.get(3)?,
-                start_date: r.get(3)?,
-                due_date: r.get(4)?,
-                reminder: r.get(5)?,
-                // position: r.get(6)?,
-                // created_at: r.get(7)?,
-                // updated_at: r.get(8)?,
+                start_date: db_datetime(r.get::<usize, Option<String>>(4)?),
+                due_date: db_datetime(r.get::<usize, Option<String>>(5)?),
+                reminder: r.get(6)?,
+                // position: r.get(7)?,
+                // created_at: r.get(8)?,
+                // updated_at: r.get(9)?,
             })
         })?;
 
@@ -430,8 +465,31 @@ impl CardEditor {
 
         if let Some(data) = &self.data {
             self.inputs.title.input(data.title.clone());
+
             if let Some(description) = &data.description {
                 self.inputs.description.input(description.clone());
+            }
+
+            (*self.inputs.properties.inputs.important)
+                .borrow_mut()
+                .set_state(data.important);
+
+            if let Some(start_date) = &data.start_date {
+                (*self.inputs.properties.inputs.start_date)
+                    .borrow_mut()
+                    .input(start_date.clone());
+            }
+
+            if let Some(due_date) = &data.due_date {
+                (*self.inputs.properties.inputs.due_date)
+                    .borrow_mut()
+                    .input(due_date.clone());
+            }
+
+            if let Some(reminder) = &data.reminder {
+                (*self.inputs.properties.inputs.reminder)
+                    .borrow_mut()
+                    .input(reminder.to_string());
             }
         }
 
@@ -455,6 +513,11 @@ impl CardEditor {
             self.inputs.labels.selected.insert(index_in_project_labels);
             self.original_labels.insert(index_in_project_labels);
         }
+        if let Some(start_date) = &data.start_date {
+            (*self.inputs.properties.inputs.start_date)
+                .borrow_mut()
+                .input(start_date.clone());
+        }
 
         Ok(())
     }
@@ -462,9 +525,18 @@ impl CardEditor {
     pub fn reset(&mut self) {
         self.inputs.title.reset();
         self.inputs.description.reset();
-        self.inputs.labels.reset();
         self.original_labels.clear();
+        self.inputs.labels.reset();
+        (*self.inputs.properties.inputs.important)
+            .borrow_mut()
+            .reset();
+        (*self.inputs.properties.inputs.start_date)
+            .borrow_mut()
+            .reset();
+        (*self.inputs.properties.inputs.due_date)
+            .borrow_mut()
+            .reset();
+        self.inputs.actions.focus_first();
         self.focused_pane = FocusedPane::Title;
-        self.action = Action::Save;
     }
 }

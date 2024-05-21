@@ -1,5 +1,6 @@
 use std::{fs, path::PathBuf};
 
+use pltx_tracing::trace_panic;
 use rusqlite::Connection;
 
 pub struct Session {
@@ -59,6 +60,11 @@ impl Database {
         Ok(())
     }
 
+    pub fn reset(&self) {
+        let db_path = get_db_path();
+        fs::remove_file(db_path).unwrap();
+    }
+
     pub fn get_position(&self, table: &str, id: i32) -> rusqlite::Result<i32> {
         let query = format!("SELECT position FROM {} WHERE id = ?1", table);
         let mut stmt = self.conn.prepare(&query)?;
@@ -93,5 +99,15 @@ impl Database {
         let mut stmt = self.conn.prepare(&query).unwrap();
         let recent_id: i32 = stmt.query_row((), |r| r.get(0)).unwrap();
         Ok(recent_id)
+    }
+
+    pub fn int_to_bool(&self, integer: i32) -> bool {
+        if integer == 1 {
+            true
+        } else if integer == 0 {
+            false
+        } else {
+            trace_panic!("failed to convert integer to bool");
+        }
     }
 }

@@ -1,5 +1,5 @@
 use pltx_app::App;
-use pltx_utils::CustomWidget;
+use pltx_utils::{CompositeWidget, DefaultWidget};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
@@ -22,7 +22,7 @@ pub struct Buttons<T> {
     focused_button: usize,
 }
 
-impl<T> CustomWidget for Buttons<T> {
+impl<T> DefaultWidget for Buttons<T> {
     fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused: bool) {
         let colors = &app.config.colors;
 
@@ -100,6 +100,46 @@ impl<T> CustomWidget for Buttons<T> {
     }
 }
 
+impl<T> CompositeWidget for Buttons<T> {
+    fn focus_first(&mut self) {
+        self.focused_button = 0;
+    }
+
+    fn focus_last(&mut self) {
+        self.focused_button = self.buttons.len() - 1;
+    }
+
+    fn focus_next_or<F>(&mut self, cb: F)
+    where
+        F: FnOnce(),
+    {
+        if self.is_focus_last() {
+            cb()
+        } else {
+            self.focused_button += 1;
+        }
+    }
+
+    fn focus_prev_or<F>(&mut self, cb: F)
+    where
+        F: FnOnce(),
+    {
+        if self.is_focus_first() {
+            cb()
+        } else {
+            self.focused_button -= 1;
+        }
+    }
+
+    fn is_focus_first(&self) -> bool {
+        self.focused_button == 0
+    }
+
+    fn is_focus_last(&self) -> bool {
+        self.focused_button == self.buttons.len() - 1
+    }
+}
+
 impl<T, const N: usize> From<[(T, &str); N]> for Buttons<T>
 where
     T: Copy,
@@ -133,45 +173,7 @@ where
         self
     }
 
-    pub fn focus_first(&mut self) {
-        self.focused_button = 0;
-    }
-
-    pub fn focus_last(&mut self) {
-        self.focused_button = self.buttons.len() - 1;
-    }
-
-    pub fn focus_next_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_last() {
-            cb()
-        } else {
-            self.focused_button = self.focused_button.saturating_add(1);
-        }
-    }
-
-    pub fn focus_prev_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_first() {
-            cb()
-        } else {
-            self.focused_button = self.focused_button.saturating_sub(1);
-        }
-    }
-
-    pub fn is_focus_first(&self) -> bool {
-        self.focused_button == 0
-    }
-
-    pub fn is_focus_last(&self) -> bool {
-        self.focused_button == self.buttons.len().saturating_sub(1)
-    }
-
-    pub fn button_is_focused(&self, compare_to: T) -> bool {
+    pub fn is_focused(&self, compare_to: T) -> bool {
         self.buttons[self.focused_button].0 == compare_to
     }
 

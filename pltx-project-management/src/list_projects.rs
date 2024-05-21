@@ -1,9 +1,12 @@
+use chrono::{DateTime, Duration};
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{
     state::{Mode, State},
     App,
 };
-use pltx_utils::{pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds};
+use pltx_utils::{
+    after_datetime, pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds,
+};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Style, Stylize},
@@ -11,14 +14,8 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table},
 };
 
-use super::{project_editor::ProjectLabel, projects::ProjectsState};
+use super::projects::ProjectsState;
 use crate::ScreenPane;
-
-#[derive(Clone)]
-struct ListProjectCard {
-    project_id: i32,
-    // due_date: Option<String>,
-}
 
 #[derive(Clone)]
 struct Project {
@@ -28,8 +25,10 @@ struct Project {
     position: i32,
     created_at: String,
     updated_at: String,
-    labels: Vec<ProjectLabel>,
-    cards: Vec<ListProjectCard>,
+    labels: i32,
+    lists: i32,
+    total_cards: i32,
+    cards_due_soon: i32,
 }
 
 pub struct ListProjects {
@@ -66,8 +65,10 @@ impl ListProjects {
                     position: row.get(3)?,
                     created_at: row.get(4)?,
                     updated_at: row.get(5)?,
-                    labels: vec![],
-                    cards: vec![],
+                    labels: 0,
+                    lists: 0,
+                    total_cards: 0,
+                    cards_due_soon: 0,
                 })
             })
             .unwrap();
@@ -76,8 +77,9 @@ impl ListProjects {
             projects.push(p.unwrap())
         }
 
-        projects = self.db_get_cards(app, &mut projects).unwrap();
         projects = self.db_get_labels(app, &mut projects).unwrap();
+        projects = self.db_get_lists(app, &mut projects).unwrap();
+        projects = self.db_get_cards(app, &mut projects).unwrap();
 
         if !projects.is_empty() && self.selected_id == 0 {
             self.selected_id = projects[0].id;
@@ -88,13 +90,42 @@ impl ListProjects {
         Ok(())
     }
 
+    fn db_get_labels(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+        let query = "SELECT project_id FROM project_label ORDER BY position";
+        let mut stmt = app.db.conn.prepare(query)?;
+        let label_iter = stmt.query_map([], |row| row.get::<usize, i32>(0))?;
+        for label_id in label_iter {
+            let id = label_id.unwrap();
+            let index = projects.iter().position(|p| p.id == id).unwrap();
+            projects[index].labels += 1;
+        }
+        Ok(projects.to_vec())
+    }
+
+    fn db_get_lists(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+        let query = "SELECT project_id FROM project_list";
+        let mut stmt = app.db.conn.prepare(query)?;
+        let id_iter = stmt.query_map([], |r| r.get::<usize, i32>(0))?;
+        for list_id in id_iter {
+            let id = list_id.unwrap();
+            let index = projects.iter().position(|p| p.id == id).unwrap();
+            projects[index].lists += 1;
+        }
+        Ok(projects.to_vec())
+    }
+
     fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+        struct ListProjectCard {
+            project_id: i32,
+            due_date: Option<String>,
+        }
+
         let query = "SELECT project_id, due_date FROM project_card ORDER BY position";
         let mut stmt = app.db.conn.prepare(query)?;
         let card_iter = stmt.query_map([], |row| {
             Ok(ListProjectCard {
                 project_id: row.get(0)?,
-                // due_date: row.get(1)?,
+                due_date: row.get(1)?,
             })
         })?;
 
@@ -104,31 +135,15 @@ impl ListProjects {
                 .iter()
                 .position(|p| p.id == card.project_id)
                 .unwrap();
-            projects[index].cards.push(card);
-        }
+            projects[index].total_cards += 1;
 
-        Ok(projects.to_vec())
-    }
-
-    fn db_get_labels(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
-        let query = "SELECT project_id, id, title, color FROM project_label ORDER BY position";
-        let mut stmt = app.db.conn.prepare(query)?;
-        let label_iter = stmt.query_map([], |row| {
-            Ok(ProjectLabel {
-                project_id: row.get(0)?,
-                id: row.get(1)?,
-                title: row.get(2)?,
-                color: row.get(3)?,
-            })
-        })?;
-
-        for l in label_iter {
-            let label = l.unwrap();
-            let index = projects
-                .iter()
-                .position(|p| p.id == label.project_id)
-                .unwrap();
-            projects[index].labels.push(label);
+            if let Some(due_date) = card.due_date {
+                let due_soon_datetime =
+                    DateTime::parse_from_rfc3339(&due_date).unwrap().to_utc() - Duration::days(1);
+                if after_datetime(due_soon_datetime) {
+                    projects[index].cards_due_soon += 1;
+                }
+            }
         }
 
         Ok(projects.to_vec())
@@ -284,7 +299,7 @@ impl RenderPage<ProjectsState> for ListProjects {
                     Row::new(vec![
                         Cell::new(format!(" {}", p.position)),
                         Cell::new(p.title.clone()),
-                        Cell::new(p.cards.len().to_string()),
+                        Cell::new(p.total_cards.to_string()),
                         // TODO: Implement due soon
                         Cell::new("0"),
                         // TODO: Implement overdue
@@ -375,11 +390,15 @@ impl RenderPage<ProjectsState> for ListProjects {
                 ]),
                 Line::from(vec![
                     Span::styled("Labels: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.labels.len().to_string()),
+                    Span::from(project.labels.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Lists: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.lists.to_string()),
                 ]),
                 Line::from(vec![
                     Span::styled("Cards: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.cards.len().to_string()),
+                    Span::from(project.total_cards.to_string()),
                 ]),
                 Line::from(vec![
                     Span::styled("Created At: ", Style::new().fg(colors.secondary)),

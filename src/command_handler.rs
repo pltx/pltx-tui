@@ -4,8 +4,8 @@ use pltx_app::{
     state::{GlobalPopup, Mode, State},
     App,
 };
-use pltx_utils::{KeyEventHandler, RenderPopup};
-use pltx_widgets::{self, Popup, PopupSize, TextInput, TextInputEvent};
+use pltx_utils::{DefaultWidget, KeyEventHandler, RenderPopup};
+use pltx_widgets::{self, Popup, PopupSize, TextInput};
 use ratatui::{
     layout::{Constraint, Layout},
     style::{Style, Stylize},
@@ -18,6 +18,7 @@ use ratatui::{
 enum Command {
     Help,
     Quit,
+    Reset,
     None,
 }
 
@@ -47,12 +48,13 @@ fn command_list<'a>() -> Vec<(Command, &'a str)> {
         match cmd {
             Command::Help => "help",
             Command::Quit => "quit",
+            Command::Reset => "reset",
             Command::None => "",
         }
     }
 
     // NOTE: This must be in lexicographic (alphabetical) order.
-    let cmds = [Command::Help, Command::Quit];
+    let cmds = [Command::Help, Command::Quit, Command::Reset];
 
     let mut list = vec![];
     for cmd in cmds {
@@ -68,12 +70,15 @@ fn command_options_list<'a>() -> Vec<&'a str> {
 impl CommandHandler {
     pub fn init() -> CommandHandler {
         let command_set = fst::Set::from_iter(command_options_list()).unwrap();
+        let size = PopupSize::default().width(60).height(20);
 
         CommandHandler {
-            command: TextInput::new(Mode::Command)
+            command: TextInput::new("Command")
+                .mode(Mode::Command)
+                .size((size.width - 2, size.height - 2))
                 .placeholder("Enter a command...")
                 .max(50),
-            size: PopupSize::default().width(60).height(20),
+            size,
             display: Display::CommandInput,
             focused_pane: FocusedPane::Input,
             command_set,
@@ -112,6 +117,10 @@ impl CommandHandler {
                 app.state.popup = GlobalPopup::Help;
             }
             Command::Quit => app.exit(),
+            Command::Reset => {
+                app.db.reset();
+                app.exit();
+            }
             Command::None => {}
         }
         if command != Command::None {
@@ -142,12 +151,10 @@ impl CommandHandler {
 }
 
 impl KeyEventHandler for CommandHandler {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
         if self.focused_pane == FocusedPane::Input {
-            match self.command.key_event_handler(app, key_event) {
-                TextInputEvent::OnChange => self.update_options(),
-                TextInputEvent::None => {}
-            }
+            self.command.key_event_handler(app, key_event, event_state);
+            self.update_options();
         }
 
         if app.state.mode == Mode::Command {
@@ -197,14 +204,11 @@ impl RenderPopup for CommandHandler {
             .constraints([Constraint::Length(3), Constraint::Min(1)])
             .areas(popup.area);
 
-        frame.render_widget(
-            self.command.render_block(
-                app,
-                self.size.width - 2,
-                self.size.height - 2,
-                self.focused_pane == FocusedPane::Input,
-            ),
+        self.command.render(
+            frame,
+            app,
             input_layout,
+            self.focused_pane == FocusedPane::Input,
         );
 
         let text = if self.command_options.is_empty() {

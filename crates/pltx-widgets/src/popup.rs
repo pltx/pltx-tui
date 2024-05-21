@@ -1,6 +1,6 @@
 use pltx_app::App;
 use pltx_config::ColorsConfig;
-use pltx_utils::{centered_rect, CustomWidget};
+use pltx_utils::centered_rect;
 use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Style, Stylize},

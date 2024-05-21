@@ -5,8 +5,7 @@ use pltx_app::{
     state::{Mode, State},
     App,
 };
-use pltx_config::ColorsConfig;
-use pltx_utils::{CustomWidget, KeyEventHandler};
+use pltx_utils::{CompositeWidget, DefaultWidget, KeyEventHandler};
 use ratatui::{
     layout::Rect,
     style::{Style, Stylize},
@@ -25,7 +24,7 @@ pub struct Selection<T> {
     mode: Mode,
 }
 
-impl<T> CustomWidget for Selection<T> {
+impl<T> DefaultWidget for Selection<T> {
     fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused_widget: bool) {
         let colors = &app.config.colors;
 
@@ -61,6 +60,46 @@ impl<T> CustomWidget for Selection<T> {
         let paragraph = Paragraph::new(text).block(block);
 
         frame.render_widget(paragraph, area);
+    }
+}
+
+impl<T> CompositeWidget for Selection<T> {
+    fn focus_next_or<F>(&mut self, cb: F)
+    where
+        F: FnOnce(),
+    {
+        if self.is_focus_last() {
+            cb()
+        } else {
+            self.focused_option += 1;
+        }
+    }
+
+    fn focus_prev_or<F>(&mut self, cb: F)
+    where
+        F: FnOnce(),
+    {
+        if self.is_focus_first() {
+            cb()
+        } else {
+            self.focused_option -= 1;
+        }
+    }
+
+    fn is_focus_first(&self) -> bool {
+        self.focused_option == 0
+    }
+
+    fn is_focus_last(&self) -> bool {
+        self.focused_option == self.options.len() - 1
+    }
+
+    fn focus_first(&mut self) {
+        self.focused_option = 0;
+    }
+
+    fn focus_last(&mut self) {
+        self.focused_option = self.options.len() - 1;
     }
 }
 
@@ -115,36 +154,6 @@ impl<T> Selection<T> {
         }
     }
 
-    pub fn focus_next_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_last() {
-            cb()
-        } else {
-            self.focused_option = self.focused_option.saturating_add(1);
-        }
-    }
-
-    pub fn focus_prev_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_first() {
-            cb()
-        } else {
-            self.focused_option = self.focused_option.saturating_sub(1);
-        }
-    }
-
-    pub fn is_focus_first(&self) -> bool {
-        self.focused_option == 0
-    }
-
-    pub fn is_focus_last(&self) -> bool {
-        self.focused_option == self.options.len().saturating_sub(1)
-    }
-
     pub fn reset(&mut self) {
         self.focused_option = 0;
         self.selected.clear();
@@ -155,7 +164,7 @@ impl<T> KeyEventHandler for Selection<T> {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
         if app.state.mode == self.mode {
             match key_event.code {
-                KeyCode::Char(' ') => self.select(),
+                KeyCode::Char(' ') | KeyCode::Enter => self.select(),
                 KeyCode::Char('a') => self.toggle_all(),
                 KeyCode::Char('i') => self.invert_selection(),
                 _ => {}

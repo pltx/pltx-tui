@@ -727,13 +727,16 @@ name = "pltx_database"
 version = "0.0.1"
 dependencies = [
  "home",
+ "pltx_tracing",
  "rusqlite",
+ "tracing",
 ]
 
 [[package]]
 name = "pltx_project_management"
 version = "0.0.1"
 dependencies = [
+ "chrono",
  "crossterm",
  "pltx_app",
  "pltx_config",

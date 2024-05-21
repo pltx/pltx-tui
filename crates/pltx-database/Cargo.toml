@@ -22,5 +22,8 @@ unimplemented = "deny"
 missing_safety_doc = "deny"
 
 [dependencies]
+pltx_tracing = { workspace = true }
 rusqlite = { workspace = true }
 home = { workspace = true }
+tracing = {workspace = true}
+

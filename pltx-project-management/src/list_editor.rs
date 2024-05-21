@@ -4,7 +4,7 @@ use pltx_app::{
     App,
 };
 use pltx_tracing::trace_panic;
-use pltx_utils::{Init, KeyEventHandler, RenderPopupContained};
+use pltx_utils::{DefaultWidget, Init, KeyEventHandler, RenderPopupContained};
 use pltx_widgets::{self, Popup, PopupSize, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -23,21 +23,25 @@ struct ListData {
 pub struct ListEditor {
     is_new: bool,
     data: Option<ListData>,
-    size: PopupSize,
     project_id: Option<i32>,
     inputs: Inputs,
+    size: PopupSize,
 }
 
 impl Init for ListEditor {
     fn init(_: &mut App) -> ListEditor {
+        let size = PopupSize::default().width(60).height(5);
         ListEditor {
             is_new: false,
             data: None,
-            size: PopupSize::default().width(60).height(5),
             project_id: None,
             inputs: Inputs {
-                title: TextInput::new(Mode::Popup).title("Title").max(50),
+                title: TextInput::new("Title")
+                    .mode(Mode::Popup)
+                    .max(50)
+                    .size((size.width - 2, size.height - 2)),
             },
+            size,
         }
     }
 }
@@ -99,8 +103,15 @@ impl ListEditor {
 }
 
 impl KeyEventHandler<Option<i32>> for ListEditor {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> Option<i32> {
-        self.inputs.title.key_event_handler(app, key_event);
+    fn key_event_handler(
+        &mut self,
+        app: &mut App,
+        key_event: KeyEvent,
+        event_state: &State,
+    ) -> Option<i32> {
+        self.inputs
+            .title
+            .key_event_handler(app, key_event, event_state);
 
         if key_event.code == KeyCode::Enter {
             let list_id = if self.is_new {
@@ -130,17 +141,12 @@ impl RenderPopupContained for ListEditor {
             .constraints([Constraint::Length(3)])
             .areas(popup.area);
 
-        frame.render_widget(
-            self.inputs
-                .title
-                .render_block(app, self.size.width - 2, self.size.height - 2, true),
-            title_layout,
-        );
+        self.inputs.title.render(frame, app, title_layout, true);
     }
 }
 
 impl ListEditor {
-    pub fn is_new(mut self) -> Self {
+    pub fn set_new(mut self) -> Self {
         self.is_new = true;
         self
     }

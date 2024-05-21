@@ -1,15 +1,33 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Mode, App};
-use pltx_utils::normal_to_insert;
+use pltx_app::{
+    state::{Mode, State},
+    App,
+};
+use pltx_utils::{
+    display_current_timestamp, normal_to_insert, DefaultWidget, FormWidget, KeyEventHandler,
+};
 use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
     style::Style,
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
 };
 
-pub enum TextInputEvent {
-    OnChange,
-    None,
+// pub enum TextInputEvent {
+//     OnChange,
+//     None,
+// }
+
+#[derive(Clone)]
+enum TextInputType {
+    Text,
+    Date,
+}
+
+#[derive(Clone, Default)]
+struct TextInputSize {
+    width: u16,
+    // height: u16,
 }
 
 /// TextInput widget
@@ -17,27 +35,166 @@ pub enum TextInputEvent {
 pub struct TextInput {
     pub input: Vec<String>,
     pub cursor_position: (usize, usize),
-    title: Option<String>,
+    input_type: TextInputType,
+    title: String,
+    max_title_len: u16,
     placeholder: Option<String>,
+    title_as_placeholder: bool,
     // multiline: bool,
     required: bool,
     min: Option<usize>,
     max: Option<usize>,
     mode: Mode,
+    inline: bool,
+    use_size: bool,
+    size: TextInputSize,
+}
+
+impl DefaultWidget for TextInput {
+    fn render(
+        &self,
+        frame: &mut ratatui::prelude::Frame,
+        app: &App,
+        area: ratatui::prelude::Rect,
+        focused: bool,
+    ) {
+        if self.inline {
+            let [title_layout, input_layout] = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Length(self.max_title_len + 2),
+                    Constraint::Min(0),
+                ])
+                .areas(area);
+
+            if !self.title_as_placeholder {
+                frame.render_widget(Paragraph::new(format!("{}: ", self.title)), title_layout);
+            }
+            let widget = self.render_text(app, input_layout, focused);
+            frame.render_widget(
+                widget,
+                if self.title_as_placeholder {
+                    area
+                } else {
+                    input_layout
+                },
+            );
+        } else {
+            let widget = self.render_block(app, area, focused);
+            frame.render_widget(widget, area);
+        }
+    }
+}
+
+impl FormWidget for TextInput {
+    fn form_compatible(&mut self) {
+        self.inline = true;
+    }
+
+    fn mode(&mut self, mode: Mode) {
+        self.mode = mode;
+    }
+
+    fn title_len(&self) -> u16 {
+        self.title.chars().count() as u16
+    }
+
+    fn max_title_len(&mut self, max_title: u16) {
+        self.max_title_len = max_title;
+    }
+
+    fn reset(&mut self) {
+        self.input = vec![String::new()];
+        self.cursor_position = (0, 0);
+    }
+}
+
+impl KeyEventHandler for TextInput {
+    // TODO:
+    // add a view only option
+    // provide a way for users to deal with text input events like OnChange
+    // j = move up (if multiline)
+    // k = move down (if multiline)
+    // w = next word
+    // b = prev word
+    // x = delete char in navigation mode
+    // dd = delete line
+    // u = undo
+    // ctrl + r = redo
+    // o = newline + insert mode
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
+        // let mut event = TextInputEvent::None;
+
+        if app.state.mode == normal_to_insert(self.mode) {
+            match key_event.code {
+                KeyCode::Char(to_insert) => {
+                    self.enter_char(to_insert);
+                    // event = TextInputEvent::OnChange;
+                }
+                KeyCode::Backspace => {
+                    self.delete_char();
+                    // event = TextInputEvent::OnChange;
+                }
+                KeyCode::Left => self.move_cursor_left(),
+                KeyCode::Right => self.move_cursor_right(),
+                _ => {}
+            }
+        }
+
+        if (self.mode == Mode::Navigation && app.state.mode == Mode::Navigation)
+            || (self.mode == Mode::Popup && app.state.mode == Mode::Popup)
+            || (self.mode == Mode::Command && app.state.mode == Mode::Command)
+        {
+            match key_event.code {
+                KeyCode::Char('h') => self.move_cursor_left(),
+                KeyCode::Char('l') => self.move_cursor_right(),
+                KeyCode::Char('w') => self.cursor_next_word(),
+                KeyCode::Char('b') => {}
+                KeyCode::Char('0') => self.cursor_start_line(),
+                KeyCode::Char('$') => self.cursor_end_line(),
+                KeyCode::Char('i') => self.enter_insert_mode(app),
+                KeyCode::Char('I') => {
+                    self.enter_insert_mode(app);
+                    self.cursor_start_line()
+                }
+                KeyCode::Char('a') => {
+                    self.enter_insert_mode(app);
+                    self.move_cursor_right()
+                }
+                KeyCode::Char('A') => {
+                    self.enter_insert_mode(app);
+                    self.cursor_end_line()
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 impl TextInput {
-    pub fn new(mode: Mode) -> Self {
+    pub fn new(title: &str) -> Self {
         Self {
-            input: vec![String::from("")],
+            input: vec![String::new()],
             cursor_position: (0, 0),
-            title: None,
+            input_type: TextInputType::Text,
+            title: String::from(title),
+            max_title_len: title.chars().count() as u16,
             placeholder: None,
+            title_as_placeholder: false,
             required: false,
             min: None,
             max: None,
-            mode,
+            mode: Mode::Navigation,
+            inline: false,
+            use_size: false,
+            size: TextInputSize::default(),
         }
+    }
+
+    pub fn default_input(mut self, input: String) -> Self {
+        self.input = input.split('\n').map(|s| s.to_string()).collect();
+        self.cursor_end_line();
+        self
     }
 
     pub fn input(&mut self, input: String) {
@@ -54,13 +211,21 @@ impl TextInput {
         self.cursor_position = (0, 0);
     }
 
-    pub fn title(mut self, title: &str) -> Self {
-        self.title = Some(title.to_string());
+    pub fn datetime_input(mut self) -> Self {
+        self.input_type = TextInputType::Date;
+        self.placeholder = Some(display_current_timestamp());
+        self.min = Some(16);
+        self.max = Some(16);
         self
     }
 
     pub fn placeholder(mut self, placeholder: &str) -> Self {
         self.placeholder = Some(placeholder.to_string());
+        self
+    }
+
+    pub fn title_as_placeholder(mut self) -> Self {
+        self.title_as_placeholder = true;
         self
     }
 
@@ -87,10 +252,36 @@ impl TextInput {
         self
     }
 
+    pub fn mode(mut self, mode: Mode) -> Self {
+        self.mode = mode;
+        self
+    }
+
     pub fn required_len(mut self, length: usize) -> Self {
         self.min = Some(length);
         self.max = Some(length);
         self
+    }
+
+    pub fn size(mut self, size: (u16, u16)) -> Self {
+        self.use_size = true;
+        self.size = TextInputSize {
+            width: size.0,
+            // height: size.1,
+        };
+        self
+    }
+
+    pub fn inline(mut self) -> Self {
+        self.inline = true;
+        self
+    }
+
+    pub fn is_empty(&self) -> bool {
+        if self.input.is_empty() || self.input_string().chars().count() == 0 {
+            return true;
+        }
+        false
     }
 
     fn move_cursor_left(&mut self) {
@@ -160,75 +351,7 @@ impl TextInput {
         app.state.mode = normal_to_insert(app.state.mode);
     }
 
-    // TODO:
-    // implement the CustomWidget trait
-    // j = move up (if multiline)
-    // k = move down (if multiline)
-    // w = next word
-    // b = prev word
-    // x = delete char in navigation mode
-    // dd = delete line
-    // u = undo
-    // ctrl + r = redo
-    // o = newline + insert mode
-    pub fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> TextInputEvent {
-        let mut event = TextInputEvent::None;
-
-        if app.state.mode == normal_to_insert(self.mode) {
-            match key_event.code {
-                KeyCode::Char(to_insert) => {
-                    self.enter_char(to_insert);
-                    event = TextInputEvent::OnChange;
-                }
-                KeyCode::Backspace => {
-                    self.delete_char();
-                    event = TextInputEvent::OnChange;
-                }
-                KeyCode::Left => self.move_cursor_left(),
-                KeyCode::Right => self.move_cursor_right(),
-                _ => {}
-            }
-        }
-
-        if (self.mode == Mode::Navigation && app.state.mode == Mode::Navigation)
-            || (self.mode == Mode::Popup && app.state.mode == Mode::Popup)
-            || (self.mode == Mode::Command && app.state.mode == Mode::Command)
-        {
-            match key_event.code {
-                KeyCode::Char('h') => self.move_cursor_left(),
-                KeyCode::Char('l') => self.move_cursor_right(),
-                KeyCode::Char('w') => self.cursor_next_word(),
-                KeyCode::Char('b') => {}
-                KeyCode::Char('0') => self.cursor_start_line(),
-                KeyCode::Char('$') => self.cursor_end_line(),
-                KeyCode::Char('i') => self.enter_insert_mode(app),
-                KeyCode::Char('I') => {
-                    self.enter_insert_mode(app);
-                    self.cursor_start_line()
-                }
-                KeyCode::Char('a') => {
-                    self.enter_insert_mode(app);
-                    self.move_cursor_right()
-                }
-                KeyCode::Char('A') => {
-                    self.enter_insert_mode(app);
-                    self.cursor_end_line()
-                }
-                _ => {}
-            }
-        }
-
-        event
-    }
-
-    fn render_lines<'a>(
-        &self,
-        app: &App,
-        width: u16,
-        _: u16,
-        focused: bool,
-        side_space: bool,
-    ) -> Vec<Line<'a>> {
+    fn render_lines<'a>(&self, app: &App, area: Rect, focused: bool) -> Vec<Line<'a>> {
         let colors = &app.config.colors;
 
         let input = if !self.input.is_empty()
@@ -238,7 +361,7 @@ impl TextInput {
             if !focused {
                 if let Some(placeholder) = &self.placeholder {
                     vec![Line::from(vec![
-                        Span::from(if side_space { " " } else { "" }),
+                        Span::from(if self.inline { " " } else { "" }),
                         Span::from(placeholder.clone()).style(Style::new().fg(colors.secondary)),
                     ])]
                 } else {
@@ -246,7 +369,7 @@ impl TextInput {
                 }
             } else {
                 vec![Line::from(vec![
-                    Span::from(if side_space { " " } else { "" }),
+                    Span::from(if self.inline { " " } else { "" }),
                     Span::from(" ").style(if self.is_insert_mode(app) {
                         Style::new().fg(colors.bg).bg(colors.fg)
                     } else {
@@ -262,7 +385,12 @@ impl TextInput {
             // Reduce by 2 for the border width and 1 for the cursor.
             let border_width = 2;
             let cursor_width = 1;
-            let side_space_width = if side_space { 1 } else { 0 };
+            let side_space_width = if self.inline { 1 } else { 0 };
+            let width = if self.use_size {
+                self.size.width
+            } else {
+                area.width - 2
+            };
             let line_length =
                 width.saturating_sub(border_width + cursor_width + side_space_width) as usize;
 
@@ -333,7 +461,7 @@ impl TextInput {
                                     render_char(((line_index, line), (chunk_index, chunk), (i, c)))
                                 })
                                 .collect::<Vec<Span>>();
-                            if side_space {
+                            if self.inline {
                                 line.insert(0, Span::from(" "));
                                 line.push(Span::from(" "));
                             }
@@ -347,9 +475,9 @@ impl TextInput {
         input
     }
 
-    pub fn render_text<'a>(&self, app: &App, width: u16, height: u16, focused: bool) -> Text<'a> {
+    fn render_text(&self, app: &App, area: Rect, focused: bool) -> impl Widget {
         let colors = &app.config.colors;
-        let input_lines = self.render_lines(app, width, height, focused, true);
+        let input_lines = self.render_lines(app, area, focused);
         Text::from(input_lines).style(if focused {
             Style::new()
                 .fg(colors.input_focus_fg)
@@ -359,18 +487,14 @@ impl TextInput {
         })
     }
 
-    pub fn render_block(&self, app: &App, width: u16, height: u16, focused: bool) -> impl Widget {
+    fn render_block(&self, app: &App, area: Rect, focused: bool) -> impl Widget {
         let colors = &app.config.colors;
 
-        let text = self.render_lines(app, width, height, focused, false);
+        let text = self.render_lines(app, area, focused);
         Paragraph::new(text).block(
             Block::new()
                 .padding(Padding::horizontal(1))
-                .title(if let Some(title) = &self.title {
-                    format!(" {title} ")
-                } else {
-                    "".to_string()
-                })
+                .title(format!(" {} ", self.title))
                 .title_style(Style::new().fg(if focused { colors.fg } else { colors.secondary }))
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)

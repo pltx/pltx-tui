@@ -121,9 +121,9 @@ impl Init for OpenProject {
             data: ProjectData::default(),
             popup: Popup::None,
             popups: Popups {
-                new_list: ListEditor::init(app).is_new(),
+                new_list: ListEditor::init(app).set_new(),
                 edit_list: ListEditor::init(app),
-                new_card: CardEditor::init(app).is_new(),
+                new_card: CardEditor::init(app).set_new(),
                 edit_card: CardEditor::init(app),
             },
             delete_selection: DeleteSelection::None,
