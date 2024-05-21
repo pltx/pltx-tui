@@ -46,6 +46,7 @@ pub struct TextInput {
     max: Option<usize>,
     mode: Mode,
     inline: bool,
+    form_input: bool,
     use_size: bool,
     size: TextInputSize,
 }
@@ -89,6 +90,7 @@ impl DefaultWidget for TextInput {
 impl FormWidget for TextInput {
     fn form_compatible(&mut self) {
         self.inline = true;
+        self.form_input = true;
     }
 
     fn mode(&mut self, mode: Mode) {
@@ -186,6 +188,7 @@ impl TextInput {
             max: None,
             mode: Mode::Navigation,
             inline: false,
+            form_input: false,
             use_size: false,
             size: TextInputSize::default(),
         }
@@ -382,17 +385,18 @@ impl TextInput {
             // TODO: Scrollable view (not with the widget) for when there are more lines to
             // display than `height`
 
-            // Reduce by 2 for the border width and 1 for the cursor.
             let border_width = 2;
             let cursor_width = 1;
             let side_space_width = if self.inline { 1 } else { 0 };
+            let form_width = if self.form_input { 4 } else { 0 };
             let width = if self.use_size {
                 self.size.width
             } else {
                 area.width - 2
             };
-            let line_length =
-                width.saturating_sub(border_width + cursor_width + side_space_width) as usize;
+            let line_length = width.saturating_sub(border_width + cursor_width + side_space_width)
+                as usize
+                + form_width;
 
             type RenderCharType<'a> = ((usize, &'a String), (usize, &'a [char]), (usize, &'a char));
             let render_char =

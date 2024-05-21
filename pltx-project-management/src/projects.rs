@@ -59,22 +59,24 @@ impl KeyEventHandler for Projects {
             match key_event.code {
                 KeyCode::Char('n') => self.page = Page::NewProject,
                 KeyCode::Char('e') => {
-                    self.pages
-                        .edit_project
-                        .set_project(app, self.pages.list_projects.selected_id)
-                        .unwrap_or_else(|e| panic!("{e}"));
-                    self.page = Page::EditProject;
+                    if let Some(selected_id) = self.pages.list_projects.selected_id {
+                        self.pages
+                            .edit_project
+                            .set_project(app, selected_id)
+                            .unwrap_or_else(|e| panic!("{e}"));
+                        self.page = Page::EditProject;
+                    }
                 }
                 KeyCode::Enter => {
-                    self.pages.open_project.reset(app);
-                    self.pages
-                        .open_project
-                        .set_project_id(self.pages.list_projects.selected_id);
-                    self.pages
-                        .open_project
-                        .db_get_project(app)
-                        .unwrap_or_else(|e| trace_panic!("{e}"));
-                    self.page = Page::OpenProject;
+                    if let Some(selected_id) = self.pages.list_projects.selected_id {
+                        self.pages.open_project.reset(app);
+                        self.pages.open_project.set_project_id(selected_id);
+                        self.pages
+                            .open_project
+                            .db_get_project(app)
+                            .unwrap_or_else(|e| trace_panic!("{e}"));
+                        self.page = Page::OpenProject;
+                    }
                 }
                 _ => {}
             }

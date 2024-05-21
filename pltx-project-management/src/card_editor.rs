@@ -7,8 +7,8 @@ use pltx_app::{
 };
 use pltx_config::ColorsConfig;
 use pltx_utils::{
-    current_timestamp, db_datetime, parse_user_datetime_option, CompositeWidget, DefaultWidget,
-    FormWidget, Init, KeyEventHandler, RenderPopupContained,
+    current_timestamp, db_datetime_to_string, parse_user_datetime_option, CompositeWidget,
+    DefaultWidget, FormWidget, Init, KeyEventHandler, RenderPopupContained,
 };
 use pltx_widgets::{self, Buttons, Form, Popup, PopupSize, Selection, Switch, TextInput};
 use ratatui::{
@@ -107,20 +107,15 @@ impl Init for CardEditor {
             project_id: None,
             list_id: None,
             inputs: Inputs {
-                title: TextInput::new("Title")
-                    .mode(Mode::Popup)
-                    .max(100)
-                    .size((size.width - 2, size.height - 2)),
-                description: TextInput::new("Description")
-                    .mode(Mode::Popup)
-                    .max(4000)
-                    .size((size.width - 2, size.height - 2)),
+                title: TextInput::new("Title").mode(Mode::Popup).max(50),
+                description: TextInput::new("Description").mode(Mode::Popup).max(4000),
                 labels: Selection::new(Mode::Popup),
                 properties: Form::new(
                     vec![important_input, start_date_input, due_date_input],
                     properties,
                     Mode::Popup,
-                ),
+                )
+                .fixed_width(34),
                 actions: Buttons::from([(Action::Save, "Save Card"), (Action::Cancel, "Cancel")]),
             },
             size,
@@ -451,8 +446,8 @@ impl CardEditor {
                 title: r.get(1)?,
                 description: r.get(2)?,
                 important: r.get(3)?,
-                start_date: db_datetime(r.get::<usize, Option<String>>(4)?),
-                due_date: db_datetime(r.get::<usize, Option<String>>(5)?),
+                start_date: db_datetime_to_string(r.get(4)?),
+                due_date: db_datetime_to_string(r.get(5)?),
                 reminder: r.get(6)?,
                 // position: r.get(7)?,
                 // created_at: r.get(8)?,

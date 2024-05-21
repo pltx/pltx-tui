@@ -92,7 +92,6 @@ impl Init for ProjectEditor {
             inputs: Inputs {
                 title: TextInput::new("Title").max(PROJECT_TITLE_MAX_LENGTH),
                 description: TextInput::new("Description").max(PROJECT_DESCRIPTION_MAX_LENGTH),
-
                 labels: vec![],
                 actions: Buttons::from([
                     (Action::Save, "Save Project"),
@@ -356,11 +355,13 @@ impl ProjectEditor {
 
     fn add_label(&mut self, app: &mut App) {
         let title_input = TextInput::new("Title")
-            .placeholder("Title")
+            .title_as_placeholder()
+            .inline()
             .required()
             .max(LABEL_TITLE_MAX_LENTH);
-        let mut color_input = TextInput::new("Title")
-            .placeholder("Color")
+        let mut color_input = TextInput::new("Color")
+            .title_as_placeholder()
+            .inline()
             .required_len(LABEL_COLOR_REQUIRED_LENTH);
         color_input.input(app.config.colors.fg.to_string());
         self.inputs.labels.push((None, title_input, color_input));

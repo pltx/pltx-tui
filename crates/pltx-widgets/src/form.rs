@@ -7,7 +7,7 @@ use pltx_app::{
 };
 use pltx_utils::{CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler};
 use ratatui::{
-    layout::{Constraint, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::Style,
     widgets::{Block, BorderType, Borders},
     Frame,
@@ -18,6 +18,7 @@ pub struct Form<I> {
     focused_input: usize,
     pub input_widgets: Vec<Rc<RefCell<dyn FormWidget>>>,
     pub inputs: I,
+    fixed_width: Option<u16>,
 }
 
 impl<I> Form<I> {
@@ -39,6 +40,7 @@ impl<I> Form<I> {
             focused_input: 0,
             input_widgets,
             inputs,
+            fixed_width: None,
         }
     }
 }
@@ -46,6 +48,15 @@ impl<I> Form<I> {
 impl<I> DefaultWidget for Form<I> {
     fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused: bool) {
         let colors = &app.config.colors;
+
+        let width_layout = if let Some(fixed_width) = self.fixed_width {
+            Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Length(fixed_width)])
+                .split(area)[0]
+        } else {
+            area
+        };
 
         let split_layout = Layout::default()
             .vertical_margin(1)
@@ -56,7 +67,7 @@ impl<I> DefaultWidget for Form<I> {
                     .map(|_| Constraint::Length(1))
                     .collect::<Vec<Constraint>>(),
             )
-            .split(area);
+            .split(width_layout);
 
         for (i, input) in self.input_widgets.iter().enumerate() {
             (**input).borrow_mut().render(
@@ -76,7 +87,7 @@ impl<I> DefaultWidget for Form<I> {
                 colors.border
             }));
 
-        frame.render_widget(block, area);
+        frame.render_widget(block, width_layout);
     }
 }
 
@@ -125,5 +136,12 @@ impl<I> KeyEventHandler for Form<I> {
         (*self.input_widgets[self.focused_input])
             .borrow_mut()
             .key_event_handler(app, key_event, event_state);
+    }
+}
+
+impl<I> Form<I> {
+    pub fn fixed_width(mut self, fixed_width: u16) -> Self {
+        self.fixed_width = Some(fixed_width);
+        self
     }
 }

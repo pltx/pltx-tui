@@ -76,13 +76,17 @@ pub fn parse_user_datetime_option(user_datetime: String) -> Option<String> {
     }
 }
 
-pub fn db_datetime(db_datetime: Option<String>) -> Option<String> {
+pub fn db_datetime_to_string(db_datetime: Option<String>) -> Option<String> {
     db_datetime.map(|datetime| {
         DateTime::parse_from_rfc3339(&datetime)
             .unwrap()
             .format("%Y-%m-%d %H:%M")
             .to_string()
     })
+}
+
+pub fn db_datetime(db_datetime: Option<String>) -> Option<DateTime<Utc>> {
+    db_datetime.map(|datetime| DateTime::parse_from_rfc3339(&datetime).unwrap().to_utc())
 }
 
 pub fn normal_to_insert(mode: Mode) -> Mode {

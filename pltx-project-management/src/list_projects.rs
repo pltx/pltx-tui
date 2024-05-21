@@ -1,11 +1,12 @@
-use chrono::{DateTime, Duration};
+use chrono::{DateTime, Duration, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{
     state::{Mode, State},
     App,
 };
 use pltx_utils::{
-    after_datetime, pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage, ScreenKeybinds,
+    after_datetime, db_datetime, pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage,
+    ScreenKeybinds,
 };
 use ratatui::{
     layout::{Constraint, Direction, Layout},
@@ -28,19 +29,22 @@ struct Project {
     labels: i32,
     lists: i32,
     total_cards: i32,
+    cards_in_progress: i32,
     cards_due_soon: i32,
+    cards_overdue: i32,
+    important_cards: i32,
 }
 
 pub struct ListProjects {
     projects: Vec<Project>,
-    pub selected_id: i32,
+    pub selected_id: Option<i32>,
 }
 
 impl Init for ListProjects {
     fn init(_: &mut App) -> ListProjects {
         ListProjects {
             projects: vec![],
-            selected_id: 0,
+            selected_id: None,
         }
     }
 }
@@ -68,7 +72,10 @@ impl ListProjects {
                     labels: 0,
                     lists: 0,
                     total_cards: 0,
+                    cards_in_progress: 0,
                     cards_due_soon: 0,
+                    cards_overdue: 0,
+                    important_cards: 0,
                 })
             })
             .unwrap();
@@ -81,8 +88,8 @@ impl ListProjects {
         projects = self.db_get_lists(app, &mut projects).unwrap();
         projects = self.db_get_cards(app, &mut projects).unwrap();
 
-        if !projects.is_empty() && self.selected_id == 0 {
-            self.selected_id = projects[0].id;
+        if !projects.is_empty() && self.selected_id.is_none() {
+            self.selected_id = Some(projects[0].id);
         }
 
         self.projects = projects;
@@ -117,15 +124,20 @@ impl ListProjects {
     fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
         struct ListProjectCard {
             project_id: i32,
-            due_date: Option<String>,
+            start_date: Option<DateTime<Utc>>,
+            due_date: Option<DateTime<Utc>>,
+            important: bool,
         }
 
-        let query = "SELECT project_id, due_date FROM project_card ORDER BY position";
+        let query = "SELECT project_id, start_date, due_date, important FROM project_card ORDER \
+                     BY position";
         let mut stmt = app.db.conn.prepare(query)?;
         let card_iter = stmt.query_map([], |row| {
             Ok(ListProjectCard {
                 project_id: row.get(0)?,
-                due_date: row.get(1)?,
+                start_date: db_datetime(row.get(1)?),
+                due_date: db_datetime(row.get(2)?),
+                important: row.get(3)?,
             })
         })?;
 
@@ -137,12 +149,25 @@ impl ListProjects {
                 .unwrap();
             projects[index].total_cards += 1;
 
+            if card.start_date.is_some_and(after_datetime)
+                && !card.due_date.is_some_and(after_datetime)
+            {
+                projects[index].cards_in_progress += 1;
+            }
+
             if let Some(due_date) = card.due_date {
-                let due_soon_datetime =
-                    DateTime::parse_from_rfc3339(&due_date).unwrap().to_utc() - Duration::days(1);
-                if after_datetime(due_soon_datetime) {
+                let due_soon_datetime = due_date - Duration::days(3);
+                if after_datetime(due_soon_datetime) && !after_datetime(due_date) {
                     projects[index].cards_due_soon += 1;
                 }
+
+                if after_datetime(due_date) {
+                    projects[index].cards_overdue += 1;
+                }
+            }
+
+            if card.important {
+                projects[index].important_cards += 1;
             }
         }
 
@@ -172,20 +197,22 @@ impl ListProjects {
         let mut update_position_stmt = app.db.conn.prepare(update_position_query)?;
         update_position_stmt.execute([select.position])?;
 
-        let selected_index = self
-            .projects
-            .iter()
-            .position(|p| p.id == self.selected_id)
-            .unwrap_or(0);
+        if let Some(selected_id) = self.selected_id {
+            let selected_index = self
+                .projects
+                .iter()
+                .position(|p| p.id == selected_id)
+                .unwrap_or(0);
 
-        if self.projects.len() == 1 {
-            self.selected_id = 0;
-        } else if selected_index != self.projects.len().saturating_sub(1) {
-            self.selected_id = self.projects[selected_index + 1].id;
-        } else if selected_index != 0 {
-            self.selected_id = self.projects[selected_index.saturating_sub(1)].id;
-        } else {
-            self.selected_id = self.projects[0].id;
+            if self.projects.len() == 1 {
+                self.selected_id = None;
+            } else if selected_index != self.projects.len().saturating_sub(1) {
+                self.selected_id = Some(self.projects[selected_index + 1].id);
+            } else if selected_index != 0 {
+                self.selected_id = Some(self.projects[selected_index.saturating_sub(1)].id);
+            } else {
+                self.selected_id = Some(self.projects[0].id);
+            }
         }
 
         Ok(())
@@ -204,47 +231,51 @@ impl ScreenKeybinds for ListProjects {
 
 impl KeyEventHandler<bool> for ListProjects {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
-        if app.state.mode == Mode::Navigation {
-            let selected_index = self
-                .projects
-                .iter()
-                .position(|p| p.id == self.selected_id)
-                .unwrap_or(0);
+        if let Some(selected_id) = self.selected_id {
+            if app.state.mode == Mode::Navigation {
+                let selected_index = self
+                    .projects
+                    .iter()
+                    .position(|p| p.id == selected_id)
+                    .unwrap_or(0);
 
-            match key_event.code {
-                KeyCode::Char('d') => {
-                    app.state.mode = Mode::Delete;
-                }
-                KeyCode::Char('j') => {
-                    if selected_index != self.projects.len().saturating_sub(1) {
-                        self.selected_id = self.projects[selected_index + 1].id;
-                    } else {
-                        self.selected_id = self.projects[0].id;
+                match key_event.code {
+                    KeyCode::Char('d') => {
+                        app.state.mode = Mode::Delete;
                     }
-                }
-                KeyCode::Char('k') => {
-                    if selected_index != 0 {
-                        self.selected_id = self.projects[selected_index.saturating_sub(1)].id;
-                    } else {
-                        self.selected_id = self.projects[self.projects.len().saturating_sub(1)].id;
+                    KeyCode::Char('j') => {
+                        if selected_index != self.projects.len().saturating_sub(1) {
+                            self.selected_id = Some(self.projects[selected_index + 1].id);
+                        } else {
+                            self.selected_id = Some(self.projects[0].id);
+                        }
                     }
+                    KeyCode::Char('k') => {
+                        if selected_index != 0 {
+                            self.selected_id =
+                                Some(self.projects[selected_index.saturating_sub(1)].id);
+                        } else {
+                            self.selected_id =
+                                Some(self.projects[self.projects.len().saturating_sub(1)].id);
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
-        }
 
-        if app.state.mode == Mode::Delete {
-            match key_event.code {
-                KeyCode::Char('y') => {
-                    app.state.mode = Mode::Navigation;
-                    self.db_delete_project(app)
-                        .unwrap_or_else(|e| panic!("{e}"));
-                    self.db_get_projects(app).unwrap_or_else(|e| panic!("{e}"));
+            if app.state.mode == Mode::Delete {
+                match key_event.code {
+                    KeyCode::Char('y') => {
+                        app.state.mode = Mode::Navigation;
+                        self.db_delete_project(app)
+                            .unwrap_or_else(|e| panic!("{e}"));
+                        self.db_get_projects(app).unwrap_or_else(|e| panic!("{e}"));
+                    }
+                    KeyCode::Char('n') => {
+                        app.state.mode = Mode::Navigation;
+                    }
+                    _ => {}
                 }
-                KeyCode::Char('n') => {
-                    app.state.mode = Mode::Navigation;
-                }
-                _ => {}
             }
         }
         false
@@ -280,17 +311,7 @@ impl RenderPage<ProjectsState> for ListProjects {
                 colors.border
             }));
 
-        if self.projects.is_empty() {
-            let content = Paragraph::new(Text::from(vec![Line::from(vec![
-                Span::from("You have no projects. Press "),
-                Span::styled("n", Style::new().bold().fg(colors.keybind_key)),
-                Span::from(" to create a new project."),
-            ])]))
-            .block(block);
-
-            frame.render_widget(content, list_layout);
-            frame.render_widget(Block::new(), info_layout);
-        } else {
+        if let Some(selected_id) = self.selected_id {
             let rows = self
                 .projects
                 .iter()
@@ -300,12 +321,12 @@ impl RenderPage<ProjectsState> for ListProjects {
                         Cell::new(format!(" {}", p.position)),
                         Cell::new(p.title.clone()),
                         Cell::new(p.total_cards.to_string()),
-                        // TODO: Implement due soon
-                        Cell::new("0"),
-                        // TODO: Implement overdue
-                        Cell::new("0"),
+                        Cell::new(p.cards_due_soon.to_string()),
+                        Cell::new(p.cards_in_progress.to_string()),
+                        Cell::new(p.cards_overdue.to_string()),
+                        Cell::new(p.important_cards.to_string()),
                     ])
-                    .style(if p.id == self.selected_id {
+                    .style(if self.selected_id.is_some_and(|id| id == p.id) {
                         Style::new()
                             .bold()
                             .fg(colors.active_fg)
@@ -328,8 +349,10 @@ impl RenderPage<ProjectsState> for ListProjects {
                     Cell::new(" Index"),
                     Cell::new("Title"),
                     Cell::new("Cards"),
+                    Cell::new("In Progress"),
                     Cell::new("Due Soon"),
                     Cell::new("Overdue"),
+                    Cell::new("Important"),
                 ])
                 .style(Style::new().bold().fg(colors.primary)),
             );
@@ -338,7 +361,7 @@ impl RenderPage<ProjectsState> for ListProjects {
             let project_index = self
                 .projects
                 .iter()
-                .position(|p| p.id == self.selected_id)
+                .position(|p| p.id == selected_id)
                 .unwrap();
             let project = &self.projects[project_index];
 
@@ -401,6 +424,22 @@ impl RenderPage<ProjectsState> for ListProjects {
                     Span::from(project.total_cards.to_string()),
                 ]),
                 Line::from(vec![
+                    Span::styled("Cards In Progress: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.cards_in_progress.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Cards Due Soon: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.cards_due_soon.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Cards Overdue: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.cards_overdue.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Important Cards: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.important_cards.to_string()),
+                ]),
+                Line::from(vec![
                     Span::styled("Created At: ", Style::new().fg(colors.secondary)),
                     Span::from(&project.created_at),
                 ]),
@@ -420,6 +459,16 @@ impl RenderPage<ProjectsState> for ListProjects {
                     .border_style(colors.border),
             );
             frame.render_widget(info_content, info_layout);
+        } else {
+            let content = Paragraph::new(Text::from(vec![Line::from(vec![
+                Span::from("You have no projects. Press "),
+                Span::styled("n", Style::new().bold().fg(colors.keybind_key)),
+                Span::from(" to create a new project."),
+            ])]))
+            .block(block);
+
+            frame.render_widget(content, list_layout);
+            frame.render_widget(Block::new(), info_layout);
         }
     }
 }
