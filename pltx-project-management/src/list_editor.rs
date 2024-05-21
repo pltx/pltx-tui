@@ -3,13 +3,15 @@ use pltx_app::{
     state::{Mode, State},
     App,
 };
-use pltx_tracing::trace_panic;
+use pltx_tracing::{trace_debug, trace_panic};
 use pltx_utils::{DefaultWidget, Init, KeyEventHandler, RenderPopupContained};
 use pltx_widgets::{self, Popup, PopupSize, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     Frame,
 };
+
+const MAX_LISTS: i32 = 5;
 
 struct Inputs {
     title: TextInput,
@@ -48,31 +50,11 @@ impl Init for ListEditor {
 
 impl ListEditor {
     fn db_new_list(&self, app: &mut App) -> Result<i32, &str> {
-        struct ProjectQuery {
-            position: i32,
-        }
-        let mut stmt = app
-            .db
-            .conn
-            .prepare("SELECT position from project_list")
-            .unwrap_or_else(|e| trace_panic!("{e}"));
-        let project_iter = stmt
-            .query_map([], |r| {
-                Ok(ProjectQuery {
-                    position: r.get(0)?,
-                })
-            })
-            .unwrap_or_else(|e| trace_panic!("{e}"));
-        let mut highest_position = 0;
-        for project in project_iter {
-            let project_pos = project.unwrap().position;
-            if project_pos > highest_position {
-                highest_position = project_pos;
-            }
-        }
+        let highest_position = app.db.get_highest_position("project_list").unwrap();
 
         // TODO: Replace with error notification
-        if highest_position >= 5 {
+        trace_debug!(highest_position);
+        if highest_position >= MAX_LISTS - 1 {
             return Err("cannot create more than 5 lists");
         }
 
@@ -80,7 +62,7 @@ impl ListEditor {
         let params = (
             Some(&self.project_id),
             self.inputs.title.input_string(),
-            highest_position,
+            highest_position + 1,
         );
         app.db.conn.execute(query, params).unwrap();
 
