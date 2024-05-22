@@ -327,5 +327,5 @@ pub fn get_config() -> Config {
     match config_file {
         Some(user_config) => merge_config(user_config, base_config),
         None => base_config,
-    }
+   }
 }

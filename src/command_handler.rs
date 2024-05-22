@@ -18,7 +18,6 @@ use ratatui::{
 enum Command {
     Help,
     Quit,
-    Reset,
     None,
 }
 
@@ -48,13 +47,12 @@ fn command_list<'a>() -> Vec<(Command, &'a str)> {
         match cmd {
             Command::Help => "help",
             Command::Quit => "quit",
-            Command::Reset => "reset",
             Command::None => "",
         }
     }
 
     // NOTE: This must be in lexicographic (alphabetical) order.
-    let cmds = [Command::Help, Command::Quit, Command::Reset];
+    let cmds = [Command::Help, Command::Quit];
 
     let mut list = vec![];
     for cmd in cmds {
@@ -117,10 +115,6 @@ impl CommandHandler {
                 app.state.popup = GlobalPopup::Help;
             }
             Command::Quit => app.exit(),
-            Command::Reset => {
-                app.db.reset();
-                app.exit();
-            }
             Command::None => {}
         }
         if command != Command::None {

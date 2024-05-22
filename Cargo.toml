@@ -97,3 +97,4 @@ ratatui = { workspace = true }
 rusqlite = { workspace = true }
 tracing = { workspace = true }
 tui-scrollview = { workspace = true }
+clap = { version = "4.5.4", features = ["derive"] }
