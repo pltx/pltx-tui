@@ -16,7 +16,7 @@ pub fn initialize_logging(log_level: &str) -> Result<()> {
     std::fs::create_dir_all(cache_dir.clone())?;
     let log_path = cache_dir.join("debug.log");
     let log_file = std::fs::File::create(log_path)?;
-    std::env::set_var("RUST_LOG", log_level);
+    std::env::set_var("RUST_LOG", log_level.to_uppercase());
     let file_subscriber = tracing_subscriber::fmt::layer()
         .with_file(true)
         .with_line_number(true)

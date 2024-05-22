@@ -82,6 +82,7 @@ pub struct Config {
 }
 
 fn get_base_config() -> Config {
+    // NOTE: Remember to update `README.md` with the default configuration values.
     Config {
         log_level: String::from("info"),
         colors: ColorsConfig {
