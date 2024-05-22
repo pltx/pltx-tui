@@ -1,10 +1,7 @@
 use std::collections::HashSet;
 
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
+use pltx_app::App;
 use pltx_utils::{CompositeWidget, DefaultWidget, KeyEventHandler};
 use ratatui::{
     layout::Rect,
@@ -21,7 +18,6 @@ pub struct Selection<T> {
     pub options: SelectionOptions<T>,
     pub focused_option: usize,
     pub selected: HashSet<usize>,
-    mode: Mode,
 }
 
 impl<T> DefaultWidget for Selection<T> {
@@ -103,22 +99,22 @@ impl<T> CompositeWidget for Selection<T> {
     }
 }
 
-impl<T> Selection<T> {
-    pub fn new(mode: Mode) -> Self {
+impl<T> Default for Selection<T> {
+    fn default() -> Self {
         Self {
             options: vec![],
             focused_option: 0,
             selected: HashSet::new(),
-            mode,
         }
     }
+}
 
-    pub fn from(options: SelectionOptions<T>, mode: Mode) -> Self {
+impl<T> Selection<T> {
+    pub fn from(options: SelectionOptions<T>) -> Self {
         Self {
             options,
             focused_option: 0,
             selected: HashSet::new(),
-            mode,
         }
     }
 
@@ -161,14 +157,12 @@ impl<T> Selection<T> {
 }
 
 impl<T> KeyEventHandler for Selection<T> {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
-        if app.state.mode == self.mode {
-            match key_event.code {
-                KeyCode::Char(' ') | KeyCode::Enter => self.select(),
-                KeyCode::Char('a') => self.toggle_all(),
-                KeyCode::Char('i') => self.invert_selection(),
-                _ => {}
-            }
+    fn key_event_handler(&mut self, _: &mut App, key_event: KeyEvent) {
+        match key_event.code {
+            KeyCode::Char(' ') | KeyCode::Enter => self.select(),
+            KeyCode::Char('a') => self.toggle_all(),
+            KeyCode::Char('i') => self.invert_selection(),
+            _ => {}
         }
     }
 }

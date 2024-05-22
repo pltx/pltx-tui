@@ -1,13 +1,8 @@
 use std::str::FromStr;
 
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
-use pltx_utils::{
-    current_timestamp, CompositeWidget, DefaultWidget, Init, KeyEventHandler, RenderPage,
-};
+use pltx_app::App;
+use pltx_utils::{current_timestamp, CompositeWidget, DefaultWidget, KeyEventHandler, Screen};
 use pltx_widgets::{Buttons, TextInput};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -18,9 +13,9 @@ use ratatui::{
 };
 
 use super::projects::ProjectsState;
-use crate::ScreenPane;
+use crate::ProjectManagementPane;
 
-const PROJECT_TITLE_MAX_LENGTH: usize = 100;
+const PROJECT_TITLE_MAX_LENGTH: usize = 50;
 const PROJECT_DESCRIPTION_MAX_LENGTH: usize = 500;
 const LABEL_TITLE_MAX_LENTH: usize = 15;
 const LABEL_COLOR_REQUIRED_LENTH: usize = 7;
@@ -81,10 +76,11 @@ pub struct ProjectEditor {
     selected_label: usize,
     focused_label_option: LabelOption,
     label_col: LabelCol,
+    projects_state: Option<ProjectsState>,
 }
 
-impl Init for ProjectEditor {
-    fn init(_: &mut App) -> ProjectEditor {
+impl Screen<bool> for ProjectEditor {
+    fn init(_: &App) -> ProjectEditor {
         ProjectEditor {
             new: false,
             data: None,
@@ -101,11 +97,131 @@ impl Init for ProjectEditor {
             selected_label: 0,
             focused_label_option: LabelOption::Labels,
             label_col: LabelCol::Title,
+            projects_state: None,
         }
+    }
+
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> bool {
+        match self.focused_pane {
+            FocusedPane::Title => self.inputs.title.key_event_handler(app, key_event),
+            FocusedPane::Description => self.inputs.description.key_event_handler(app, key_event),
+            FocusedPane::Labels => {
+                if !self.inputs.labels.is_empty() {
+                    if self.label_col == LabelCol::Title {
+                        self.inputs.labels[self.selected_label]
+                            .1
+                            .key_event_handler(app, key_event)
+                    } else {
+                        self.inputs.labels[self.selected_label]
+                            .2
+                            .key_event_handler(app, key_event)
+                    };
+                }
+            }
+            _ => {}
+        };
+
+        if app.is_normal_mode() {
+            match key_event.code {
+                KeyCode::Char('n') => app.insert_mode(),
+                KeyCode::Char('[') => {
+                    self.reset();
+                    return true;
+                }
+                KeyCode::BackTab => self.prev_label(),
+                KeyCode::Tab => self.next_label(),
+                KeyCode::Char('j') => self.next_focus(),
+                KeyCode::Char('k') => self.prev_focus(),
+                KeyCode::Enter => {
+                    if self.focused_pane == FocusedPane::Labels
+                        && self.focused_label_option == LabelOption::AddLabel
+                    {
+                        self.add_label(app);
+                    } else if self.save_project(app) {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if app.is_insert_mode() && key_event.code == KeyCode::Tab {
+            self.next_label();
+        }
+
+        false
+    }
+
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
+        let colors = &app.config.colors.clone();
+        let main_pane_focused = self
+            .projects_state
+            .as_ref()
+            .is_some_and(|s| s.module_pane == ProjectManagementPane::Main);
+
+        let block = Block::new()
+            .title(if self.new {
+                " New Project "
+            } else {
+                " Edit Project "
+            })
+            .padding(Padding::horizontal(1))
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::new().fg(colors.border));
+        frame.render_widget(block, area);
+
+        let border_height = 2;
+        let new_label_height = 1;
+
+        let [title_layout, description_layout, label_layout, actions_layout] = Layout::default()
+            .vertical_margin(1)
+            .horizontal_margin(2)
+            .constraints([
+                Constraint::Length(3),
+                Constraint::Length(5),
+                Constraint::Length(
+                    self.inputs.labels.len() as u16 + border_height + new_label_height,
+                ),
+                Constraint::Length(4),
+            ])
+            .areas(area);
+
+        let [fixed_width_label_layout] = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Length(60)])
+            .areas(label_layout);
+
+        self.inputs.title.render(
+            frame,
+            app,
+            title_layout,
+            self.focused_pane == FocusedPane::Title && main_pane_focused,
+        );
+
+        self.inputs.description.render(
+            frame,
+            app,
+            description_layout,
+            self.focused_pane == FocusedPane::Description && main_pane_focused,
+        );
+
+        self.render_labels(frame, app, fixed_width_label_layout, main_pane_focused);
+
+        self.inputs.actions.render(
+            frame,
+            app,
+            actions_layout,
+            self.focused_pane == FocusedPane::Actions && main_pane_focused,
+        );
     }
 }
 
 impl ProjectEditor {
+    pub fn projects_state(&mut self, projects_state: ProjectsState) {
+        self.projects_state = Some(projects_state);
+    }
+
     fn db_new_project(&self, app: &App) -> rusqlite::Result<()> {
         let description = if self.inputs.description.input_string().chars().count() == 0 {
             None
@@ -194,75 +310,6 @@ impl ProjectEditor {
         }
 
         Ok(())
-    }
-}
-
-impl KeyEventHandler<bool> for ProjectEditor {
-    fn key_event_handler(
-        &mut self,
-        app: &mut App,
-        key_event: KeyEvent,
-        event_state: &State,
-    ) -> bool {
-        match self.focused_pane {
-            FocusedPane::Title => self
-                .inputs
-                .title
-                .key_event_handler(app, key_event, event_state),
-            FocusedPane::Description => {
-                self.inputs
-                    .description
-                    .key_event_handler(app, key_event, event_state)
-            }
-            FocusedPane::Labels => {
-                if !self.inputs.labels.is_empty() {
-                    if self.label_col == LabelCol::Title {
-                        self.inputs.labels[self.selected_label].1.key_event_handler(
-                            app,
-                            key_event,
-                            event_state,
-                        )
-                    } else {
-                        self.inputs.labels[self.selected_label].2.key_event_handler(
-                            app,
-                            key_event,
-                            event_state,
-                        )
-                    };
-                }
-            }
-            _ => {}
-        };
-
-        if app.state.mode == Mode::Navigation {
-            match key_event.code {
-                KeyCode::Char('n') => app.state.mode = Mode::Insert,
-                KeyCode::Char('[') => {
-                    self.reset();
-                    return true;
-                }
-                KeyCode::BackTab => self.prev_label(),
-                KeyCode::Tab => self.next_label(),
-                KeyCode::Char('j') => self.next_focus(),
-                KeyCode::Char('k') => self.prev_focus(),
-                KeyCode::Enter => {
-                    if self.focused_pane == FocusedPane::Labels
-                        && self.focused_label_option == LabelOption::AddLabel
-                    {
-                        self.add_label(app);
-                    } else if self.save_project(app) {
-                        return true;
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        if app.state.mode == Mode::Insert && key_event.code == KeyCode::Tab {
-            self.next_label();
-        }
-
-        false
     }
 }
 
@@ -368,7 +415,7 @@ impl ProjectEditor {
         self.selected_label = self.inputs.labels.len().saturating_sub(1);
         self.focused_label_option = LabelOption::Labels;
         self.label_col = LabelCol::Title;
-        app.state.mode = Mode::Insert;
+        app.insert_mode();
     }
 
     fn save_project(&mut self, app: &mut App) -> bool {
@@ -386,69 +433,6 @@ impl ProjectEditor {
             return true;
         }
         false
-    }
-}
-
-impl RenderPage<ProjectsState> for ProjectEditor {
-    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect, state: ProjectsState) {
-        let colors = &app.config.colors.clone();
-        let main_sp = state.screen_pane == ScreenPane::Main;
-
-        let block = Block::new()
-            .title(if self.new {
-                " New Project "
-            } else {
-                " Edit Project "
-            })
-            .padding(Padding::horizontal(1))
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(colors.border));
-        frame.render_widget(block, area);
-
-        let border_height = 2;
-        let new_label_height = 1;
-
-        let [title_layout, description_layout, label_layout, actions_layout] = Layout::default()
-            .vertical_margin(1)
-            .horizontal_margin(2)
-            .constraints([
-                Constraint::Length(3),
-                Constraint::Length(5),
-                Constraint::Length(
-                    self.inputs.labels.len() as u16 + border_height + new_label_height,
-                ),
-                Constraint::Length(4),
-            ])
-            .areas(area);
-
-        let [fixed_width_label_layout] = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Length(60)])
-            .areas(label_layout);
-
-        self.inputs.title.render(
-            frame,
-            app,
-            title_layout,
-            self.focused_pane == FocusedPane::Title && main_sp,
-        );
-
-        self.inputs.description.render(
-            frame,
-            app,
-            description_layout,
-            self.focused_pane == FocusedPane::Description && main_sp,
-        );
-
-        self.render_labels(frame, app, fixed_width_label_layout, main_sp);
-
-        self.inputs.actions.render(
-            frame,
-            app,
-            actions_layout,
-            self.focused_pane == FocusedPane::Actions && main_sp,
-        );
     }
 }
 

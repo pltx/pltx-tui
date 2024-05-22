@@ -1,4 +1,4 @@
-use pltx_app::{state::Mode, App};
+use pltx_app::{state::Display, App};
 use ratatui::{layout::Rect, Frame};
 
 use crate::KeyEventHandler;
@@ -9,7 +9,7 @@ pub trait DefaultWidget {
 
 pub trait FormWidget: DefaultWidget + KeyEventHandler {
     fn form_compatible(&mut self);
-    fn mode(&mut self, mode: Mode);
+    fn display(&mut self, display: Display);
     fn title_len(&self) -> u16;
     fn max_title_len(&mut self, max_title_len: u16);
     fn reset(&mut self);

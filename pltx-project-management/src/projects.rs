@@ -1,16 +1,13 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
+use pltx_app::App;
 use pltx_tracing::trace_panic;
-use pltx_utils::{Init, InitData, KeyEventHandler, RenderPage};
+use pltx_utils::Screen;
 use ratatui::{layout::Rect, Frame};
 
 use super::{
     list_projects::ListProjects, open_project::OpenProject, project_editor::ProjectEditor,
 };
-use crate::ScreenPane;
+use crate::ProjectManagementPane;
 
 #[derive(PartialEq)]
 enum Page {
@@ -32,8 +29,13 @@ pub struct Projects {
     pages: Pages,
 }
 
-impl Init for Projects {
-    fn init(app: &mut App) -> Projects {
+#[derive(Clone)]
+pub struct ProjectsState {
+    pub module_pane: ProjectManagementPane,
+}
+
+impl Screen for Projects {
+    fn init(app: &App) -> Projects {
         Projects {
             page: Page::ListProjects,
             pages: Pages {
@@ -44,18 +46,9 @@ impl Init for Projects {
             },
         }
     }
-}
 
-impl InitData for Projects {
-    fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()> {
-        self.pages.list_projects.init_data(app)?;
-        Ok(())
-    }
-}
-
-impl KeyEventHandler for Projects {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
-        if app.state.mode == Mode::Navigation && self.page == Page::ListProjects {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
+        if app.is_normal_mode() && self.page == Page::ListProjects {
             match key_event.code {
                 KeyCode::Char('n') => self.page = Page::NewProject,
                 KeyCode::Char('e') => {
@@ -83,26 +76,10 @@ impl KeyEventHandler for Projects {
         }
 
         let result: bool = match self.page {
-            Page::ListProjects => {
-                self.pages
-                    .list_projects
-                    .key_event_handler(app, key_event, event_state)
-            }
-            Page::NewProject => {
-                self.pages
-                    .new_project
-                    .key_event_handler(app, key_event, event_state)
-            }
-            Page::EditProject => {
-                self.pages
-                    .edit_project
-                    .key_event_handler(app, key_event, event_state)
-            }
-            Page::OpenProject => {
-                self.pages
-                    .open_project
-                    .key_event_handler(app, key_event, event_state)
-            }
+            Page::ListProjects => self.pages.list_projects.key_event_handler(app, key_event),
+            Page::NewProject => self.pages.new_project.key_event_handler(app, key_event),
+            Page::EditProject => self.pages.edit_project.key_event_handler(app, key_event),
+            Page::OpenProject => self.pages.open_project.key_event_handler(app, key_event),
         };
 
         if result {
@@ -113,19 +90,30 @@ impl KeyEventHandler for Projects {
                 .unwrap_or_else(|e| panic!("{e}"));
         }
     }
-}
 
-pub struct ProjectsState {
-    pub screen_pane: ScreenPane,
-}
-
-impl RenderPage<ProjectsState> for Projects {
-    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect, state: ProjectsState) {
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         match self.page {
-            Page::ListProjects => self.pages.list_projects.render(app, frame, area, state),
-            Page::NewProject => self.pages.new_project.render(app, frame, area, state),
-            Page::EditProject => self.pages.edit_project.render(app, frame, area, state),
-            Page::OpenProject => self.pages.open_project.render(app, frame, area, state),
+            Page::ListProjects => self.pages.list_projects.render(app, frame, area),
+            Page::NewProject => self.pages.new_project.render(app, frame, area),
+            Page::EditProject => self.pages.edit_project.render(app, frame, area),
+            Page::OpenProject => self.pages.open_project.render(app, frame, area),
         }
+    }
+}
+
+impl Projects {
+    pub fn projects_state(&mut self, projects_state: ProjectsState) {
+        self.pages
+            .list_projects
+            .projects_state(projects_state.clone());
+        self.pages
+            .new_project
+            .projects_state(projects_state.clone());
+        self.pages
+            .edit_project
+            .projects_state(projects_state.clone());
+        self.pages
+            .open_project
+            .projects_state(projects_state.clone());
     }
 }

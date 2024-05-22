@@ -1,11 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, Pane, State},
-    App,
-};
+use pltx_app::{state::Pane, App};
 use pltx_config::ColorsConfig;
-use pltx_utils::{Init, InitData, KeyEventHandler, RenderPage, RenderScreen};
-use projects::{Projects, ProjectsState};
+use pltx_utils::{Module, Screen};
+use projects::Projects;
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
@@ -28,13 +25,8 @@ enum Tab {
     Important,
 }
 
-#[derive(PartialEq)]
-enum Popup {
-    None,
-}
-
 #[derive(PartialEq, Clone)]
-pub enum ScreenPane {
+pub enum ProjectManagementPane {
     Tabs,
     Main,
     None,
@@ -46,28 +38,109 @@ struct Pages {
 
 pub struct ProjectManagement {
     tab: Tab,
-    popup: Popup,
-    last_screen_pane: ScreenPane,
-    pub screen_pane: ScreenPane,
+    last_pane: ProjectManagementPane,
+    pane: ProjectManagementPane,
     pages: Pages,
 }
 
-impl Init for ProjectManagement {
-    fn init(app: &mut App) -> ProjectManagement {
-        ProjectManagement {
+impl Module for ProjectManagement {
+    fn init(app: &App) -> ProjectManagement {
+        let project_management = ProjectManagement {
             tab: Tab::Projects,
-            popup: Popup::None,
-            last_screen_pane: ScreenPane::Main,
-            screen_pane: ScreenPane::None,
+            last_pane: ProjectManagementPane::Main,
+            pane: ProjectManagementPane::None,
             pages: Pages {
                 projects: Projects::init(app),
             },
+        };
+
+        project_management.init_data(app).unwrap();
+
+        project_management
+    }
+
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
+        if app.pane != Pane::Module {
+            return;
+        };
+
+        // Should be run before the rest.
+        if self.pane == ProjectManagementPane::Main {
+            match self.tab {
+                Tab::Planned => {}
+                Tab::Projects => self.pages.projects.key_event_handler(app, key_event),
+                Tab::Important => {}
+            }
+        }
+
+        if app.display.is_default() {
+            let tabs = self.get_tabs();
+            let tab_index = tabs.iter().position(|t| t.0 == self.tab).unwrap();
+            match key_event.code {
+                KeyCode::Char('l') => {
+                    if self.pane == ProjectManagementPane::Tabs
+                        && tab_index != tabs.len().saturating_sub(1)
+                    {
+                        self.tab = tabs[tab_index + 1].0.clone();
+                    } else if self.pane == ProjectManagementPane::None {
+                        self.pane(self.last_pane.clone());
+                    }
+                }
+                KeyCode::Char('h') => {
+                    if self.pane == ProjectManagementPane::Tabs && tab_index != 0 {
+                        self.tab = tabs[tab_index.saturating_sub(1)].0.clone();
+                    }
+                }
+                KeyCode::Char('H') => {
+                    self.last_pane = self.pane.clone();
+                    self.pane(ProjectManagementPane::None);
+                    app.pane = Pane::Navigation;
+                }
+                KeyCode::Char('J') | KeyCode::Char('j') => {
+                    if self.pane == ProjectManagementPane::Tabs {
+                        self.pane(ProjectManagementPane::Main);
+                    }
+                }
+                KeyCode::Char('K') => {
+                    if self.pane == ProjectManagementPane::Main {
+                        self.pane(ProjectManagementPane::Tabs);
+                    }
+                }
+                KeyCode::Char('L') => {
+                    if self.pane == ProjectManagementPane::None {
+                        self.pane(self.last_pane.clone())
+                    }
+                }
+                KeyCode::Enter => {
+                    if self.pane == ProjectManagementPane::None {
+                        self.pane(self.last_pane.clone())
+                    } else if self.pane == ProjectManagementPane::Tabs {
+                        self.pane(ProjectManagementPane::Main)
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn render(&mut self, app: &App, frame: &mut Frame, area: Rect) {
+        let colors = &app.config.colors;
+
+        let [navigation_layout, content_layout] = Layout::default()
+            .constraints([Constraint::Length(3), Constraint::Min(1)])
+            .areas(area);
+        frame.render_widget(self.navigation(colors), navigation_layout);
+
+        match self.tab {
+            Tab::Planned => {}
+            Tab::Projects => self.pages.projects.render(app, frame, content_layout),
+            Tab::Important => {}
         }
     }
 }
 
-impl InitData for ProjectManagement {
-    fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()> {
+impl ProjectManagement {
+    fn init_data(&self, app: &App) -> rusqlite::Result<()> {
         app.db.conn.execute_batch(
             "BEGIN;
 
@@ -179,8 +252,6 @@ impl InitData for ProjectManagement {
             COMMIT;",
         )?;
 
-        self.pages.projects.init_data(app)?;
-
         Ok(())
     }
 }
@@ -195,99 +266,14 @@ impl ProjectManagement {
     }
 }
 
-impl KeyEventHandler for ProjectManagement {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
-        if app.state.pane != Pane::Screen {
-            return;
-        };
-
-        // Page key event handlers should run before anything for the entire screen
-        if self.screen_pane == ScreenPane::Main {
-            match self.tab {
-                Tab::Planned => {}
-                Tab::Projects => self
-                    .pages
-                    .projects
-                    .key_event_handler(app, key_event, event_state),
-                Tab::Important => {}
-            }
-        }
-
-        if app.state.mode == Mode::Navigation {
-            let tabs = self.get_tabs();
-            let tab_index = tabs.iter().position(|t| t.0 == self.tab).unwrap();
-            match key_event.code {
-                KeyCode::Char('l') => {
-                    if self.screen_pane == ScreenPane::Tabs
-                        && tab_index != tabs.len().saturating_sub(1)
-                    {
-                        self.tab = tabs[tab_index + 1].0.clone();
-                    } else if self.screen_pane == ScreenPane::None {
-                        self.screen_pane = self.last_screen_pane.clone()
-                    }
-                }
-                KeyCode::Char('h') => {
-                    if self.screen_pane == ScreenPane::Tabs && tab_index != 0 {
-                        self.tab = tabs[tab_index.saturating_sub(1)].0.clone();
-                    }
-                }
-                KeyCode::Char('H') => {
-                    self.last_screen_pane = self.screen_pane.clone();
-                    self.screen_pane = ScreenPane::None;
-                    app.state.pane = Pane::Navigation;
-                }
-                KeyCode::Char('J') => {
-                    if self.screen_pane == ScreenPane::Tabs {
-                        self.screen_pane = ScreenPane::Main
-                    }
-                }
-                KeyCode::Char('K') => {
-                    if self.screen_pane == ScreenPane::Main {
-                        self.screen_pane = ScreenPane::Tabs
-                    }
-                }
-                KeyCode::Enter | KeyCode::Char('L') => {
-                    if self.screen_pane == ScreenPane::None {
-                        self.screen_pane = self.last_screen_pane.clone()
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-}
-
-impl RenderScreen for ProjectManagement {
-    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect) {
-        let colors = &app.config.colors;
-
-        let [navigation_layout, content_layout] = Layout::default()
-            .constraints([Constraint::Length(3), Constraint::Min(1)])
-            .areas(area);
-        frame.render_widget(self.navigation(colors), navigation_layout);
-
-        match self.tab {
-            Tab::Planned => {}
-            Tab::Projects => self.pages.projects.render(
-                app,
-                frame,
-                content_layout,
-                ProjectsState {
-                    screen_pane: self.screen_pane.clone(),
-                },
-            ),
-            Tab::Important => {}
-        }
-
-        if app.state.mode == Mode::Popup {
-            match self.popup {
-                Popup::None => {}
-            }
-        }
-    }
-}
-
 impl ProjectManagement {
+    fn pane(&mut self, pane: ProjectManagementPane) {
+        self.pages.projects.projects_state(projects::ProjectsState {
+            module_pane: pane.clone(),
+        });
+        self.pane = pane;
+    }
+
     fn navigation(&mut self, colors: &ColorsConfig) -> impl Widget {
         let navigation_line = vec![Line::from(
             self.get_tabs()
@@ -313,11 +299,13 @@ impl ProjectManagement {
                 .padding(Padding::horizontal(1))
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::new().fg(if self.screen_pane == ScreenPane::Tabs {
-                    colors.primary
-                } else {
-                    colors.border
-                })),
+                .border_style(
+                    Style::new().fg(if self.pane == ProjectManagementPane::Tabs {
+                        colors.primary
+                    } else {
+                        colors.border
+                    }),
+                ),
         )
     }
 }

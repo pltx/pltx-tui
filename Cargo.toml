@@ -76,7 +76,6 @@ crossterm = "0.27.0"
 ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 tracing = "0.1.40"
-tui-scrollview = "0.3.4"
 home = "0.5.9"
 
 [dependencies]
@@ -96,5 +95,4 @@ fst = { version = "0.4.7", features = ["levenshtein"] }
 ratatui = { workspace = true }
 rusqlite = { workspace = true }
 tracing = { workspace = true }
-tui-scrollview = { workspace = true }
 clap = { version = "4.5.4", features = ["derive"] }

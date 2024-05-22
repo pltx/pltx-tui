@@ -1,11 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
-use pltx_utils::{
-    display_current_timestamp, normal_to_insert, DefaultWidget, FormWidget, KeyEventHandler,
-};
+use pltx_app::{state::Display, App};
+use pltx_utils::{display_current_timestamp, DefaultWidget, FormWidget, KeyEventHandler};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
@@ -44,7 +39,7 @@ pub struct TextInput {
     required: bool,
     min: Option<usize>,
     max: Option<usize>,
-    mode: Mode,
+    display: Display,
     inline: bool,
     form_input: bool,
     use_size: bool,
@@ -93,8 +88,8 @@ impl FormWidget for TextInput {
         self.form_input = true;
     }
 
-    fn mode(&mut self, mode: Mode) {
-        self.mode = mode;
+    fn display(&mut self, display: Display) {
+        self.display = display;
     }
 
     fn title_len(&self) -> u16 {
@@ -124,10 +119,10 @@ impl KeyEventHandler for TextInput {
     // u = undo
     // ctrl + r = redo
     // o = newline + insert mode
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
         // let mut event = TextInputEvent::None;
 
-        if app.state.mode == normal_to_insert(self.mode) {
+        if app.display == self.display.insert_equivalent() {
             match key_event.code {
                 KeyCode::Char(to_insert) => {
                     self.enter_char(to_insert);
@@ -143,10 +138,7 @@ impl KeyEventHandler for TextInput {
             }
         }
 
-        if (self.mode == Mode::Navigation && app.state.mode == Mode::Navigation)
-            || (self.mode == Mode::Popup && app.state.mode == Mode::Popup)
-            || (self.mode == Mode::Command && app.state.mode == Mode::Command)
-        {
+        if app.display == self.display {
             match key_event.code {
                 KeyCode::Char('h') => self.move_cursor_left(),
                 KeyCode::Char('l') => self.move_cursor_right(),
@@ -154,18 +146,18 @@ impl KeyEventHandler for TextInput {
                 KeyCode::Char('b') => {}
                 KeyCode::Char('0') => self.cursor_start_line(),
                 KeyCode::Char('$') => self.cursor_end_line(),
-                KeyCode::Char('i') => self.enter_insert_mode(app),
+                KeyCode::Char('i') => app.insert_mode(),
                 KeyCode::Char('I') => {
-                    self.enter_insert_mode(app);
-                    self.cursor_start_line()
+                    app.insert_mode();
+                    self.cursor_start_line();
                 }
                 KeyCode::Char('a') => {
-                    self.enter_insert_mode(app);
-                    self.move_cursor_right()
+                    app.insert_mode();
+                    self.move_cursor_right();
                 }
                 KeyCode::Char('A') => {
-                    self.enter_insert_mode(app);
-                    self.cursor_end_line()
+                    app.insert_mode();
+                    self.cursor_end_line();
                 }
                 _ => {}
             }
@@ -186,7 +178,7 @@ impl TextInput {
             required: false,
             min: None,
             max: None,
-            mode: Mode::Navigation,
+            display: Display::default(),
             inline: false,
             form_input: false,
             use_size: false,
@@ -255,8 +247,8 @@ impl TextInput {
         self
     }
 
-    pub fn mode(mut self, mode: Mode) -> Self {
-        self.mode = mode;
+    pub fn display(mut self, display: Display) -> Self {
+        self.display = display;
         self
     }
 
@@ -350,10 +342,6 @@ impl TextInput {
         self.cursor_position.0 = self.input[self.cursor_position.1].chars().count()
     }
 
-    fn enter_insert_mode(&self, app: &mut App) {
-        app.state.mode = normal_to_insert(app.state.mode);
-    }
-
     fn render_lines<'a>(&self, app: &App, area: Rect, focused: bool) -> Vec<Line<'a>> {
         let colors = &app.config.colors;
 
@@ -373,7 +361,7 @@ impl TextInput {
             } else {
                 vec![Line::from(vec![
                     Span::from(if self.inline { " " } else { "" }),
-                    Span::from(" ").style(if self.is_insert_mode(app) {
+                    Span::from(" ").style(if app.display == self.display.insert_equivalent() {
                         Style::new().fg(colors.bg).bg(colors.fg)
                     } else {
                         Style::new().fg(colors.bg).bg(colors.secondary)
@@ -414,7 +402,7 @@ impl TextInput {
 
                     let cursor_on_char = (real_line_x_value, line_index) == self.cursor_position;
                     if focused && cursor_on_char {
-                        if self.is_insert_mode(app) {
+                        if app.display == self.display.insert_equivalent() {
                             style = style
                                 .fg(colors.input_cursor_insert_fg)
                                 .bg(colors.input_cursor_insert_bg)
@@ -435,15 +423,17 @@ impl TextInput {
 
                     // Render the cursor (only if last character)
                     if focused && is_last_char && cursor_not_at_start && char_is_before_cursor {
-                        span.push(Span::from(" ").style(if self.is_insert_mode(app) {
-                            Style::new()
-                                .fg(colors.input_cursor_insert_fg)
-                                .bg(colors.input_cursor_insert_bg)
-                        } else {
-                            Style::new()
-                                .fg(colors.input_cursor_fg)
-                                .bg(colors.input_cursor_bg)
-                        }));
+                        span.push(Span::from(" ").style(
+                            if app.display == self.display.insert_equivalent() {
+                                Style::new()
+                                    .fg(colors.input_cursor_insert_fg)
+                                    .bg(colors.input_cursor_insert_bg)
+                            } else {
+                                Style::new()
+                                    .fg(colors.input_cursor_fg)
+                                    .bg(colors.input_cursor_bg)
+                            },
+                        ));
                     }
 
                     span
@@ -503,7 +493,7 @@ impl TextInput {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::new().fg(if focused {
-                    if self.is_insert_mode(app) {
+                    if app.display == self.display.insert_equivalent() {
                         colors.status_bar_insert_mode_bg
                     } else {
                         colors.primary
@@ -512,9 +502,5 @@ impl TextInput {
                     colors.border
                 })),
         )
-    }
-
-    fn is_insert_mode(&self, app: &App) -> bool {
-        app.state.mode == normal_to_insert(self.mode)
     }
 }

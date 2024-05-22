@@ -25,4 +25,3 @@ missing_safety_doc = "deny"
 pltx_config = { workspace = true }
 pltx_database = { workspace = true }
 ratatui = { workspace = true }
-tui-scrollview = { workspace = true }

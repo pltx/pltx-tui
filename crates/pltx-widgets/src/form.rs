@@ -1,10 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crossterm::event::KeyEvent;
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
+use pltx_app::{state::Display, App};
 use pltx_utils::{CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -22,7 +19,11 @@ pub struct Form<I> {
 }
 
 impl<I> Form<I> {
-    pub fn new(input_widgets: Vec<Rc<RefCell<dyn FormWidget>>>, inputs: I, mode: Mode) -> Self {
+    pub fn new(
+        input_widgets: Vec<Rc<RefCell<dyn FormWidget>>>,
+        inputs: I,
+        display: Display,
+    ) -> Self {
         let max_title_len = input_widgets
             .iter()
             .map(|i| (**i).borrow().title_len())
@@ -32,7 +33,7 @@ impl<I> Form<I> {
         for input in input_widgets.iter() {
             let mut access_input = (**input).borrow_mut();
             access_input.form_compatible();
-            access_input.mode(mode);
+            access_input.display(display);
             access_input.max_title_len(max_title_len);
         }
 
@@ -132,10 +133,10 @@ impl<I> CompositeWidget for Form<I> {
 }
 
 impl<I> KeyEventHandler for Form<I> {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
         (*self.input_widgets[self.focused_input])
             .borrow_mut()
-            .key_event_handler(app, key_event, event_state);
+            .key_event_handler(app, key_event);
     }
 }
 

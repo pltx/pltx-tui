@@ -5,14 +5,9 @@ use std::{
 
 use chrono::{DateTime, Duration, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{GlobalPopup, Mode, State},
-    App,
-};
+use pltx_app::{state::GlobalPopup, App};
 use pltx_tracing::trace_panic;
-use pltx_utils::{
-    after_datetime, db_datetime, Init, KeyEventHandler, RenderPage, RenderPopupContained,
-};
+use pltx_utils::{after_datetime, db_datetime, Popup, Screen};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
@@ -22,7 +17,7 @@ use ratatui::{
 };
 
 use super::{card_editor::CardEditor, list_editor::ListEditor, projects::ProjectsState};
-use crate::ScreenPane;
+use crate::ProjectManagementPane;
 
 #[derive(Clone)]
 pub struct ProjectLabel {
@@ -89,7 +84,7 @@ struct ProjectData {
 }
 
 #[derive(PartialEq)]
-enum Popup {
+enum OpenProjectPopup {
     NewList,
     EditList,
     NewCard,
@@ -116,19 +111,20 @@ pub struct OpenProject {
     selected_list_id: Option<i32>,
     selected_card_ids: HashMap<i32, Option<i32>>,
     data: ProjectData,
-    popup: Popup,
+    popup: OpenProjectPopup,
     popups: Popups,
     delete_selection: DeleteSelection,
+    projects_state: Option<ProjectsState>,
 }
 
-impl Init for OpenProject {
-    fn init(app: &mut App) -> OpenProject {
+impl Screen<bool> for OpenProject {
+    fn init(app: &App) -> OpenProject {
         OpenProject {
             project_id: None,
             selected_list_id: None,
             selected_card_ids: HashMap::new(),
             data: ProjectData::default(),
-            popup: Popup::None,
+            popup: OpenProjectPopup::None,
             popups: Popups {
                 new_list: ListEditor::init(app).set_new(),
                 edit_list: ListEditor::init(app),
@@ -136,11 +132,303 @@ impl Init for OpenProject {
                 edit_card: CardEditor::init(app),
             },
             delete_selection: DeleteSelection::None,
+            projects_state: None,
+        }
+    }
+
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> bool {
+        if app.display.is_popup() {
+            if self.popup == OpenProjectPopup::NewList {
+                if let Some(new_list_id) = self.popups.new_list.key_event_handler(app, key_event) {
+                    self.selected_list_id = Some(new_list_id);
+                    self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
+                }
+            } else if self.popup == OpenProjectPopup::NewCard {
+                if let Some(new_card_id) = self.popups.new_card.key_event_handler(app, key_event) {
+                    if let Some(selected_list_id) = self.selected_list_id {
+                        self.selected_card_ids
+                            .insert(selected_list_id, Some(new_card_id));
+                        self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
+                    }
+                }
+            }
+
+            if match self.popup {
+                OpenProjectPopup::EditList => {
+                    self.popups.edit_list.key_event_handler(app, key_event)
+                }
+                OpenProjectPopup::EditCard => {
+                    self.popups.edit_card.key_event_handler(app, key_event)
+                }
+                _ => None,
+            }
+            .is_some()
+            {
+                self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"))
+            }
+        }
+
+        if app.display.is_popup() && key_event.code == KeyCode::Char('q') {
+            app.reset_display();
+            self.popup = OpenProjectPopup::None;
+        }
+
+        let selected_list_index = self.selected_list_index();
+        let selected_card_index = self.selected_card_index();
+
+        if app.display.is_default() {
+            let list: Option<&ProjectList> = if let Some(index) = selected_list_index {
+                Some(&self.data.lists[index])
+            } else {
+                None
+            };
+
+            match key_event.code {
+                KeyCode::Char('[') => return true,
+                KeyCode::Char('N') => {
+                    self.popup = OpenProjectPopup::NewList;
+                    app.popup_display();
+                    app.insert_mode();
+                }
+                KeyCode::Char('n') => {
+                    if let Some(project_id) = self.project_id {
+                        if let Some(list_id) = self.selected_list_id {
+                            self.popups.new_card.ids(project_id, list_id);
+                            self.popup = OpenProjectPopup::NewCard;
+                            app.popup_display();
+                            app.insert_mode();
+                        }
+                    }
+                }
+                KeyCode::Char('E') => {
+                    if let Some(list_id) = self.selected_list_id {
+                        self.popup = OpenProjectPopup::EditList;
+                        self.popups
+                            .edit_list
+                            .set(app, list_id)
+                            .unwrap_or_else(|e| panic! {"{e}"});
+                        app.popup_display();
+                        app.insert_mode();
+                    }
+                }
+                KeyCode::Char('e') => {
+                    if let Some(project_id) = self.project_id {
+                        if let Some(list_id) = self.selected_list_id {
+                            if let Some(card_id) = self.selected_card_id() {
+                                self.popups.edit_card.ids(project_id, list_id);
+                                self.popup = OpenProjectPopup::EditCard;
+                                self.popups
+                                    .edit_card
+                                    .set_data(app, card_id)
+                                    .unwrap_or_else(|e| panic!("{e}"));
+                                app.popup_display();
+                            }
+                        }
+                    }
+                }
+                KeyCode::Char('c') => {
+                    if let Some(card_id) = self.selected_card_id() {
+                        let list_index = self.selected_list_index().unwrap_or(0);
+                        let card_index = self.selected_card_index().unwrap_or(0);
+                        let completed = &self.data.lists[list_index].cards[card_index].completed;
+                        self.db_toggle_card_completed(app, card_id, *completed)
+                            .unwrap();
+                        self.db_get_project(app).unwrap();
+                    }
+                }
+                KeyCode::Char('i') => {
+                    if let Some(card_id) = self.selected_card_id() {
+                        let list_index = self.selected_list_index().unwrap_or(0);
+                        let card_index = self.selected_card_index().unwrap_or(0);
+                        let important = &self.data.lists[list_index].cards[card_index].important;
+                        self.db_toggle_card_important(app, card_id, *important)
+                            .unwrap();
+                        self.db_get_project(app).unwrap();
+                    }
+                }
+                KeyCode::Char('D') => {
+                    if self.project_id.is_some() && self.selected_list_id.is_some() {
+                        self.delete_selection = DeleteSelection::List;
+                        app.delete_mode();
+                    }
+                }
+                KeyCode::Char('d') => {
+                    if self.selected_card_id().is_some() {
+                        self.delete_selection = DeleteSelection::Card;
+                        app.delete_mode();
+                    }
+                }
+                KeyCode::Char('h') => {
+                    if let Some(list_id) = self.selected_list_id {
+                        let list_index = self
+                            .data
+                            .lists
+                            .iter()
+                            .position(|l| l.id == list_id)
+                            .unwrap();
+                        if list_index != 0 {
+                            self.selected_list_id =
+                                Some(self.data.lists[list_index.saturating_sub(1)].id);
+                        }
+                    }
+                }
+                KeyCode::Char('l') => {
+                    if let Some(list_id) = self.selected_list_id {
+                        let list_index = self
+                            .data
+                            .lists
+                            .iter()
+                            .position(|l| l.id == list_id)
+                            .unwrap();
+                        if list_index != self.data.lists.len().saturating_sub(1) {
+                            self.selected_list_id = Some(self.data.lists[list_index + 1].id);
+                        }
+                    }
+                }
+                KeyCode::Char('j') => {
+                    if let Some(list) = list {
+                        if let Some(selected_list_id) = self.selected_list_id {
+                            if let Some(selected_card_index) = selected_card_index {
+                                if selected_card_index != list.cards.len().saturating_sub(1) {
+                                    self.selected_card_ids.insert(
+                                        selected_list_id,
+                                        Some(list.cards[selected_card_index.saturating_add(1)].id),
+                                    );
+                                } else {
+                                    self.selected_card_ids
+                                        .insert(selected_list_id, Some(list.cards[0].id));
+                                }
+                            }
+                        }
+                    }
+                }
+                KeyCode::Char('k') => {
+                    if let Some(list) = list {
+                        if let Some(selected_list_id) = self.selected_list_id {
+                            if let Some(selected_card_index) = selected_card_index {
+                                if selected_card_index != 0 {
+                                    self.selected_card_ids.insert(
+                                        selected_list_id,
+                                        Some(list.cards[selected_card_index.saturating_sub(1)].id),
+                                    );
+                                } else {
+                                    self.selected_card_ids.insert(
+                                        selected_list_id,
+                                        Some(list.cards[list.cards.len().saturating_sub(1)].id),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if app.is_delete_mode() {
+            match key_event.code {
+                KeyCode::Char('y') => {
+                    if self.delete_selection == DeleteSelection::List {
+                        if let Some(selected_list_id) = self.selected_list_id {
+                            self.db_delete_list(app, selected_list_id)
+                                .unwrap_or_else(|e| panic!("{e}"));
+                            self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
+                            app.normal_mode();
+                        }
+                    } else if self.delete_selection == DeleteSelection::Card {
+                        if let Some(selected_card_id) = self.selected_card_id() {
+                            self.db_delete_card(app, selected_card_id)
+                                .unwrap_or_else(|e| trace_panic!("{e}"));
+                            self.db_get_project(app)
+                                .unwrap_or_else(|e| trace_panic!("{e}"));
+                            app.normal_mode();
+                        }
+                    }
+                    self.delete_selection = DeleteSelection::None;
+                }
+                KeyCode::Char('n') => app.normal_mode(),
+
+                _ => {}
+            }
+        }
+        false
+    }
+
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
+        let colors = &app.config.colors.clone();
+        let block = Block::new()
+            .title_top(
+                Line::from(format!(" {} ", self.data.title))
+                    .style(Style::new().bold().fg(colors.fg)),
+            )
+            .padding(Padding::horizontal(1))
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded);
+
+        if self.data.lists.is_empty() {
+            let content = Paragraph::new(Text::from(vec![Line::from(vec![
+                Span::from("You have no lists in your project. Press "),
+                Span::styled("N", Style::new().bold().fg(colors.keybind_key)),
+                Span::from(" to create a new list."),
+            ])]))
+            .block(
+                block.border_style(
+                    Style::new().fg(
+                        if self
+                            .projects_state
+                            .as_ref()
+                            .is_some_and(|s| s.module_pane == ProjectManagementPane::Main)
+                        {
+                            colors.primary
+                        } else {
+                            colors.border
+                        },
+                    ),
+                ),
+            );
+            frame.render_widget(content, area)
+        } else {
+            frame.render_widget(block.border_style(Style::new().fg(colors.border)), area);
+            let [block_layout] = Layout::default()
+                .constraints([Constraint::Min(1)])
+                .vertical_margin(1)
+                .horizontal_margin(2)
+                .areas(area);
+
+            let project_layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(
+                    self.data
+                        .lists
+                        .iter()
+                        .map(|_| Constraint::Fill(1))
+                        .collect::<Vec<Constraint>>(),
+                )
+                .split(block_layout);
+
+            for (list_index, list_layout) in project_layout.iter().enumerate() {
+                let list = self.render_list(app, *list_layout, list_index);
+                frame.render_widget(list.0, list.1);
+            }
+        }
+
+        if app.display.is_popup() && app.popup == GlobalPopup::None {
+            match self.popup {
+                OpenProjectPopup::NewList => self.popups.new_list.render(app, frame, area),
+                OpenProjectPopup::EditList => self.popups.edit_list.render(app, frame, area),
+                OpenProjectPopup::NewCard => self.popups.new_card.render(app, frame, area),
+                OpenProjectPopup::EditCard => self.popups.edit_card.render(app, frame, area),
+                OpenProjectPopup::None => {}
+            }
         }
     }
 }
 
 impl OpenProject {
+    pub fn projects_state(&mut self, projects_state: ProjectsState) {
+        self.projects_state = Some(projects_state);
+    }
+
     pub fn db_get_project(&mut self, app: &mut App) -> Result<(), &str> {
         let query = "SELECT title, description, position, created_at, updated_at FROM project \
                      WHERE id = ?1 ORDER BY position";
@@ -426,318 +714,17 @@ impl OpenProject {
         Ok(())
     }
 }
-impl KeyEventHandler<bool> for OpenProject {
-    fn key_event_handler(
-        &mut self,
-        app: &mut App,
-        key_event: KeyEvent,
-        event_state: &State,
-    ) -> bool {
-        if app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert {
-            if self.popup == Popup::NewList {
-                if let Some(new_list_id) =
-                    self.popups
-                        .new_list
-                        .key_event_handler(app, key_event, event_state)
-                {
-                    self.selected_list_id = Some(new_list_id);
-                    self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
-                }
-            } else if self.popup == Popup::NewCard {
-                if let Some(new_card_id) =
-                    self.popups
-                        .new_card
-                        .key_event_handler(app, key_event, event_state)
-                {
-                    if let Some(selected_list_id) = self.selected_list_id {
-                        self.selected_card_ids
-                            .insert(selected_list_id, Some(new_card_id));
-                        self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
-                    }
-                }
-            }
-
-            if match self.popup {
-                Popup::EditList => {
-                    self.popups
-                        .edit_list
-                        .key_event_handler(app, key_event, event_state)
-                }
-                Popup::EditCard => {
-                    self.popups
-                        .edit_card
-                        .key_event_handler(app, key_event, event_state)
-                }
-                _ => None,
-            }
-            .is_some()
-            {
-                self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"))
-            }
-        }
-
-        if app.state.mode == Mode::Popup && key_event.code == KeyCode::Char('q') {
-            self.popup = Popup::None;
-        }
-
-        let selected_list_index = self.selected_list_index();
-        let selected_card_index = self.selected_card_index();
-
-        if app.state.mode == Mode::Navigation {
-            let list: Option<&ProjectList> = if let Some(index) = selected_list_index {
-                Some(&self.data.lists[index])
-            } else {
-                None
-            };
-
-            match key_event.code {
-                KeyCode::Char('[') => return true,
-                KeyCode::Char('N') => {
-                    self.popup = Popup::NewList;
-                    app.state.mode = Mode::PopupInsert;
-                }
-                KeyCode::Char('n') => {
-                    if let Some(project_id) = self.project_id {
-                        if let Some(list_id) = self.selected_list_id {
-                            self.popups.new_card.ids(project_id, list_id);
-                            self.popup = Popup::NewCard;
-                            app.state.mode = Mode::PopupInsert;
-                        }
-                    }
-                }
-                KeyCode::Char('E') => {
-                    if let Some(list_id) = self.selected_list_id {
-                        self.popup = Popup::EditList;
-                        app.state.mode = Mode::PopupInsert;
-                        self.popups
-                            .edit_list
-                            .set(app, list_id)
-                            .unwrap_or_else(|e| panic! {"{e}"});
-                    }
-                }
-                KeyCode::Char('e') => {
-                    if let Some(project_id) = self.project_id {
-                        if let Some(list_id) = self.selected_list_id {
-                            if let Some(card_id) = self.selected_card_id() {
-                                self.popups.edit_card.ids(project_id, list_id);
-                                self.popup = Popup::EditCard;
-                                app.state.mode = Mode::Popup;
-                                self.popups
-                                    .edit_card
-                                    .set_data(app, card_id)
-                                    .unwrap_or_else(|e| panic!("{e}"))
-                            }
-                        }
-                    }
-                }
-                KeyCode::Char('c') => {
-                    if let Some(card_id) = self.selected_card_id() {
-                        let list_index = self.selected_list_index().unwrap_or(0);
-                        let card_index = self.selected_card_index().unwrap_or(0);
-                        let completed = &self.data.lists[list_index].cards[card_index].completed;
-                        self.db_toggle_card_completed(app, card_id, *completed)
-                            .unwrap();
-                        self.db_get_project(app).unwrap();
-                    }
-                }
-                KeyCode::Char('i') => {
-                    if let Some(card_id) = self.selected_card_id() {
-                        let list_index = self.selected_list_index().unwrap_or(0);
-                        let card_index = self.selected_card_index().unwrap_or(0);
-                        let important = &self.data.lists[list_index].cards[card_index].important;
-                        self.db_toggle_card_important(app, card_id, *important)
-                            .unwrap();
-                        self.db_get_project(app).unwrap();
-                    }
-                }
-                KeyCode::Char('D') => {
-                    if self.project_id.is_some() && self.selected_list_id.is_some() {
-                        self.delete_selection = DeleteSelection::List;
-                        app.state.mode = Mode::Delete;
-                    }
-                }
-                KeyCode::Char('d') => {
-                    if self.selected_card_id().is_some() {
-                        self.delete_selection = DeleteSelection::Card;
-                        app.state.mode = Mode::Delete;
-                    }
-                }
-                KeyCode::Char('h') => {
-                    if let Some(list_id) = self.selected_list_id {
-                        let list_index = self
-                            .data
-                            .lists
-                            .iter()
-                            .position(|l| l.id == list_id)
-                            .unwrap();
-                        if list_index != 0 {
-                            self.selected_list_id =
-                                Some(self.data.lists[list_index.saturating_sub(1)].id);
-                        }
-                    }
-                }
-                KeyCode::Char('l') => {
-                    if let Some(list_id) = self.selected_list_id {
-                        let list_index = self
-                            .data
-                            .lists
-                            .iter()
-                            .position(|l| l.id == list_id)
-                            .unwrap();
-                        if list_index != self.data.lists.len().saturating_sub(1) {
-                            self.selected_list_id = Some(self.data.lists[list_index + 1].id);
-                        }
-                    }
-                }
-                KeyCode::Char('j') => {
-                    if let Some(list) = list {
-                        if let Some(selected_list_id) = self.selected_list_id {
-                            if let Some(selected_card_index) = selected_card_index {
-                                if selected_card_index != list.cards.len().saturating_sub(1) {
-                                    self.selected_card_ids.insert(
-                                        selected_list_id,
-                                        Some(list.cards[selected_card_index.saturating_add(1)].id),
-                                    );
-                                } else {
-                                    self.selected_card_ids
-                                        .insert(selected_list_id, Some(list.cards[0].id));
-                                }
-                            }
-                        }
-                    }
-                }
-                KeyCode::Char('k') => {
-                    if let Some(list) = list {
-                        if let Some(selected_list_id) = self.selected_list_id {
-                            if let Some(selected_card_index) = selected_card_index {
-                                if selected_card_index != 0 {
-                                    self.selected_card_ids.insert(
-                                        selected_list_id,
-                                        Some(list.cards[selected_card_index.saturating_sub(1)].id),
-                                    );
-                                } else {
-                                    self.selected_card_ids.insert(
-                                        selected_list_id,
-                                        Some(list.cards[list.cards.len().saturating_sub(1)].id),
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        if app.state.mode == Mode::Delete {
-            match key_event.code {
-                KeyCode::Char('y') => {
-                    if self.delete_selection == DeleteSelection::List {
-                        if let Some(selected_list_id) = self.selected_list_id {
-                            self.db_delete_list(app, selected_list_id)
-                                .unwrap_or_else(|e| panic!("{e}"));
-                            self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
-                            app.state.mode = Mode::Navigation;
-                        }
-                    } else if self.delete_selection == DeleteSelection::Card {
-                        if let Some(selected_card_id) = self.selected_card_id() {
-                            self.db_delete_card(app, selected_card_id)
-                                .unwrap_or_else(|e| trace_panic!("{e}"));
-                            self.db_get_project(app)
-                                .unwrap_or_else(|e| trace_panic!("{e}"));
-                            app.state.mode = Mode::Navigation;
-                        }
-                    }
-                    self.delete_selection = DeleteSelection::None;
-                }
-                KeyCode::Char('n') => {
-                    app.state.mode = Mode::Navigation;
-                }
-                _ => {}
-            }
-        }
-        false
-    }
-}
-
-impl RenderPage<ProjectsState> for OpenProject {
-    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect, state: ProjectsState) {
-        let colors = &app.config.colors.clone();
-        let block = Block::new()
-            .title_top(
-                Line::from(format!(" {} ", self.data.title))
-                    .style(Style::new().bold().fg(colors.fg)),
-            )
-            .padding(Padding::horizontal(1))
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
-
-        if self.data.lists.is_empty() {
-            let content = Paragraph::new(Text::from(vec![Line::from(vec![
-                Span::from("You have no lists in your project. Press "),
-                Span::styled("N", Style::new().bold().fg(colors.keybind_key)),
-                Span::from(" to create a new list."),
-            ])]))
-            .block(block.border_style(Style::new().fg(
-                if state.screen_pane == ScreenPane::Main {
-                    colors.primary
-                } else {
-                    colors.border
-                },
-            )));
-            frame.render_widget(content, area)
-        } else {
-            frame.render_widget(block.border_style(Style::new().fg(colors.border)), area);
-            let [block_layout] = Layout::default()
-                .constraints([Constraint::Min(1)])
-                .vertical_margin(1)
-                .horizontal_margin(2)
-                .areas(area);
-
-            let project_layout = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(
-                    self.data
-                        .lists
-                        .iter()
-                        .map(|_| Constraint::Fill(1))
-                        .collect::<Vec<Constraint>>(),
-                )
-                .split(block_layout);
-
-            for (list_index, list_layout) in project_layout.iter().enumerate() {
-                let list = self.render_list(app, &state, *list_layout, list_index);
-                frame.render_widget(list.0, list.1);
-            }
-        }
-
-        if (app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert)
-            && app.state.popup == GlobalPopup::None
-        {
-            match self.popup {
-                Popup::NewList => self.popups.new_list.render(frame, app, area),
-                Popup::EditList => self.popups.edit_list.render(frame, app, area),
-                Popup::NewCard => self.popups.new_card.render(frame, app, area),
-                Popup::EditCard => self.popups.edit_card.render(frame, app, area),
-                Popup::None => {}
-            }
-        }
-    }
-}
 
 impl OpenProject {
-    fn render_list(
-        &self,
-        app: &App,
-        state: &ProjectsState,
-        layout: Rect,
-        index: usize,
-    ) -> (impl Widget, Rect) {
+    fn render_list(&self, app: &App, layout: Rect, index: usize) -> (impl Widget, Rect) {
         let colors = &app.config.colors;
 
         let list_width = layout.width as usize - 2;
         let list = &self.data.lists[index];
-        let selected_list = state.screen_pane == ScreenPane::Main
+        let selected_list = self
+            .projects_state
+            .as_ref()
+            .is_some_and(|s| s.module_pane == ProjectManagementPane::Main)
             && self.selected_list_id.is_some_and(|id| id == list.id);
 
         let list_block = Block::new()
@@ -864,6 +851,7 @@ impl OpenProject {
     pub fn set_project_id(&mut self, project_id: i32) {
         self.project_id = Some(project_id);
         self.popups.new_list.project_id(project_id);
+        self.popups.edit_list.project_id(project_id);
     }
 
     fn selected_card_id(&self) -> Option<i32> {
@@ -901,7 +889,7 @@ impl OpenProject {
         self.selected_list_id = None;
         self.selected_card_ids = HashMap::new();
         self.data = ProjectData::default();
-        self.popup = Popup::None;
+        self.popup = OpenProjectPopup::None;
         self.popups.new_list.reset(app);
         self.popups.edit_list.reset(app);
         self.popups.new_card.reset();

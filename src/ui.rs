@@ -1,11 +1,11 @@
 use pltx_app::{
-    state::{GlobalPopup, Mode, Pane, Screen},
+    state::{Display, GlobalPopup, ModuleState, Pane},
     App,
 };
 use pltx_config::ColorsConfig;
 use pltx_dashboard::Dashboard;
 use pltx_project_management::ProjectManagement;
-use pltx_utils::{Init, InitData, RenderPopup, RenderScreen, RenderScrollPopup};
+use pltx_utils::{Module, Popup};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
@@ -16,28 +16,28 @@ use ratatui::{
 
 use crate::{command_handler::CommandHandler, popups};
 
-/// States for each screen
-pub struct ScreenState {
+/// States for each module.
+pub struct InterfaceModule {
     pub dashboard: Dashboard,
     pub project_management: ProjectManagement,
 }
 
-/// States for each popup
+/// States for each popup.
 pub struct PopupState {
     pub help: popups::Help,
 }
 
 pub struct Interface {
-    pub screens: ScreenState,
-    /// These are only global popups. Screen popups should be contained within
-    /// the screen's own directory.
+    pub modules: InterfaceModule,
+    /// Global popups. Module popups are located within the modules own
+    /// directories.
     pub popups: PopupState,
 }
 
 impl Interface {
     pub fn init(app: &mut App) -> Interface {
         Interface {
-            screens: ScreenState {
+            modules: InterfaceModule {
                 dashboard: Dashboard::init(app),
                 project_management: ProjectManagement::init(app),
             },
@@ -45,14 +45,6 @@ impl Interface {
                 help: popups::Help::init(app),
             },
         }
-    }
-
-    /// Call the `init_data()` functions for popups and screens. The
-    /// `init_data()` functions ensure that the tables required exist, and
-    /// if not, are created.
-    pub fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()> {
-        self.screens.project_management.init_data(app)?;
-        Ok(())
     }
 
     pub fn render(
@@ -75,7 +67,7 @@ impl Interface {
         frame.render_widget(self.title_bar(colors), title_bar_layout);
 
         // Navigation and editor layout
-        let [navigation_layout, screen_layout] = Layout::default()
+        let [navigation_layout, module_layout] = Layout::default()
             .constraints([Constraint::Length(30), Constraint::Min(1)])
             .direction(Direction::Horizontal)
             .areas(main_layout);
@@ -87,17 +79,16 @@ impl Interface {
 
         self.status_bar(app, frame, status_bar_layout);
 
-        // Screen content
-        let screen_pane = Block::new()
+        let module_pane = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(
-                if app.state.mode == Mode::Navigation && app.state.pane == Pane::Screen {
-                    let primary_border = match &app.state.screen {
+                if app.display.is_default() && app.pane == Pane::Module {
+                    let primary_border = match &app.module {
                         // `true` to have the border primary color by default
                         // Otherwise the color will be the border color
-                        Screen::Dashboard => false,
-                        Screen::ProjectManagement => false,
+                        ModuleState::Dashboard => false,
+                        ModuleState::ProjectManagement => false,
                         _ => true,
                     };
                     if primary_border {
@@ -111,32 +102,32 @@ impl Interface {
             ))
             .padding(Padding::horizontal(1))
             .bg(colors.bg);
-        frame.render_widget(screen_pane, screen_layout);
+        frame.render_widget(module_pane, module_layout);
 
-        let [screen_layout] = Layout::default()
+        let [module_layout] = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(2)
             .constraints([Constraint::Min(1)])
-            .areas(screen_layout);
-        match app.state.screen {
-            Screen::Dashboard => self.screens.dashboard.render(app, frame, screen_layout),
-            Screen::ProjectManagement => {
-                self.screens
+            .areas(module_layout);
+        match app.module {
+            ModuleState::Dashboard => self.modules.dashboard.render(app, frame, module_layout),
+            ModuleState::ProjectManagement => {
+                self.modules
                     .project_management
-                    .render(app, frame, screen_layout)
+                    .render(app, frame, module_layout)
             }
-            Screen::None => {}
+            ModuleState::None => {}
         };
 
-        if app.state.mode == Mode::Popup || app.state.mode == Mode::PopupInsert {
-            match app.state.popup {
-                GlobalPopup::Help => self.popups.help.render(frame, app),
+        if app.display.is_popup() {
+            match app.popup {
+                GlobalPopup::Help => self.popups.help.render(app, frame, frame.size()),
                 GlobalPopup::None => {}
             }
         }
 
-        if app.state.mode == Mode::Command || app.state.mode == Mode::CommandInsert {
-            command_handler.render(frame, app);
+        if app.display.is_command() {
+            command_handler.render(app, frame, frame.size());
         }
     }
 
@@ -150,13 +141,13 @@ impl Interface {
     }
 
     fn navigation_pane(&self, app: &App, rect: Rect) -> Paragraph {
-        let screen_list = app.get_screen_list();
+        let module_list = app.module_list();
         let colors = &app.config.colors;
 
-        let navigation_options = screen_list
+        let navigation_options = module_list
             .iter()
             .map(|s| {
-                if s.0 == app.state.screen {
+                if s.0 == app.module {
                     Line::from(format!(
                         " {} {}",
                         s.1,
@@ -178,8 +169,8 @@ impl Interface {
             Block::new()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::new().fg(match (&app.state.mode, &app.state.pane) {
-                    (Mode::Navigation, Pane::Navigation) => colors.primary,
+                .border_style(Style::new().fg(match (&app.display, &app.pane) {
+                    (Display::Default(_), Pane::Navigation) => colors.primary,
                     _ => colors.border,
                 }))
                 // .padding(Padding::symmetric(1, 0))
@@ -189,7 +180,7 @@ impl Interface {
 
     fn status_bar(&self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
-        let mode = app.get_mode_colors();
+        let mode = app.current_mode_data();
 
         let [left_layout, center_layout, right_layout] = Layout::default()
             .direction(Direction::Horizontal)
@@ -200,25 +191,26 @@ impl Interface {
             ])
             .areas(area);
 
-        let mut mode_fg = mode.1;
-        let mut mode_bg = mode.2;
+        let mut mode_fg = mode.fg;
+        let mut mode_bg = mode.bg;
         let mut status_bar_fg = colors.status_bar_fg;
         let mut status_bar_bg = colors.status_bar_bg;
-        if app.state.mode == Mode::Delete {
+        if app.is_delete_mode() {
             mode_fg = colors.status_bar_fg;
             mode_bg = colors.status_bar_bg;
-            status_bar_fg = mode.1;
-            status_bar_bg = mode.2;
+            status_bar_fg = mode.fg;
+            status_bar_bg = mode.bg;
         }
         let left_text = vec![Line::from(vec![
-            Span::from(format!(" {} ", mode.0.to_uppercase()))
+            Span::from(format!(" {} ", mode.text.to_uppercase()))
                 .bold()
                 .fg(mode_fg)
                 .bg(mode_bg),
             Span::from("").fg(mode_bg),
-            match app.state.mode {
-                Mode::Delete => Span::from(" Confirm Deletion (y/n)").bold(),
-                _ => Span::from(""),
+            if app.is_delete_mode() {
+                Span::from(" Confirm Deletion (y/n)").bold()
+            } else {
+                Span::from("")
             },
         ])];
         let left_content = Paragraph::new(left_text)
@@ -233,9 +225,10 @@ impl Interface {
         frame.render_widget(center_content, center_layout);
 
         let right_text = vec![Line::from(vec![Span::from("Press ? for help ")])];
-        let right_content = Paragraph::new(match app.state.mode {
-            Mode::Delete => vec![Line::from("")],
-            _ => right_text,
+        let right_content = Paragraph::new(if app.is_delete_mode() {
+            vec![Line::from("")]
+        } else {
+            right_text
         })
         .alignment(Alignment::Right)
         .style(Style::new().fg(status_bar_fg).bg(status_bar_bg));

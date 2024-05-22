@@ -1,11 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
+use pltx_app::{state::Display, App};
 use pltx_tracing::trace_panic;
-use pltx_utils::{DefaultWidget, Init, KeyEventHandler, RenderPopupContained};
-use pltx_widgets::{self, Popup, PopupSize, TextInput};
+use pltx_utils::{DefaultWidget, KeyEventHandler, Popup};
+use pltx_widgets::{self, PopupSize, PopupWidget, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     Frame,
@@ -28,21 +25,59 @@ pub struct ListEditor {
     size: PopupSize,
 }
 
-impl Init for ListEditor {
-    fn init(_: &mut App) -> ListEditor {
+impl Popup<Option<i32>> for ListEditor {
+    fn init(_: &App) -> ListEditor {
         let size = PopupSize::default().width(60).height(5);
+
         ListEditor {
             is_new: false,
             data: None,
             project_id: None,
             inputs: Inputs {
                 title: TextInput::new("Title")
-                    .mode(Mode::Popup)
+                    .display(Display::popup())
                     .max(50)
                     .size((size.width - 2, size.height - 2)),
             },
             size,
         }
+    }
+
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Option<i32> {
+        self.inputs.title.key_event_handler(app, key_event);
+
+        if let Some(project_id) = self.project_id {
+            if key_event.code == KeyCode::Enter {
+                let list_id = if self.is_new {
+                    Some(
+                        self.db_new_list(app, project_id)
+                            .unwrap_or_else(|e| panic!("{e}")),
+                    )
+                } else {
+                    Some(self.db_edit_list(app).unwrap_or_else(|e| panic!("{e}")))
+                };
+                app.reset_display();
+                self.inputs.title.reset();
+                return list_id;
+            }
+        }
+
+        None
+    }
+
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
+        let popup = PopupWidget::new(app, area)
+            .title_top(if self.is_new { "New List" } else { "Edit List" })
+            .size(self.size.clone())
+            .render(frame);
+
+        let [title_layout] = Layout::default()
+            .vertical_margin(1)
+            .horizontal_margin(2)
+            .constraints([Constraint::Length(3)])
+            .areas(popup.area);
+
+        self.inputs.title.render(frame, app, title_layout, true);
     }
 }
 
@@ -85,54 +120,6 @@ impl ListEditor {
     }
 }
 
-impl KeyEventHandler<Option<i32>> for ListEditor {
-    fn key_event_handler(
-        &mut self,
-        app: &mut App,
-        key_event: KeyEvent,
-        event_state: &State,
-    ) -> Option<i32> {
-        self.inputs
-            .title
-            .key_event_handler(app, key_event, event_state);
-
-        if let Some(project_id) = self.project_id {
-            if key_event.code == KeyCode::Enter {
-                let list_id = if self.is_new {
-                    Some(
-                        self.db_new_list(app, project_id)
-                            .unwrap_or_else(|e| panic!("{e}")),
-                    )
-                } else {
-                    Some(self.db_edit_list(app).unwrap_or_else(|e| panic!("{e}")))
-                };
-                app.state.mode = Mode::Navigation;
-                self.inputs.title.reset();
-                return list_id;
-            }
-        }
-
-        None
-    }
-}
-
-impl RenderPopupContained for ListEditor {
-    fn render(&mut self, frame: &mut Frame, app: &App, area: Rect) {
-        let popup = Popup::new(app, area)
-            .title_top(if self.is_new { "New List" } else { "Edit List" })
-            .size(self.size.clone())
-            .render(frame);
-
-        let [title_layout] = Layout::default()
-            .vertical_margin(1)
-            .horizontal_margin(2)
-            .constraints([Constraint::Length(3)])
-            .areas(popup.area);
-
-        self.inputs.title.render(frame, app, title_layout, true);
-    }
-}
-
 impl ListEditor {
     pub fn set_new(mut self) -> Self {
         self.is_new = true;
@@ -162,7 +149,7 @@ impl ListEditor {
     }
 
     pub fn reset(&mut self, app: &mut App) {
-        app.state.mode = Mode::Navigation;
+        app.reset_display();
         self.data = None;
         self.project_id = None;
         self.inputs.title.reset();

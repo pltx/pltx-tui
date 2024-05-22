@@ -14,3 +14,4 @@ pltx_database = { workspace = true }
 pltx_utils = { workspace = true }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
+rusqlite = { workspace = true }

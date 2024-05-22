@@ -56,7 +56,7 @@ impl PopupSize {
 }
 
 /// Popup widget
-pub struct Popup<'a> {
+pub struct PopupWidget<'a> {
     title_top: Option<&'a str>,
     title_bottom: Option<&'a str>,
     pub size: PopupSize,
@@ -67,7 +67,7 @@ pub struct Popup<'a> {
 }
 
 // TODO: implement the CustomWidget trait
-impl<'a> Popup<'a> {
+impl<'a> PopupWidget<'a> {
     pub fn render(self, frame: &mut Frame) -> Self {
         let mut block = Block::new()
             .borders(Borders::ALL)
@@ -86,8 +86,8 @@ impl<'a> Popup<'a> {
     }
 }
 
-impl<'a> Popup<'a> {
-    pub fn new(app: &'a App, rect: Rect) -> Popup<'a> {
+impl<'a> PopupWidget<'a> {
+    pub fn new(app: &'a App, rect: Rect) -> PopupWidget<'a> {
         let colors = &app.config.colors;
 
         let size = PopupSize::default();
@@ -104,7 +104,7 @@ impl<'a> Popup<'a> {
             .constraints([Constraint::Fill(1)])
             .areas(area);
 
-        Popup {
+        PopupWidget {
             title_top: None,
             title_bottom: None,
             rect,

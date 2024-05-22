@@ -1,13 +1,13 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use fst::{automaton::Levenshtein, IntoStreamer};
 use pltx_app::{
-    state::{GlobalPopup, Mode, State},
+    state::{Display, GlobalPopup},
     App,
 };
-use pltx_utils::{DefaultWidget, KeyEventHandler, RenderPopup};
-use pltx_widgets::{self, Popup, PopupSize, TextInput};
+use pltx_utils::{DefaultWidget, KeyEventHandler, Popup};
+use pltx_widgets::{self, PopupSize, PopupWidget, TextInput};
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
@@ -22,7 +22,7 @@ enum Command {
 }
 
 #[derive(PartialEq)]
-enum Display {
+enum Content {
     CommandInput,
     // Output,
 }
@@ -35,7 +35,7 @@ enum FocusedPane {
 pub struct CommandHandler {
     command: TextInput,
     size: PopupSize,
-    display: Display,
+    content: Content,
     focused_pane: FocusedPane,
     command_set: fst::Set<Vec<u8>>,
     command_options: Vec<String>,
@@ -65,19 +65,19 @@ fn command_options_list<'a>() -> Vec<&'a str> {
     command_list().iter().map(|c| c.1).collect::<Vec<&str>>()
 }
 
-impl CommandHandler {
-    pub fn init() -> CommandHandler {
+impl Popup for CommandHandler {
+    fn init(_: &App) -> CommandHandler {
         let command_set = fst::Set::from_iter(command_options_list()).unwrap();
         let size = PopupSize::default().width(60).height(20);
 
         CommandHandler {
             command: TextInput::new("Command")
-                .mode(Mode::Command)
+                .display(Display::command())
                 .size((size.width - 2, size.height - 2))
                 .placeholder("Enter a command...")
                 .max(50),
             size,
-            display: Display::CommandInput,
+            content: Content::CommandInput,
             focused_pane: FocusedPane::Input,
             command_set,
             command_options: command_options_list()
@@ -88,85 +88,28 @@ impl CommandHandler {
         }
     }
 
-    fn reset(&mut self) {
-        self.command.reset();
-        self.update_options();
-        self.focused_pane = FocusedPane::Input;
-    }
-
-    fn parse_command(&self) -> Command {
-        if self.command_options.is_empty() {
-            return Command::None;
-        }
-        let command_str = self.command_options[self.selected_option].clone();
-        for command in command_list() {
-            if command.1.contains(&command_str) {
-                return command.0;
-            }
-        }
-        Command::None
-    }
-
-    fn execute_command(&mut self, app: &mut App) {
-        let command = self.parse_command();
-        match command {
-            Command::Help => {
-                app.state.mode = Mode::Popup;
-                app.state.popup = GlobalPopup::Help;
-            }
-            Command::Quit => app.exit(),
-            Command::None => {}
-        }
-        if command != Command::None {
-            self.reset()
-        }
-    }
-
-    fn update_options(&mut self) {
-        let is_longer_than_longest_option = self.command.input_string().chars().count()
-            > command_list()
-                .iter()
-                .map(|c| c.1.chars().count())
-                .max()
-                .unwrap_or(0);
-        if is_longer_than_longest_option {
-            self.command_options = vec![];
-        } else if self.command.input_string().chars().count() == 0 {
-            let command_list = command_list().iter().map(|c| c.1).collect::<Vec<&str>>();
-            self.command_options = command_list.iter().map(|s| s.to_string()).collect();
-        } else {
-            let query = Levenshtein::new(&self.command.input_string(), 3).unwrap();
-            let stream = self.command_set.search(query).into_stream();
-            let keys = stream.into_strs().unwrap_or(vec![]);
-            self.command_options = keys;
-        }
-        self.selected_option = 0;
-    }
-}
-
-impl KeyEventHandler for CommandHandler {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
         if self.focused_pane == FocusedPane::Input {
-            self.command.key_event_handler(app, key_event, event_state);
+            self.command.key_event_handler(app, key_event);
             self.update_options();
         }
 
-        if app.state.mode == Mode::Command {
+        if app.is_normal_mode() {
             match key_event.code {
                 KeyCode::Enter => self.execute_command(app),
                 KeyCode::Char('q') => {
-                    app.state.mode = Mode::Navigation;
+                    app.reset_display();
                     self.reset();
                 }
                 KeyCode::Char('j') => {
-                    if self.display == Display::CommandInput
+                    if self.content == Content::CommandInput
                         && self.focused_pane == FocusedPane::Input
                     {
                         self.focused_pane = FocusedPane::Options;
                     }
                 }
                 KeyCode::Char('k') => {
-                    if self.display == Display::CommandInput
+                    if self.content == Content::CommandInput
                         && self.focused_pane == FocusedPane::Options
                     {
                         self.focused_pane = FocusedPane::Input;
@@ -174,21 +117,19 @@ impl KeyEventHandler for CommandHandler {
                 }
                 _ => {}
             }
-        } else if app.state.mode == Mode::CommandInsert {
+        } else if app.is_insert_mode() {
             match key_event.code {
                 KeyCode::Enter => self.execute_command(app),
-                KeyCode::Esc => app.state.mode = Mode::Command,
+                KeyCode::Esc => app.command_display(),
                 _ => {}
             }
         }
     }
-}
 
-impl RenderPopup for CommandHandler {
-    fn render(&mut self, frame: &mut Frame, app: &App) {
+    fn render(&self, app: &App, frame: &mut Frame, _: Rect) {
         let colors = &app.config.colors;
 
-        let popup = Popup::new(app, frame.size())
+        let popup = PopupWidget::new(app, frame.size())
             .size(self.size.clone())
             .render(frame);
 
@@ -241,5 +182,62 @@ impl RenderPopup for CommandHandler {
         );
 
         frame.render_widget(command_list, command_list_layout);
+    }
+}
+
+impl CommandHandler {
+    fn reset(&mut self) {
+        self.command.reset();
+        self.update_options();
+        self.focused_pane = FocusedPane::Input;
+    }
+
+    fn parse_command(&self) -> Command {
+        if self.command_options.is_empty() {
+            return Command::None;
+        }
+        let command_str = self.command_options[self.selected_option].clone();
+        for command in command_list() {
+            if command.1.contains(&command_str) {
+                return command.0;
+            }
+        }
+        Command::None
+    }
+
+    fn execute_command(&mut self, app: &mut App) {
+        let command = self.parse_command();
+        match command {
+            Command::Help => {
+                app.popup_display();
+                app.popup = GlobalPopup::Help;
+            }
+            Command::Quit => app.exit(),
+            Command::None => {}
+        }
+        if command != Command::None {
+            self.reset()
+        }
+    }
+
+    fn update_options(&mut self) {
+        let is_longer_than_longest_option = self.command.input_string().chars().count()
+            > command_list()
+                .iter()
+                .map(|c| c.1.chars().count())
+                .max()
+                .unwrap_or(0);
+        if is_longer_than_longest_option {
+            self.command_options = vec![];
+        } else if self.command.input_string().chars().count() == 0 {
+            let command_list = command_list().iter().map(|c| c.1).collect::<Vec<&str>>();
+            self.command_options = command_list.iter().map(|s| s.to_string()).collect();
+        } else {
+            let query = Levenshtein::new(&self.command.input_string(), 3).unwrap();
+            let stream = self.command_set.search(query).into_stream();
+            let keys = stream.into_strs().unwrap_or(vec![]);
+            self.command_options = keys;
+        }
+        self.selected_option = 0;
     }
 }

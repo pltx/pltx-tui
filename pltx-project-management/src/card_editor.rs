@@ -1,16 +1,13 @@
 use std::{cell::RefCell, collections::HashSet, convert::From, rc::Rc, str::FromStr};
 
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
+use pltx_app::{state::Display, App};
 use pltx_config::ColorsConfig;
 use pltx_utils::{
     current_timestamp, db_datetime_to_string, parse_user_datetime_option, CompositeWidget,
-    DefaultWidget, FormWidget, Init, KeyEventHandler, RenderPopupContained,
+    DefaultWidget, FormWidget, KeyEventHandler, Popup,
 };
-use pltx_widgets::{self, Buttons, Form, Popup, PopupSize, Selection, Switch, TextInput};
+use pltx_widgets::{self, Buttons, Form, PopupSize, PopupWidget, Selection, Switch, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
@@ -85,14 +82,26 @@ pub struct CardEditor {
     focused_pane: FocusedPane,
 }
 
-impl Init for CardEditor {
-    fn init(_: &mut App) -> Self {
+impl Popup<Option<i32>> for CardEditor {
+    fn init(_: &App) -> Self {
         let size = PopupSize::default().percentage_based().width(80).height(80);
 
         let important_input = Rc::new(RefCell::new(Switch::from("Important")));
-        let start_date_input = Rc::new(RefCell::new(TextInput::new("Start Date").datetime_input()));
-        let due_date_input = Rc::new(RefCell::new(TextInput::new("Due Date").datetime_input()));
-        let reminder_input = Rc::new(RefCell::new(TextInput::new("Reminder").datetime_input()));
+        let start_date_input = Rc::new(RefCell::new(
+            TextInput::new("Start Date")
+                .display(Display::popup())
+                .datetime_input(),
+        ));
+        let due_date_input = Rc::new(RefCell::new(
+            TextInput::new("Due Date")
+                .display(Display::popup())
+                .datetime_input(),
+        ));
+        let reminder_input = Rc::new(RefCell::new(
+            TextInput::new("Reminder")
+                .display(Display::popup())
+                .datetime_input(),
+        ));
 
         let properties = Properties {
             important: Rc::clone(&important_input),
@@ -107,13 +116,15 @@ impl Init for CardEditor {
             project_id: None,
             list_id: None,
             inputs: Inputs {
-                title: TextInput::new("Title").mode(Mode::Popup).max(50),
-                description: TextInput::new("Description").mode(Mode::Popup).max(4000),
-                labels: Selection::new(Mode::Popup),
+                title: TextInput::new("Title").display(Display::popup()).max(50),
+                description: TextInput::new("Description")
+                    .display(Display::popup())
+                    .max(4000),
+                labels: Selection::default(),
                 properties: Form::new(
                     vec![important_input, start_date_input, due_date_input],
                     properties,
-                    Mode::Popup,
+                    Display::popup(),
                 )
                 .fixed_width(34),
                 actions: Buttons::from([(Action::Save, "Save Card"), (Action::Cancel, "Cancel")]),
@@ -122,6 +133,99 @@ impl Init for CardEditor {
             original_labels: HashSet::new(),
             focused_pane: FocusedPane::Title,
         }
+    }
+
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Option<i32> {
+        match self.focused_pane {
+            FocusedPane::Title => {
+                self.inputs.title.key_event_handler(app, key_event);
+            }
+            FocusedPane::Description => {
+                self.inputs.description.key_event_handler(app, key_event);
+            }
+            FocusedPane::Labels => {
+                self.inputs.labels.key_event_handler(app, key_event);
+            }
+            FocusedPane::Properties => self.inputs.properties.key_event_handler(app, key_event),
+            FocusedPane::Actions => {}
+        };
+
+        if app.is_normal_mode() {
+            match key_event.code {
+                KeyCode::Char('q') => {
+                    app.reset_display();
+                    self.reset();
+                }
+                KeyCode::Char('j') => self.next_pane(),
+                KeyCode::Char('k') => self.prev_pane(),
+                KeyCode::Enter => {
+                    if let Some(id) = self.submit(app) {
+                        return Some(id);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
+        let popup = PopupWidget::new(app, area)
+            .title_top(if self.is_new { "New Card" } else { "Edit Card" })
+            .size(self.size.clone())
+            .render(frame);
+
+        let label_len = self.inputs.labels.options.len() as u16;
+        let label_height = if label_len > 0 { label_len + 2 } else { 0 };
+
+        let [title_layout, description_layout, label_layout, properties_layout, actions_layout] =
+            Layout::default()
+                .vertical_margin(1)
+                .horizontal_margin(2)
+                .constraints([
+                    Constraint::Length(3),
+                    Constraint::Length(10),
+                    Constraint::Length(label_height),
+                    Constraint::Length(self.inputs.properties.input_widgets.len() as u16 + 2),
+                    Constraint::Length(4),
+                ])
+                .areas(popup.area);
+
+        self.inputs.title.render(
+            frame,
+            app,
+            title_layout,
+            self.focused_pane == FocusedPane::Title,
+        );
+
+        self.inputs.description.render(
+            frame,
+            app,
+            description_layout,
+            self.focused_pane == FocusedPane::Description,
+        );
+
+        self.inputs.labels.render(
+            frame,
+            app,
+            label_layout,
+            self.focused_pane == FocusedPane::Labels,
+        );
+
+        self.inputs.properties.render(
+            frame,
+            app,
+            properties_layout,
+            self.focused_pane == FocusedPane::Properties,
+        );
+
+        self.inputs.actions.render(
+            frame,
+            app,
+            actions_layout,
+            self.focused_pane == FocusedPane::Actions,
+        );
     }
 }
 
@@ -214,58 +318,6 @@ impl CardEditor {
     }
 }
 
-impl KeyEventHandler<Option<i32>> for CardEditor {
-    fn key_event_handler(
-        &mut self,
-        app: &mut App,
-        key_event: KeyEvent,
-        event_state: &State,
-    ) -> Option<i32> {
-        match self.focused_pane {
-            FocusedPane::Title => {
-                self.inputs
-                    .title
-                    .key_event_handler(app, key_event, event_state);
-            }
-            FocusedPane::Description => {
-                self.inputs
-                    .description
-                    .key_event_handler(app, key_event, event_state);
-            }
-            FocusedPane::Labels => {
-                self.inputs
-                    .labels
-                    .key_event_handler(app, key_event, event_state);
-            }
-            FocusedPane::Properties => {
-                self.inputs
-                    .properties
-                    .key_event_handler(app, key_event, event_state)
-            }
-            FocusedPane::Actions => {}
-        };
-
-        if app.state.mode == Mode::Popup {
-            match key_event.code {
-                KeyCode::Char('q') => {
-                    app.state.mode = Mode::Navigation;
-                    self.reset();
-                }
-                KeyCode::Char('j') => self.next_pane(),
-                KeyCode::Char('k') => self.prev_pane(),
-                KeyCode::Enter => {
-                    if let Some(id) = self.submit(app) {
-                        return Some(id);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        None
-    }
-}
-
 impl CardEditor {
     fn next_pane(&mut self) {
         match self.focused_pane {
@@ -326,74 +378,14 @@ impl CardEditor {
                     Some(self.db_edit_card(app).unwrap_or_else(|e| panic!("{e}")))
                 };
                 self.reset();
-                app.state.mode = Mode::Navigation;
+                app.reset_display();
                 return id;
             } else if self.inputs.actions.is_focused(Action::Cancel) {
                 self.reset();
-                app.state.mode = Mode::Navigation;
+                app.reset_display();
             }
         }
         None
-    }
-}
-
-impl RenderPopupContained for CardEditor {
-    fn render(&mut self, frame: &mut Frame, app: &App, area: Rect) {
-        let popup = Popup::new(app, area)
-            .title_top(if self.is_new { "New Card" } else { "Edit Card" })
-            .size(self.size.clone())
-            .render(frame);
-
-        let label_len = self.inputs.labels.options.len() as u16;
-        let label_height = if label_len > 0 { label_len + 2 } else { 0 };
-
-        let [title_layout, description_layout, label_layout, properties_layout, actions_layout] =
-            Layout::default()
-                .vertical_margin(1)
-                .horizontal_margin(2)
-                .constraints([
-                    Constraint::Length(3),
-                    Constraint::Length(10),
-                    Constraint::Length(label_height),
-                    Constraint::Length(self.inputs.properties.input_widgets.len() as u16 + 2),
-                    Constraint::Length(4),
-                ])
-                .areas(popup.area);
-
-        self.inputs.title.render(
-            frame,
-            app,
-            title_layout,
-            self.focused_pane == FocusedPane::Title,
-        );
-
-        self.inputs.description.render(
-            frame,
-            app,
-            description_layout,
-            self.focused_pane == FocusedPane::Description,
-        );
-
-        self.inputs.labels.render(
-            frame,
-            app,
-            label_layout,
-            self.focused_pane == FocusedPane::Labels,
-        );
-
-        self.inputs.properties.render(
-            frame,
-            app,
-            properties_layout,
-            self.focused_pane == FocusedPane::Properties,
-        );
-
-        self.inputs.actions.render(
-            frame,
-            app,
-            actions_layout,
-            self.focused_pane == FocusedPane::Actions,
-        );
     }
 }
 

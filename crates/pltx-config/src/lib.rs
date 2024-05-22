@@ -30,20 +30,14 @@ pub struct ColorsConfig<T = Color> {
     pub title_bar_fg: T,
     pub status_bar_bg: T,
     pub status_bar_fg: T,
-    pub status_bar_navigation_mode_bg: T,
-    pub status_bar_navigation_mode_fg: T,
+    pub status_bar_normal_mode_bg: T,
+    pub status_bar_normal_mode_fg: T,
     pub status_bar_insert_mode_bg: T,
     pub status_bar_insert_mode_fg: T,
-    pub status_bar_popup_mode_bg: T,
-    pub status_bar_popup_mode_fg: T,
-    pub status_bar_popup_insert_mode_bg: T,
-    pub status_bar_popup_insert_mode_fg: T,
+    pub status_bar_interactive_mode_bg: T,
+    pub status_bar_interactive_mode_fg: T,
     pub status_bar_delete_mode_bg: T,
     pub status_bar_delete_mode_fg: T,
-    pub status_bar_command_mode_bg: T,
-    pub status_bar_command_mode_fg: T,
-    pub status_bar_command_insert_mode_bg: T,
-    pub status_bar_command_insert_mode_fg: T,
 }
 
 /// The user config.
@@ -105,7 +99,7 @@ fn get_base_config() -> Config {
             input_cursor_insert_fg: get_color("#000000"),
             input_cursor_insert_bg: get_color("#FFFFFF"),
             active_fg: get_color("#000000"),
-            active_bg: get_color("#00FFFF"),
+            active_bg: get_color("#4db3ff"),
             border: get_color("#777777"),
             border_insert: get_color("#00FFFF"),
             popup_bg: get_color("#111111"),
@@ -116,20 +110,14 @@ fn get_base_config() -> Config {
             title_bar_fg: get_color("#FFFFFF"),
             status_bar_bg: get_color("#333333"),
             status_bar_fg: get_color("#CCCCCC"),
-            status_bar_navigation_mode_bg: get_color("#99CE48"),
-            status_bar_navigation_mode_fg: get_color("#000000"),
+            status_bar_normal_mode_bg: get_color("#9bff46"),
+            status_bar_normal_mode_fg: get_color("#000000"),
             status_bar_insert_mode_bg: get_color("#00ffff"),
             status_bar_insert_mode_fg: get_color("#000000"),
-            status_bar_popup_mode_bg: get_color("#8D91FF"),
-            status_bar_popup_mode_fg: get_color("#000000"),
-            status_bar_popup_insert_mode_bg: get_color("#ff85ff"),
-            status_bar_popup_insert_mode_fg: get_color("#000000"),
+            status_bar_interactive_mode_bg: get_color("#ffff32"),
+            status_bar_interactive_mode_fg: get_color("#000000"),
             status_bar_delete_mode_bg: get_color("#ff6069"),
             status_bar_delete_mode_fg: get_color("#000000"),
-            status_bar_command_mode_bg: get_color("#ffff64"),
-            status_bar_command_mode_fg: get_color("#000000"),
-            status_bar_command_insert_mode_bg: get_color("#ffcb5f"),
-            status_bar_command_insert_mode_fg: get_color("#000000"),
         },
         modules: ModulesConfig {
             project_management: ProjectMangementModule {
@@ -226,13 +214,13 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                 title_bar_fg: get_color_op(colors.title_bar_fg, bc.colors.title_bar_fg),
                 status_bar_bg: get_color_op(colors.status_bar_bg, bc.colors.status_bar_bg),
                 status_bar_fg: get_color_op(colors.status_bar_fg, bc.colors.status_bar_fg),
-                status_bar_navigation_mode_bg: get_color_op(
-                    colors.status_bar_navigation_mode_bg,
-                    bc.colors.status_bar_navigation_mode_bg,
+                status_bar_normal_mode_bg: get_color_op(
+                    colors.status_bar_normal_mode_bg,
+                    bc.colors.status_bar_normal_mode_bg,
                 ),
-                status_bar_navigation_mode_fg: get_color_op(
-                    colors.status_bar_navigation_mode_fg,
-                    bc.colors.status_bar_navigation_mode_fg,
+                status_bar_normal_mode_fg: get_color_op(
+                    colors.status_bar_normal_mode_fg,
+                    bc.colors.status_bar_normal_mode_fg,
                 ),
                 status_bar_insert_mode_bg: get_color_op(
                     colors.status_bar_insert_mode_bg,
@@ -242,21 +230,13 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                     colors.status_bar_insert_mode_fg,
                     bc.colors.status_bar_insert_mode_fg,
                 ),
-                status_bar_popup_mode_bg: get_color_op(
-                    colors.status_bar_popup_mode_bg,
-                    bc.colors.status_bar_popup_mode_bg,
+                status_bar_interactive_mode_bg: get_color_op(
+                    colors.status_bar_interactive_mode_bg,
+                    bc.colors.status_bar_interactive_mode_bg,
                 ),
-                status_bar_popup_mode_fg: get_color_op(
-                    colors.status_bar_popup_mode_fg,
-                    bc.colors.status_bar_popup_mode_fg,
-                ),
-                status_bar_popup_insert_mode_bg: get_color_op(
-                    colors.status_bar_popup_insert_mode_bg,
-                    bc.colors.status_bar_popup_insert_mode_bg,
-                ),
-                status_bar_popup_insert_mode_fg: get_color_op(
-                    colors.status_bar_popup_insert_mode_fg,
-                    bc.colors.status_bar_popup_insert_mode_fg,
+                status_bar_interactive_mode_fg: get_color_op(
+                    colors.status_bar_interactive_mode_fg,
+                    bc.colors.status_bar_interactive_mode_fg,
                 ),
                 status_bar_delete_mode_bg: get_color_op(
                     colors.status_bar_delete_mode_bg,
@@ -265,22 +245,6 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                 status_bar_delete_mode_fg: get_color_op(
                     colors.status_bar_delete_mode_fg,
                     bc.colors.status_bar_delete_mode_fg,
-                ),
-                status_bar_command_mode_bg: get_color_op(
-                    colors.status_bar_command_mode_bg,
-                    bc.colors.status_bar_command_mode_bg,
-                ),
-                status_bar_command_mode_fg: get_color_op(
-                    colors.status_bar_command_mode_fg,
-                    bc.colors.status_bar_command_mode_fg,
-                ),
-                status_bar_command_insert_mode_bg: get_color_op(
-                    colors.status_bar_command_insert_mode_bg,
-                    bc.colors.status_bar_command_insert_mode_bg,
-                ),
-                status_bar_command_insert_mode_fg: get_color_op(
-                    colors.status_bar_command_insert_mode_fg,
-                    bc.colors.status_bar_command_insert_mode_fg,
                 ),
             },
             None => base_config.colors,
@@ -327,5 +291,5 @@ pub fn get_config() -> Config {
     match config_file {
         Some(user_config) => merge_config(user_config, base_config),
         None => base_config,
-   }
+    }
 }

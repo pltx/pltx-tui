@@ -1,10 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, Pane, State},
-    App,
-};
+use pltx_app::{state::Pane, App};
 use pltx_database::Session;
-use pltx_utils::{KeyEventHandler, RenderScreen};
+use pltx_utils::Module;
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Style, Stylize},
@@ -13,19 +10,19 @@ use ratatui::{
 };
 
 #[derive(PartialEq, Clone)]
-enum ScreenPane {
+enum DashboardPane {
     Sessions,
     None,
 }
 
 pub struct Dashboard {
     sessions: Vec<Session>,
-    screen_pane: ScreenPane,
-    screen_pane_hover: ScreenPane,
+    pane: DashboardPane,
+    pane_hover: DashboardPane,
 }
 
-impl Dashboard {
-    pub fn init(app: &mut App) -> Dashboard {
+impl Module for Dashboard {
+    fn init(app: &App) -> Dashboard {
         let query = "SELECT id, started, ended FROM session ORDER BY started DESC LIMIT 20";
         let mut stmt = app.db.conn.prepare(query).unwrap();
         let sessions_iter = stmt
@@ -44,43 +41,39 @@ impl Dashboard {
 
         Dashboard {
             sessions,
-            screen_pane: ScreenPane::None,
-            screen_pane_hover: ScreenPane::None,
+            pane: DashboardPane::None,
+            pane_hover: DashboardPane::None,
         }
     }
-}
 
-impl KeyEventHandler for Dashboard {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, event_state: &State) {
-        if app.state.mode == Mode::Navigation && app.state.pane == Pane::Screen {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
+        if app.display.is_default() && app.pane == Pane::Module {
             match key_event.code {
-                KeyCode::Enter => match self.screen_pane_hover {
-                    ScreenPane::None => self.screen_pane = ScreenPane::Sessions,
-                    ScreenPane::Sessions => {}
+                KeyCode::Enter => match self.pane_hover {
+                    DashboardPane::None => self.pane = DashboardPane::Sessions,
+                    DashboardPane::Sessions => {}
                 },
-                KeyCode::Backspace => match self.screen_pane {
-                    ScreenPane::Sessions => {
-                        if event_state.pane == Pane::Screen {
-                            self.screen_pane = ScreenPane::None;
-                            app.state.pane = Pane::Navigation;
+                KeyCode::Backspace => match self.pane {
+                    DashboardPane::Sessions => {
+                        if app.pane == Pane::Module {
+                            self.pane = DashboardPane::None;
+                            app.pane = Pane::Navigation;
                         }
                     }
-                    ScreenPane::None => {}
+                    DashboardPane::None => {}
                 },
                 _ => {}
             }
         }
     }
-}
 
-impl RenderScreen for Dashboard {
-    fn render(&mut self, app: &mut App, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, app: &App, frame: &mut Frame, area: Rect) {
         frame.render_widget(self.sessions_table(app), area);
     }
 }
 
 impl Dashboard {
-    fn sessions_table(&self, app: &mut App) -> impl Widget {
+    fn sessions_table(&self, app: &App) -> impl Widget {
         let colors = &app.config.colors;
 
         let sessions_rows = self
@@ -122,13 +115,11 @@ impl Dashboard {
                     .title_style(Style::new().bold().fg(colors.primary))
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
-                    .border_style(
-                        Style::new().fg(if self.screen_pane == ScreenPane::Sessions {
-                            colors.primary
-                        } else {
-                            colors.border
-                        }),
-                    ),
+                    .border_style(Style::new().fg(if self.pane == DashboardPane::Sessions {
+                        colors.primary
+                    } else {
+                        colors.border
+                    })),
             )
     }
 }

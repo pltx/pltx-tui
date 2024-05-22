@@ -1,8 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
+use pltx_app::{state::Display, App};
 use pltx_utils::{DefaultWidget, FormWidget, KeyEventHandler};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -61,7 +58,7 @@ impl DefaultWidget for Switch {
 
 impl FormWidget for Switch {
     fn form_compatible(&mut self) {}
-    fn mode(&mut self, _: Mode) {}
+    fn display(&mut self, _: Display) {}
 
     fn title_len(&self) -> u16 {
         self.title.chars().count() as u16
@@ -77,7 +74,7 @@ impl FormWidget for Switch {
 }
 
 impl KeyEventHandler for Switch {
-    fn key_event_handler(&mut self, _: &mut App, key_event: KeyEvent, _: &State) {
+    fn key_event_handler(&mut self, _: &mut App, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char(' ') | KeyCode::Enter => self.toggle_state(),
             _ => {}

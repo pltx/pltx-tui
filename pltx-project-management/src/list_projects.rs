@@ -1,22 +1,17 @@
 use chrono::{DateTime, Duration, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{
-    state::{Mode, State},
-    App,
-};
-use pltx_utils::{
-    after_datetime, db_datetime, pane_title_bottom, Init, InitData, KeyEventHandler, RenderPage,
-    ScreenKeybinds,
-};
+use pltx_app::{state::Mode, App};
+use pltx_utils::{after_datetime, db_datetime, Screen};
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table},
+    Frame,
 };
 
 use super::projects::ProjectsState;
-use crate::ScreenPane;
+use crate::ProjectManagementPane;
 
 #[derive(Clone)]
 struct Project {
@@ -38,25 +33,267 @@ struct Project {
 pub struct ListProjects {
     projects: Vec<Project>,
     pub selected_id: Option<i32>,
+    projects_state: Option<ProjectsState>,
 }
 
-impl Init for ListProjects {
-    fn init(_: &mut App) -> ListProjects {
-        ListProjects {
+impl Screen<bool> for ListProjects {
+    fn init(app: &App) -> ListProjects {
+        let mut list_projects = ListProjects {
             projects: vec![],
             selected_id: None,
+            projects_state: None,
+        };
+
+        list_projects.db_get_projects(app).unwrap();
+
+        list_projects
+    }
+
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> bool {
+        if let Some(selected_id) = self.selected_id {
+            if app.is_normal_mode() {
+                let selected_index = self
+                    .projects
+                    .iter()
+                    .position(|p| p.id == selected_id)
+                    .unwrap_or(0);
+
+                match key_event.code {
+                    KeyCode::Char('d') => {
+                        app.delete_mode();
+                    }
+                    KeyCode::Char('j') => {
+                        if selected_index != self.projects.len().saturating_sub(1) {
+                            self.selected_id = Some(self.projects[selected_index + 1].id);
+                        } else {
+                            self.selected_id = Some(self.projects[0].id);
+                        }
+                    }
+                    KeyCode::Char('k') => {
+                        if selected_index != 0 {
+                            self.selected_id =
+                                Some(self.projects[selected_index.saturating_sub(1)].id);
+                        } else {
+                            self.selected_id =
+                                Some(self.projects[self.projects.len().saturating_sub(1)].id);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if app.mode() == Mode::Delete {
+                match key_event.code {
+                    KeyCode::Char('y') => {
+                        self.db_delete_project(app)
+                            .unwrap_or_else(|e| panic!("{e}"));
+                        self.db_get_projects(app).unwrap_or_else(|e| panic!("{e}"));
+                        app.reset_display();
+                    }
+                    KeyCode::Char('n') => app.reset_display(),
+                    _ => {}
+                }
+            }
+        }
+        false
+    }
+
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
+        let [list_layout, info_layout] = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(1), Constraint::Length(40)])
+            .areas(area);
+
+        let colors = &app.config.colors.clone();
+        let block = Block::new()
+            .padding(Padding::horizontal(1))
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(
+                Style::new().fg(
+                    if self
+                        .projects_state
+                        .as_ref()
+                        .is_some_and(|s| s.module_pane == ProjectManagementPane::Main)
+                    {
+                        colors.primary
+                    } else {
+                        colors.border
+                    },
+                ),
+            );
+
+        if let Some(selected_id) = self.selected_id {
+            let rows = self
+                .projects
+                .iter()
+                .enumerate()
+                .map(|(_, p)| {
+                    Row::new(vec![
+                        Cell::new(format!(" {}", p.position)),
+                        Cell::new(p.title.clone()),
+                        Cell::new(p.total_cards.to_string()),
+                        Cell::new(p.cards_due_soon.to_string()),
+                        Cell::new(p.cards_in_progress.to_string()),
+                        Cell::new(p.cards_overdue.to_string()),
+                        Cell::new(p.important_cards.to_string()),
+                    ])
+                    .style(if self.selected_id.is_some_and(|id| id == p.id) {
+                        Style::new()
+                            .bold()
+                            .fg(colors.active_fg)
+                            .bg(colors.active_bg)
+                    } else {
+                        Style::new().fg(colors.fg).bg(colors.bg)
+                    })
+                })
+                .collect::<Vec<Row>>();
+
+            let widths = vec![
+                Constraint::Length(5),
+                Constraint::Max(50),
+                Constraint::Length(7),
+                Constraint::Length(13),
+                Constraint::Length(10),
+                Constraint::Length(9),
+                Constraint::Length(9),
+                Constraint::Length(8),
+            ];
+            let table = Table::new(rows, widths).block(block).header(
+                Row::new(vec![
+                    Cell::new(" "),
+                    Cell::new("Title"),
+                    Cell::new("Cards"),
+                    Cell::new("In Progress"),
+                    Cell::new("Due Soon"),
+                    Cell::new("Overdue"),
+                    Cell::new("Important"),
+                ])
+                .style(Style::new().bold().fg(colors.primary)),
+            );
+            frame.render_widget(table, list_layout);
+
+            let project_index = self
+                .projects
+                .iter()
+                .position(|p| p.id == selected_id)
+                .unwrap();
+            let project = &self.projects[project_index];
+
+            let info_1 = vec![
+                Line::from(vec![
+                    Span::styled("ID: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.id.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Title: ", Style::new().fg(colors.secondary)),
+                    Span::from(&project.title),
+                ]),
+            ];
+            let line_length = info_layout.width as usize - 6;
+            let mut first_line_length = line_length - "Description: ".chars().count();
+            let description = if let Some(desc) = &project.description {
+                if desc.chars().count() <= first_line_length {
+                    first_line_length = 0;
+                }
+                desc[first_line_length..]
+                    .chars()
+                    .collect::<Vec<char>>()
+                    .chunks(line_length)
+                    .enumerate()
+                    .flat_map(|(i, c)| {
+                        let mut text = vec![];
+                        if i == 0 {
+                            text.push(Line::from(vec![
+                                Span::styled("Description: ", Style::new().fg(colors.secondary)),
+                                Span::from(desc[..first_line_length].to_string()),
+                            ]))
+                        }
+                        text.push(Line::from(Span::from(
+                            c.iter().collect::<String>().trim().to_owned(),
+                        )));
+                        text
+                    })
+                    .collect::<Vec<Line>>()
+            } else {
+                vec![Line::from(vec![
+                    Span::styled("Description: ", Style::new().fg(colors.secondary)),
+                    Span::styled("<empty>", Style::new().fg(colors.secondary)),
+                ])]
+            };
+            let info_2 = vec![
+                Line::from(vec![
+                    Span::styled("Position: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.position.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Labels: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.labels.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Lists: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.lists.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Cards: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.total_cards.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Cards In Progress: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.cards_in_progress.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Cards Due Soon: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.cards_due_soon.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Cards Overdue: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.cards_overdue.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Important Cards: ", Style::new().fg(colors.secondary)),
+                    Span::from(project.important_cards.to_string()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Created At: ", Style::new().fg(colors.secondary)),
+                    Span::from(&project.created_at),
+                ]),
+                Line::from(vec![
+                    Span::styled("Updated At: ", Style::new().fg(colors.secondary)),
+                    Span::from(&project.updated_at),
+                ]),
+            ];
+            let info_text = Text::from([info_1, description, info_2].concat());
+            let info_content = Paragraph::new(info_text).block(
+                Block::new()
+                    .title(" Project Information ")
+                    .title_style(Style::new().fg(colors.fg))
+                    .padding(Padding::proportional(1))
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(colors.border),
+            );
+            frame.render_widget(info_content, info_layout);
+        } else {
+            let content = Paragraph::new(Text::from(vec![Line::from(vec![
+                Span::from("You have no projects. Press "),
+                Span::styled("n", Style::new().bold().fg(colors.keybind_key)),
+                Span::from(" to create a new project."),
+            ])]))
+            .block(block);
+
+            frame.render_widget(content, list_layout);
+            frame.render_widget(Block::new(), info_layout);
         }
     }
 }
 
-impl InitData for ListProjects {
-    fn init_data(&mut self, app: &mut App) -> rusqlite::Result<()> {
-        self.db_get_projects(app)
-    }
-}
-
 impl ListProjects {
-    pub fn db_get_projects(&mut self, app: &mut App) -> rusqlite::Result<()> {
+    pub fn projects_state(&mut self, projects_state: ProjectsState) {
+        self.projects_state = Some(projects_state);
+    }
+
+    pub fn db_get_projects(&mut self, app: &App) -> rusqlite::Result<()> {
         let project_query = "SELECT id, title, description, position, created_at, updated_at FROM \
                              project ORDER BY position";
         let mut project_stmt = app.db.conn.prepare(project_query).unwrap();
@@ -216,259 +453,5 @@ impl ListProjects {
         }
 
         Ok(())
-    }
-}
-
-impl ScreenKeybinds for ListProjects {
-    fn screen_keybinds<'a>(&self) -> Vec<(&'a str, &'a str)> {
-        vec![
-            ("n", "New Project"),
-            ("e", "Edit Project"),
-            ("d", "Delete Project"),
-        ]
-    }
-}
-
-impl KeyEventHandler<bool> for ListProjects {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent, _: &State) -> bool {
-        if let Some(selected_id) = self.selected_id {
-            if app.state.mode == Mode::Navigation {
-                let selected_index = self
-                    .projects
-                    .iter()
-                    .position(|p| p.id == selected_id)
-                    .unwrap_or(0);
-
-                match key_event.code {
-                    KeyCode::Char('d') => {
-                        app.state.mode = Mode::Delete;
-                    }
-                    KeyCode::Char('j') => {
-                        if selected_index != self.projects.len().saturating_sub(1) {
-                            self.selected_id = Some(self.projects[selected_index + 1].id);
-                        } else {
-                            self.selected_id = Some(self.projects[0].id);
-                        }
-                    }
-                    KeyCode::Char('k') => {
-                        if selected_index != 0 {
-                            self.selected_id =
-                                Some(self.projects[selected_index.saturating_sub(1)].id);
-                        } else {
-                            self.selected_id =
-                                Some(self.projects[self.projects.len().saturating_sub(1)].id);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            if app.state.mode == Mode::Delete {
-                match key_event.code {
-                    KeyCode::Char('y') => {
-                        app.state.mode = Mode::Navigation;
-                        self.db_delete_project(app)
-                            .unwrap_or_else(|e| panic!("{e}"));
-                        self.db_get_projects(app).unwrap_or_else(|e| panic!("{e}"));
-                    }
-                    KeyCode::Char('n') => {
-                        app.state.mode = Mode::Navigation;
-                    }
-                    _ => {}
-                }
-            }
-        }
-        false
-    }
-}
-
-impl RenderPage<ProjectsState> for ListProjects {
-    fn render(
-        &mut self,
-        app: &mut App,
-        frame: &mut ratatui::prelude::Frame,
-        area: ratatui::prelude::Rect,
-        state: ProjectsState,
-    ) {
-        let [list_layout, info_layout] = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(1), Constraint::Length(40)])
-            .areas(area);
-
-        let colors = &app.config.colors.clone();
-        let block = Block::new()
-            .title_bottom(pane_title_bottom(
-                colors,
-                self.screen_keybinds(),
-                state.screen_pane == ScreenPane::Main,
-            ))
-            .padding(Padding::horizontal(1))
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(if state.screen_pane == ScreenPane::Main {
-                colors.primary
-            } else {
-                colors.border
-            }));
-
-        if let Some(selected_id) = self.selected_id {
-            let rows = self
-                .projects
-                .iter()
-                .enumerate()
-                .map(|(_, p)| {
-                    Row::new(vec![
-                        Cell::new(format!(" {}", p.position)),
-                        Cell::new(p.title.clone()),
-                        Cell::new(p.total_cards.to_string()),
-                        Cell::new(p.cards_due_soon.to_string()),
-                        Cell::new(p.cards_in_progress.to_string()),
-                        Cell::new(p.cards_overdue.to_string()),
-                        Cell::new(p.important_cards.to_string()),
-                    ])
-                    .style(if self.selected_id.is_some_and(|id| id == p.id) {
-                        Style::new()
-                            .bold()
-                            .fg(colors.active_fg)
-                            .bg(colors.active_bg)
-                    } else {
-                        Style::new().fg(colors.fg).bg(colors.bg)
-                    })
-                })
-                .collect::<Vec<Row>>();
-
-            let widths = vec![
-                Constraint::Length(7),
-                Constraint::Max(50),
-                Constraint::Length(7),
-                Constraint::Length(9),
-                Constraint::Length(8),
-            ];
-            let table = Table::new(rows, widths).block(block).header(
-                Row::new(vec![
-                    Cell::new(" Index"),
-                    Cell::new("Title"),
-                    Cell::new("Cards"),
-                    Cell::new("In Progress"),
-                    Cell::new("Due Soon"),
-                    Cell::new("Overdue"),
-                    Cell::new("Important"),
-                ])
-                .style(Style::new().bold().fg(colors.primary)),
-            );
-            frame.render_widget(table, list_layout);
-
-            let project_index = self
-                .projects
-                .iter()
-                .position(|p| p.id == selected_id)
-                .unwrap();
-            let project = &self.projects[project_index];
-
-            let info_1 = vec![
-                Line::from(vec![
-                    Span::styled("ID: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.id.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Title: ", Style::new().fg(colors.secondary)),
-                    Span::from(&project.title),
-                ]),
-            ];
-            let line_length = info_layout.width as usize - 6;
-            let mut first_line_length = line_length - "Description: ".chars().count();
-            let description = if let Some(desc) = &project.description {
-                if desc.chars().count() <= first_line_length {
-                    first_line_length = 0;
-                }
-                desc[first_line_length..]
-                    .chars()
-                    .collect::<Vec<char>>()
-                    .chunks(line_length)
-                    .enumerate()
-                    .flat_map(|(i, c)| {
-                        let mut text = vec![];
-                        if i == 0 {
-                            text.push(Line::from(vec![
-                                Span::styled("Description: ", Style::new().fg(colors.secondary)),
-                                Span::from(desc[..first_line_length].to_string()),
-                            ]))
-                        }
-                        text.push(Line::from(Span::from(
-                            c.iter().collect::<String>().trim().to_owned(),
-                        )));
-                        text
-                    })
-                    .collect::<Vec<Line>>()
-            } else {
-                vec![Line::from(vec![
-                    Span::styled("Description: ", Style::new().fg(colors.secondary)),
-                    Span::styled("<empty>", Style::new().fg(colors.secondary)),
-                ])]
-            };
-            let info_2 = vec![
-                Line::from(vec![
-                    Span::styled("Position: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.position.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Labels: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.labels.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Lists: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.lists.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Cards: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.total_cards.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Cards In Progress: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.cards_in_progress.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Cards Due Soon: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.cards_due_soon.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Cards Overdue: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.cards_overdue.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Important Cards: ", Style::new().fg(colors.secondary)),
-                    Span::from(project.important_cards.to_string()),
-                ]),
-                Line::from(vec![
-                    Span::styled("Created At: ", Style::new().fg(colors.secondary)),
-                    Span::from(&project.created_at),
-                ]),
-                Line::from(vec![
-                    Span::styled("Updated At: ", Style::new().fg(colors.secondary)),
-                    Span::from(&project.updated_at),
-                ]),
-            ];
-            let info_text = Text::from([info_1, description, info_2].concat());
-            let info_content = Paragraph::new(info_text).block(
-                Block::new()
-                    .title(" Project Information ")
-                    .title_style(Style::new().fg(colors.fg))
-                    .padding(Padding::proportional(1))
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(colors.border),
-            );
-            frame.render_widget(info_content, info_layout);
-        } else {
-            let content = Paragraph::new(Text::from(vec![Line::from(vec![
-                Span::from("You have no projects. Press "),
-                Span::styled("n", Style::new().bold().fg(colors.keybind_key)),
-                Span::from(" to create a new project."),
-            ])]))
-            .block(block);
-
-            frame.render_widget(content, list_layout);
-            frame.render_widget(Block::new(), info_layout);
-        }
     }
 }

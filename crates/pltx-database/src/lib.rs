@@ -39,8 +39,7 @@ impl Database {
 
     /// Ensure that the tables needed in the database are created here. If they
     /// don't, then create them.
-    /// For screens and popups, they should implement the `InitData` trait and
-    /// call the `init_data()` method in `init()`.
+    /// Non-global modules, popups, etc, manage their own data initialization.
     pub fn ensure_tables(&self) -> rusqlite::Result<()> {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS session (
