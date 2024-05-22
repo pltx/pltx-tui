@@ -81,6 +81,24 @@ impl Database {
         Ok(highest_position)
     }
 
+    pub fn get_highest_position_where<T>(
+        &self,
+        table: &str,
+        field: &str,
+        equals: T,
+    ) -> rusqlite::Result<i32>
+    where
+        T: rusqlite::ToSql,
+    {
+        let query = format!(
+            "SELECT position from {} WHERE position = (SELECT MAX(position) FROM {}) AND {} = ?1",
+            table, table, field,
+        );
+        let mut stmt = self.conn.prepare(&query)?;
+        let highest_position: i32 = stmt.query_row([equals], |r| r.get(0)).unwrap_or(-1);
+        Ok(highest_position)
+    }
+
     pub fn update_positions(&self, table: &str, old_position: i32) -> rusqlite::Result<()> {
         let update_position_query = format!(
             "UPDATE {} SET position = position - 1 WHERE position > ?1",

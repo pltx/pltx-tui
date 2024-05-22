@@ -3,15 +3,13 @@ use pltx_app::{
     state::{Mode, State},
     App,
 };
-use pltx_tracing::{trace_debug, trace_panic};
+use pltx_tracing::trace_panic;
 use pltx_utils::{DefaultWidget, Init, KeyEventHandler, RenderPopupContained};
 use pltx_widgets::{self, Popup, PopupSize, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     Frame,
 };
-
-const MAX_LISTS: i32 = 5;
 
 struct Inputs {
     title: TextInput,
@@ -49,18 +47,21 @@ impl Init for ListEditor {
 }
 
 impl ListEditor {
-    fn db_new_list(&self, app: &mut App) -> Result<i32, &str> {
-        let highest_position = app.db.get_highest_position("project_list").unwrap();
+    fn db_new_list(&self, app: &mut App, project_id: i32) -> Result<i32, String> {
+        let highest_position = app
+            .db
+            .get_highest_position_where("project_list", "project_id", project_id)
+            .unwrap();
 
-        // TODO: Replace with error notification
-        trace_debug!(highest_position);
-        if highest_position >= MAX_LISTS - 1 {
-            return Err("cannot create more than 5 lists");
+        let max_lists = app.config.modules.project_management.max_lists;
+        if highest_position == max_lists - 1 {
+            // TODO: Replace with error notification
+            return Err(format!("cannot create more than {} lists", max_lists));
         }
 
         let query = "INSERT INTO project_list (project_id, title, position) VALUES (?1, ?2, ?3)";
         let params = (
-            Some(&self.project_id),
+            project_id,
             self.inputs.title.input_string(),
             highest_position + 1,
         );
@@ -95,15 +96,20 @@ impl KeyEventHandler<Option<i32>> for ListEditor {
             .title
             .key_event_handler(app, key_event, event_state);
 
-        if key_event.code == KeyCode::Enter {
-            let list_id = if self.is_new {
-                Some(self.db_new_list(app).unwrap_or_else(|e| panic!("{e}")))
-            } else {
-                Some(self.db_edit_list(app).unwrap_or_else(|e| panic!("{e}")))
-            };
-            app.state.mode = Mode::Navigation;
-            self.inputs.title.reset();
-            return list_id;
+        if let Some(project_id) = self.project_id {
+            if key_event.code == KeyCode::Enter {
+                let list_id = if self.is_new {
+                    Some(
+                        self.db_new_list(app, project_id)
+                            .unwrap_or_else(|e| panic!("{e}")),
+                    )
+                } else {
+                    Some(self.db_edit_list(app).unwrap_or_else(|e| panic!("{e}")))
+                };
+                app.state.mode = Mode::Navigation;
+                self.inputs.title.reset();
+                return list_id;
+            }
         }
 
         None

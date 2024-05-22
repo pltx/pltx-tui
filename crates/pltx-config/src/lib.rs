@@ -45,12 +45,32 @@ pub struct ColorsConfig<T = Color> {
     pub status_bar_command_insert_mode_fg: T,
 }
 
-type ColorsConfigFile = ColorsConfig<Option<String>>;
-
 #[derive(Deserialize, Serialize)]
 struct ConfigFile {
     log_level: Option<String>,
-    colors: Option<ColorsConfigFile>,
+    colors: Option<ColorsConfig<Option<String>>>,
+    modules: Option<ModulesConfigFile>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ProjectMangementModule<LimitType, CharType> {
+    pub max_lists: LimitType,
+    pub completed_char: CharType,
+    pub overdue_char: CharType,
+    pub due_soon_char: CharType,
+    pub in_progress_char: CharType,
+    pub important_char: CharType,
+    pub default_char: CharType,
+}
+
+#[derive(Clone)]
+pub struct ModulesConfig {
+    pub project_management: ProjectMangementModule<i32, String>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ModulesConfigFile {
+    pub project_management: Option<ProjectMangementModule<Option<i32>, Option<String>>>,
 }
 
 /// The main config struct where all properties are provided.
@@ -58,6 +78,7 @@ struct ConfigFile {
 pub struct Config {
     pub log_level: String,
     pub colors: ColorsConfig,
+    pub modules: ModulesConfig,
 }
 
 fn get_base_config() -> Config {
@@ -102,6 +123,17 @@ fn get_base_config() -> Config {
             status_bar_command_mode_fg: get_color("#000000"),
             status_bar_command_insert_mode_bg: get_color("#ffcb5f"),
             status_bar_command_insert_mode_fg: get_color("#000000"),
+        },
+        modules: ModulesConfig {
+            project_management: ProjectMangementModule {
+                max_lists: 5,
+                completed_char: String::from("✅"),
+                overdue_char: String::from("🚫"),
+                due_soon_char: String::from("⏰"),
+                in_progress_char: String::from("🌐"),
+                important_char: String::from("⭐"),
+                default_char: String::from(" "),
+            },
         },
     }
 }
@@ -151,10 +183,9 @@ fn get_color_op(color_op: Option<String>, base_config_color: Color) -> Color {
 fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
     let bc = &base_config;
     Config {
-        log_level: if let Some(log_level) = user_config.log_level {
-            log_level
-        } else {
-            base_config.log_level.clone()
+        log_level: match user_config.log_level {
+            Some(log_level) => log_level,
+            None => base_config.log_level.clone(),
         },
         colors: match user_config.colors {
             Some(colors) => ColorsConfig {
@@ -246,6 +277,37 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                 ),
             },
             None => base_config.colors,
+        },
+        modules: match user_config.modules {
+            Some(modules) => ModulesConfig {
+                project_management: match modules.project_management {
+                    Some(project_management) => ProjectMangementModule {
+                        max_lists: project_management
+                            .max_lists
+                            .unwrap_or(base_config.modules.project_management.max_lists),
+                        completed_char: project_management
+                            .completed_char
+                            .unwrap_or(base_config.modules.project_management.completed_char),
+                        overdue_char: project_management
+                            .overdue_char
+                            .unwrap_or(base_config.modules.project_management.overdue_char),
+                        due_soon_char: project_management
+                            .due_soon_char
+                            .unwrap_or(base_config.modules.project_management.due_soon_char),
+                        in_progress_char: project_management
+                            .in_progress_char
+                            .unwrap_or(base_config.modules.project_management.in_progress_char),
+                        important_char: project_management
+                            .important_char
+                            .unwrap_or(base_config.modules.project_management.important_char),
+                        default_char: project_management
+                            .default_char
+                            .unwrap_or(base_config.modules.project_management.default_char),
+                    },
+                    None => base_config.modules.project_management,
+                },
+            },
+            None => base_config.modules,
         },
     }
 }

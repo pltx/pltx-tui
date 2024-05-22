@@ -9,7 +9,6 @@ use pltx_app::{
     state::{GlobalPopup, Mode, State},
     App,
 };
-use pltx_config::ColorsConfig;
 use pltx_tracing::trace_panic;
 use pltx_utils::{
     after_datetime, db_datetime, Init, KeyEventHandler, RenderPage, RenderPopupContained,
@@ -767,7 +766,7 @@ impl OpenProject {
             ]));
         } else {
             for card in list.cards.iter() {
-                let card = self.render_card(colors, card, index, list_width, selected_list);
+                let card = self.render_card(app, card, index, list_width, selected_list);
                 text.push(card.0);
                 text.push(card.1);
                 text.push(Line::from(""));
@@ -781,12 +780,14 @@ impl OpenProject {
 
     fn render_card<'a>(
         &self,
-        colors: &ColorsConfig,
+        app: &App,
         card: &OpenProjectCard,
         list_index: usize,
         list_width: usize,
         selected_list: bool,
     ) -> (Line<'a>, Line<'a>) {
+        let colors = &app.config.colors;
+
         let selected = self.selected_card_id() == Some(card.id);
         let unfocused_selected = self.selected_list_id.is_some_and(|list_id| {
             list_id != self.data.lists[list_index].id
@@ -796,18 +797,19 @@ impl OpenProject {
                     .is_some_and(|id| id == &Some(card.id))
         });
 
-        let status_emoji = if card.completed {
-            "✅"
+        let config = &app.config.modules.project_management;
+        let status_char = if card.completed {
+            &config.completed_char
         } else if card.overdue() {
-            "🚫"
+            &config.overdue_char
         } else if card.due_soon() {
-            "⏰"
+            &config.due_soon_char
         } else if card.in_progress() {
-            "🌐"
+            &config.in_progress_char
         } else if card.important {
-            "⭐"
+            &config.important_char
         } else {
-            " "
+            &config.default_char
         };
 
         let line_style = if selected_list && selected {
@@ -819,7 +821,7 @@ impl OpenProject {
         };
 
         let title = Line::from(vec![
-            Span::from(format!(" [{}] ", status_emoji)).fg(if selected_list && selected {
+            Span::from(format!(" [{}] ", status_char)).fg(if selected_list && selected {
                 colors.bg
             } else {
                 colors.secondary
