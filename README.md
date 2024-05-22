@@ -4,7 +4,7 @@
 
 **pltx** _(Privacy Life Tracker X)_ is a tool for tracking and managing your personal life privately and securely.
 
-<!-- TODO: Add a screenshot here -->
+![pltx-tui preview](./.github/assets/preview.png)
 
 ## Features
 
