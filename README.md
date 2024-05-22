@@ -10,7 +10,7 @@
 
 - Vim-like keybinds for navigation and editing.
 - Fully configurable at `~/.config/pltx/config.toml`.
-- Data is encrypted by default with a passphrase.
+- ~~Data is encrypted by default with a passphrase (coming soon).~~
 - Data is stored locally ~~or on a [server](https://github.com/pltx/server) (coming soon)~~.
 - Modules: Project Management + more coming soon.
 
