@@ -87,7 +87,7 @@ impl EventHandler {
                     app.state.mode = Mode::Popup;
                     app.state.popup = GlobalPopup::Help;
                 }
-                KeyCode::Enter | KeyCode::Char('L') => {
+                KeyCode::Enter | KeyCode::Char('l') | KeyCode::Char('L') => {
                     if event_state.pane == Pane::Navigation {
                         app.state.pane = Pane::Screen;
                     }

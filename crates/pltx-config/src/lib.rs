@@ -3,6 +3,7 @@ use std::{path::PathBuf, str::FromStr};
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
+/// The merged colors config.
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ColorsConfig<T = Color> {
     pub primary: T,
@@ -45,6 +46,7 @@ pub struct ColorsConfig<T = Color> {
     pub status_bar_command_insert_mode_fg: T,
 }
 
+/// The user config.
 #[derive(Deserialize, Serialize)]
 struct ConfigFile {
     log_level: Option<String>,
@@ -52,6 +54,7 @@ struct ConfigFile {
     modules: Option<ModulesConfigFile>,
 }
 
+/// The merged project management config.
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ProjectMangementModule<LimitType, CharType> {
     pub max_lists: LimitType,
@@ -63,17 +66,19 @@ pub struct ProjectMangementModule<LimitType, CharType> {
     pub default_char: CharType,
 }
 
+/// The merged modules config.
 #[derive(Clone)]
 pub struct ModulesConfig {
     pub project_management: ProjectMangementModule<i32, String>,
 }
 
+/// The user modules config.
 #[derive(Deserialize, Serialize)]
 pub struct ModulesConfigFile {
     pub project_management: Option<ProjectMangementModule<Option<i32>, Option<String>>>,
 }
 
-/// The main config struct where all properties are provided.
+/// The main merged config.
 #[derive(Clone)]
 pub struct Config {
     pub log_level: String,
@@ -81,6 +86,7 @@ pub struct Config {
     pub modules: ModulesConfig,
 }
 
+/// Default config values. Overridden if user config values are provided.
 fn get_base_config() -> Config {
     // NOTE: Remember to update `README.md` with the default configuration values.
     Config {
@@ -172,7 +178,7 @@ fn get_color(color: &str) -> Color {
 }
 
 /// Call the `get_color()` function if provided (from user config), otherwise
-/// return `Err`.
+/// return the base config value.
 fn get_color_op(color_op: Option<String>, base_config_color: Color) -> Color {
     match color_op {
         Some(color) => get_color(&color),
@@ -313,6 +319,7 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
     }
 }
 
+/// Read, parse, and marge the configuration.
 pub fn get_config() -> Config {
     let config_file = read_config_file();
 

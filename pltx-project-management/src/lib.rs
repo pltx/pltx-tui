@@ -222,6 +222,8 @@ impl KeyEventHandler for ProjectManagement {
                         && tab_index != tabs.len().saturating_sub(1)
                     {
                         self.tab = tabs[tab_index + 1].0.clone();
+                    } else if self.screen_pane == ScreenPane::None {
+                        self.screen_pane = self.last_screen_pane.clone()
                     }
                 }
                 KeyCode::Char('h') => {

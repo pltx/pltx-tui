@@ -67,7 +67,7 @@ impl KeyEventHandler for Projects {
                         self.page = Page::EditProject;
                     }
                 }
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Char('l') => {
                     if let Some(selected_id) = self.pages.list_projects.selected_id {
                         self.pages.open_project.reset(app);
                         self.pages.open_project.set_project_id(selected_id);
