@@ -1,8 +1,7 @@
 use std::collections::HashSet;
 
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::App;
-use pltx_utils::{CompositeWidget, DefaultWidget, KeyEventHandler};
+use pltx_app::{App, CompositeWidget, DefaultWidget, KeyEventHandler};
 use ratatui::{
     layout::Rect,
     style::{Style, Stylize},

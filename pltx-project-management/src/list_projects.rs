@@ -1,7 +1,10 @@
 use chrono::{DateTime, Duration, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Mode, App};
-use pltx_utils::{after_datetime, db_datetime, Screen};
+use pltx_app::{state::Mode, App, Screen};
+use pltx_database::Database;
+use pltx_utils::{
+    after_datetime, current_timestamp, db_datetime, db_datetime_option, display_timestamp,
+};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
@@ -19,8 +22,8 @@ struct Project {
     title: String,
     description: Option<String>,
     position: i32,
-    created_at: String,
-    updated_at: String,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
     labels: i32,
     lists: i32,
     total_cards: i32,
@@ -44,7 +47,7 @@ impl Screen<bool> for ListProjects {
             projects_state: None,
         };
 
-        list_projects.db_get_projects(app).unwrap();
+        list_projects.db_get_projects(&app.db).unwrap();
 
         list_projects
     }
@@ -85,9 +88,10 @@ impl Screen<bool> for ListProjects {
             if app.mode() == Mode::Delete {
                 match key_event.code {
                     KeyCode::Char('y') => {
-                        self.db_delete_project(app)
+                        self.db_delete_project(&app.db)
                             .unwrap_or_else(|e| panic!("{e}"));
-                        self.db_get_projects(app).unwrap_or_else(|e| panic!("{e}"));
+                        self.db_get_projects(&app.db)
+                            .unwrap_or_else(|e| panic!("{e}"));
                         app.reset_display();
                     }
                     KeyCode::Char('n') => app.reset_display(),
@@ -256,11 +260,11 @@ impl Screen<bool> for ListProjects {
                 ]),
                 Line::from(vec![
                     Span::styled("Created At: ", Style::new().fg(colors.secondary)),
-                    Span::from(&project.created_at),
+                    Span::from(display_timestamp(project.created_at)),
                 ]),
                 Line::from(vec![
                     Span::styled("Updated At: ", Style::new().fg(colors.secondary)),
-                    Span::from(&project.updated_at),
+                    Span::from(display_timestamp(project.updated_at)),
                 ]),
             ];
             let info_text = Text::from([info_1, description, info_2].concat());
@@ -293,10 +297,11 @@ impl ListProjects {
         self.projects_state = Some(projects_state);
     }
 
-    pub fn db_get_projects(&mut self, app: &App) -> rusqlite::Result<()> {
+    pub fn db_get_projects(&mut self, db: &Database) -> rusqlite::Result<()> {
+        let conn = db.conn();
         let project_query = "SELECT id, title, description, position, created_at, updated_at FROM \
                              project ORDER BY position";
-        let mut project_stmt = app.db.conn.prepare(project_query).unwrap();
+        let mut project_stmt = conn.prepare(project_query).unwrap();
         let project_iter = project_stmt
             .query_map([], |row| {
                 Ok(Project {
@@ -304,8 +309,8 @@ impl ListProjects {
                     title: row.get(1)?,
                     description: row.get(2)?,
                     position: row.get(3)?,
-                    created_at: row.get(4)?,
-                    updated_at: row.get(5)?,
+                    created_at: db_datetime(row.get(4)?),
+                    updated_at: db_datetime(row.get(5)?),
                     labels: 0,
                     lists: 0,
                     total_cards: 0,
@@ -321,9 +326,9 @@ impl ListProjects {
             projects.push(p.unwrap())
         }
 
-        projects = self.db_get_labels(app, &mut projects).unwrap();
-        projects = self.db_get_lists(app, &mut projects).unwrap();
-        projects = self.db_get_cards(app, &mut projects).unwrap();
+        projects = self.db_get_labels(db, &mut projects).unwrap();
+        projects = self.db_get_lists(db, &mut projects).unwrap();
+        projects = self.db_get_cards(db, &mut projects).unwrap();
 
         if !projects.is_empty() && self.selected_id.is_none() {
             self.selected_id = Some(projects[0].id);
@@ -334,9 +339,14 @@ impl ListProjects {
         Ok(())
     }
 
-    fn db_get_labels(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+    fn db_get_labels(
+        &self,
+        db: &Database,
+        projects: &mut [Project],
+    ) -> rusqlite::Result<Vec<Project>> {
+        let conn = db.conn();
         let query = "SELECT project_id FROM project_label ORDER BY position";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         let label_iter = stmt.query_map([], |row| row.get::<usize, i32>(0))?;
         for label_id in label_iter {
             let id = label_id.unwrap();
@@ -346,9 +356,14 @@ impl ListProjects {
         Ok(projects.to_vec())
     }
 
-    fn db_get_lists(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+    fn db_get_lists(
+        &self,
+        db: &Database,
+        projects: &mut [Project],
+    ) -> rusqlite::Result<Vec<Project>> {
+        let conn = db.conn();
         let query = "SELECT project_id FROM project_list";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         let id_iter = stmt.query_map([], |r| r.get::<usize, i32>(0))?;
         for list_id in id_iter {
             let id = list_id.unwrap();
@@ -358,7 +373,11 @@ impl ListProjects {
         Ok(projects.to_vec())
     }
 
-    fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+    fn db_get_cards(
+        &self,
+        db: &Database,
+        projects: &mut [Project],
+    ) -> rusqlite::Result<Vec<Project>> {
         struct ListProjectCard {
             project_id: i32,
             start_date: Option<DateTime<Utc>>,
@@ -366,14 +385,15 @@ impl ListProjects {
             important: bool,
         }
 
+        let conn = db.conn();
         let query = "SELECT project_id, start_date, due_date, important FROM project_card ORDER \
                      BY position";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         let card_iter = stmt.query_map([], |row| {
             Ok(ListProjectCard {
                 project_id: row.get(0)?,
-                start_date: db_datetime(row.get(1)?),
-                due_date: db_datetime(row.get(2)?),
+                start_date: db_datetime_option(row.get(1)?),
+                due_date: db_datetime_option(row.get(2)?),
                 important: row.get(3)?,
             })
         })?;
@@ -413,12 +433,13 @@ impl ListProjects {
 }
 
 impl ListProjects {
-    fn db_delete_project(&mut self, app: &App) -> rusqlite::Result<()> {
+    fn db_delete_project(&mut self, db: &Database) -> rusqlite::Result<()> {
         struct Select {
             position: i32,
         }
+        let conn = db.conn();
         let select_query = "SELECT position FROM project WHERE id = ?1";
-        let mut select_stmt = app.db.conn.prepare(select_query)?;
+        let mut select_stmt = conn.prepare(select_query)?;
         let select = select_stmt.query_row([self.selected_id], |r| {
             Ok(Select {
                 position: r.get(0)?,
@@ -426,13 +447,13 @@ impl ListProjects {
         })?;
 
         let query = "DELETE FROM project WHERE id = ?1";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         stmt.execute([self.selected_id])?;
 
         let update_position_query =
-            "UPDATE project SET position = position - 1 WHERE position > ?1";
-        let mut update_position_stmt = app.db.conn.prepare(update_position_query)?;
-        update_position_stmt.execute([select.position])?;
+            "UPDATE project SET position = position - 1, updated_at = ?1 WHERE position > ?2";
+        let mut update_position_stmt = conn.prepare(update_position_query)?;
+        update_position_stmt.execute((current_timestamp(), select.position))?;
 
         if let Some(selected_id) = self.selected_id {
             let selected_index = self

@@ -10,10 +10,23 @@ pub fn display_current_timestamp() -> String {
     Local::now().format("%Y-%m-%d %H:%M").to_string()
 }
 
+/// Get the current local timestamp with seconds. Not to be used as data.
+pub fn display_current_timestamp_seconds() -> String {
+    Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
 /// Convert and display a UTC timestamp to local format. Not to be used as data.
 pub fn display_timestamp(datetime: DateTime<Utc>) -> String {
     DateTime::<Local>::from(datetime)
         .format("%Y-%m-%d %H:%M")
+        .to_string()
+}
+
+/// Convert and display a UTC timestamp to local format with seconds. Not to be
+/// used as data.
+pub fn display_timestamp_seconds(datetime: DateTime<Utc>) -> String {
+    DateTime::<Local>::from(datetime)
+        .format("%Y-%m-%d %H:%M:%S")
         .to_string()
 }
 
@@ -73,6 +86,12 @@ pub fn db_datetime_to_string(db_datetime: Option<String>) -> Option<String> {
     })
 }
 
-pub fn db_datetime(db_datetime: Option<String>) -> Option<DateTime<Utc>> {
+pub fn db_datetime_option(db_datetime: Option<String>) -> Option<DateTime<Utc>> {
     db_datetime.map(|datetime| DateTime::parse_from_rfc3339(&datetime).unwrap().to_utc())
+}
+
+pub fn db_datetime(db_datetime: Option<String>) -> DateTime<Utc> {
+    db_datetime
+        .map(|datetime| DateTime::parse_from_rfc3339(&datetime).unwrap().to_utc())
+        .unwrap()
 }

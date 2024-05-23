@@ -1,13 +1,20 @@
+use chrono::{DateTime, Timelike, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Pane, App};
-use pltx_database::Session;
-use pltx_utils::Module;
+use pltx_app::{state::Pane, App, Module};
+use pltx_utils::{db_datetime_option, display_timestamp_seconds};
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Style, Stylize},
     widgets::{block::Title, Block, BorderType, Borders, Cell, Padding, Row, Table, Widget},
     Frame,
 };
+
+struct Session {
+    id: i32,
+    started: Option<DateTime<Utc>>,
+    ended: Option<DateTime<Utc>>,
+    is_current: bool,
+}
 
 #[derive(PartialEq, Clone)]
 enum DashboardPane {
@@ -24,19 +31,29 @@ pub struct Dashboard {
 impl Module for Dashboard {
     fn init(app: &App) -> Dashboard {
         let query = "SELECT id, started, ended FROM session ORDER BY started DESC LIMIT 20";
-        let mut stmt = app.db.conn.prepare(query).unwrap();
+        let conn = app.db.conn();
+        let mut stmt = conn.prepare(query).unwrap();
         let sessions_iter = stmt
             .query_map([], |row| {
                 Ok(Session {
                     id: row.get(0)?,
-                    started: row.get(1)?,
-                    ended: row.get(2)?,
+                    // Parsed as Option<DateTime<Utc>> instead of DateTime<Utc> because the current
+                    // session won't have a ended datetime when this data is fetched.
+                    started: db_datetime_option(row.get(1)?),
+                    ended: db_datetime_option(row.get(2)?),
+                    is_current: false,
                 })
             })
             .unwrap();
+
         let mut sessions = Vec::new();
         for s in sessions_iter {
-            sessions.push(s.unwrap())
+            let mut session = s.unwrap();
+            if app.db.session_id.is_some_and(|id| id == session.id) {
+                session.is_current = true;
+            }
+
+            sessions.push(session)
         }
 
         Dashboard {
@@ -82,26 +99,52 @@ impl Dashboard {
             .map(|s| {
                 Row::new(vec![
                     Cell::new(s.id.to_string()),
-                    Cell::new(" "),
-                    Cell::new(s.started.to_string()),
-                    Cell::new(if let Some(ended) = &s.ended {
-                        ended.to_string()
+                    Cell::new(if let Some(started) = s.started {
+                        if let Some(ended) = s.ended {
+                            let days = ended.hour().saturating_sub(started.hour());
+                            let hours = ended.hour().saturating_sub(started.hour());
+                            let minutes = ended.minute().saturating_sub(started.minute());
+                            let seconds = ended.second().saturating_sub(started.second());
+                            if days > 0 {
+                                format!("{}d {}h {}m", days, hours, minutes)
+                            } else if hours > 0 {
+                                format!("{}h {}m {}s", hours, minutes, seconds)
+                            } else if minutes != 0 {
+                                format!("{}m {}s", minutes, seconds)
+                            } else {
+                                format!("{}s", seconds)
+                            }
+                        } else {
+                            "<unknown>".to_string()
+                        }
                     } else {
-                        "empty".to_string()
+                        "<pending>".to_string()
+                    }),
+                    Cell::new(if let Some(started) = s.started {
+                        display_timestamp_seconds(started)
+                    } else {
+                        "<pending>".to_string()
+                    }),
+                    Cell::new(if s.is_current {
+                        "<current>".to_string()
+                    } else if let Some(ended) = s.ended {
+                        display_timestamp_seconds(ended)
+                    } else {
+                        "<empty>".to_string()
                     }),
                 ])
             })
             .collect::<Vec<Row>>();
         let sessions_widths = [
-            Constraint::Length(10),
-            Constraint::Length(10),
-            Constraint::Length(25),
-            Constraint::Length(25),
+            Constraint::Length(4),
+            Constraint::Length(13),
+            Constraint::Length(21),
+            Constraint::Length(21),
         ];
         Table::new(sessions_rows, sessions_widths)
             .header(
                 Row::new(vec![
-                    Cell::new("Session ID"),
+                    Cell::new("ID"),
                     Cell::new("Duration"),
                     Cell::new("Started"),
                     Cell::new("Ended"),

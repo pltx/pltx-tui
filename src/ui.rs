@@ -1,11 +1,10 @@
 use pltx_app::{
     state::{Display, GlobalPopup, ModuleState, Pane},
-    App,
+    App, Module, Popup,
 };
 use pltx_config::ColorsConfig;
 use pltx_dashboard::Dashboard;
 use pltx_project_management::ProjectManagement;
-use pltx_utils::{Module, Popup};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},

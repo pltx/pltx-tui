@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::GlobalPopup, App};
-use pltx_utils::Popup;
+use pltx_app::Popup;
 use pltx_widgets::{PopupSize, PopupWidget};
 use ratatui::{layout::Rect, Frame};
 

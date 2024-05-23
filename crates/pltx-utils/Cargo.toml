@@ -22,9 +22,6 @@ unimplemented = "deny"
 missing_safety_doc = "deny"
 
 [dependencies]
-pltx_app = { workspace = true }
-pltx_config = { workspace = true }
 chrono = { workspace = true }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
-rusqlite = { workspace = true }

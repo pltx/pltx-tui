@@ -1,6 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Display, App};
-use pltx_utils::{DefaultWidget, FormWidget, KeyEventHandler};
+use pltx_app::{state::Display, App, DefaultWidget, FormWidget, KeyEventHandler};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},

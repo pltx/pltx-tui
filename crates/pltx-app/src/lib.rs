@@ -3,7 +3,12 @@ use pltx_database::Database;
 use ratatui::style::Color;
 use state::{Display, GlobalPopup, Mode, ModuleState, Pane};
 
+mod module;
 pub mod state;
+mod widget;
+
+pub use module::*;
+pub use widget::*;
 
 pub struct ModeColor<'a> {
     pub text: &'a str,
@@ -13,11 +18,11 @@ pub struct ModeColor<'a> {
 
 pub struct App {
     pub config: Config,
-    pub db: Database,
     pub display: Display,
     pub module: ModuleState,
     pub pane: Pane,
     pub popup: GlobalPopup,
+    pub db: Database,
     pub exit: bool,
 }
 
@@ -25,11 +30,11 @@ impl App {
     pub fn new(config: Config) -> App {
         App {
             config,
-            db: Database::init(),
             display: Display::Default(Mode::Normal),
             module: ModuleState::Dashboard,
             pane: Pane::Navigation,
             popup: GlobalPopup::None,
+            db: Database::init("data.db"),
             exit: false,
         }
     }

@@ -11,6 +11,7 @@ authors.workspace = true
 [dependencies]
 pltx_app = { workspace = true }
 pltx_config = { workspace = true }
+pltx_database = { workspace = true }
 pltx_tracing = { workspace = true }
 pltx_utils = { workspace = true }
 pltx_widgets = { workspace = true }

@@ -2,9 +2,8 @@ use color_eyre::eyre::Context;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use pltx_app::{
     state::{Display, GlobalPopup, ModuleState, Pane},
-    App,
+    App, Module, Popup,
 };
-use pltx_utils::{Module, Popup};
 
 use crate::{command_handler::CommandHandler, ui::Interface};
 

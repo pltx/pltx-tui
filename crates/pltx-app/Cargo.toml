@@ -24,4 +24,5 @@ missing_safety_doc = "deny"
 [dependencies]
 pltx_config = { workspace = true }
 pltx_database = { workspace = true }
+crossterm = { workspace = true }
 ratatui = { workspace = true }

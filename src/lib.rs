@@ -10,14 +10,12 @@ mod ui;
 
 use command_handler::CommandHandler;
 use keybinds::EventHandler;
-use pltx_utils::Popup;
+use pltx_app::Popup;
 use ui::Interface;
 
-/// Runs the tui application's main loop until the user quits.
 pub fn run_tui(app: &mut App) -> color_eyre::eyre::Result<()> {
     let mut terminal = tui::init()?;
-    app.db.ensure_tables().unwrap_or_else(|e| panic!("{e}"));
-    app.db.insert_session().unwrap_or_else(|e| panic!("{e}"));
+    app.db.start_session()?;
     let mut interface = Interface::init(app);
     let mut command_handler = CommandHandler::init(app);
     let mut event_handler = EventHandler::init();

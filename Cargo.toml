@@ -75,6 +75,8 @@ chrono = "0.4.38"
 crossterm = "0.27.0"
 ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.24.0"
 tracing = "0.1.40"
 home = "0.5.9"
 
@@ -93,6 +95,7 @@ color-eyre = { workspace = true }
 crossterm = { workspace = true }
 fst = { version = "0.4.7", features = ["levenshtein"] }
 ratatui = { workspace = true }
-rusqlite = { workspace = true }
+r2d2 = { workspace = true }
+r2d2_sqlite = { workspace = true }
 tracing = { workspace = true }
 clap = { version = "4.5.4", features = ["derive"] }

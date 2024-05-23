@@ -1,12 +1,12 @@
 use std::{cell::RefCell, collections::HashSet, convert::From, rc::Rc, str::FromStr};
 
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Display, App};
-use pltx_config::ColorsConfig;
-use pltx_utils::{
-    current_timestamp, db_datetime_to_string, parse_user_datetime_option, CompositeWidget,
-    DefaultWidget, FormWidget, KeyEventHandler, Popup,
+use pltx_app::{
+    state::Display, App, CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler, Popup,
 };
+use pltx_config::ColorsConfig;
+use pltx_database::Database;
+use pltx_utils::{current_timestamp, db_datetime_to_string, parse_user_datetime_option};
 use pltx_widgets::{self, Buttons, Form, PopupSize, PopupWidget, Selection, Switch, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -230,12 +230,12 @@ impl Popup<Option<i32>> for CardEditor {
 }
 
 impl CardEditor {
-    fn db_new_card(&self, app: &mut App) -> Result<i32, &str> {
-        let highest_position = app.db.get_highest_position("project_card").unwrap();
+    fn db_new_card(&self, db: &Database) -> Result<i32, &str> {
+        let highest_position = db.get_highest_position("project_card").unwrap();
 
         let query = "INSERT INTO project_card (project_id, list_id, title, description, \
-                     important, start_date, due_date, reminder, position) VALUES (?1, ?2, ?3, ?4, \
-                     ?5, ?6, ?7, ?8, ?9)";
+                     important, start_date, due_date, reminder, position, created_at, updated_at) \
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)";
         let inputs = &self.inputs.properties.inputs;
         let params = (
             Some(self.project_id),
@@ -247,35 +247,47 @@ impl CardEditor {
             parse_user_datetime_option((*inputs.due_date).borrow().input_string()),
             Option::<String>::None,
             highest_position + 1,
+            current_timestamp(),
+            current_timestamp(),
         );
-        app.db.conn.execute(query, params).unwrap();
+        db.conn().execute(query, params).unwrap();
 
-        let new_card_id = app.db.last_row_id("project_card").unwrap();
+        let new_card_id = db.last_row_id("project_card").unwrap();
 
-        self.db_new_card_labels(app, new_card_id).unwrap();
+        self.db_new_card_labels(db, new_card_id).unwrap();
 
         Ok(new_card_id)
     }
 
-    fn db_new_card_labels(&self, app: &App, card_id: i32) -> rusqlite::Result<()> {
+    fn db_new_card_labels(&self, db: &Database, card_id: i32) -> rusqlite::Result<()> {
+        let conn = db.conn();
+
         for index in self.inputs.labels.selected.iter() {
             let label = self.inputs.labels.options[*index].clone();
-            let query =
-                "INSERT INTO card_label (project_id, card_id, label_id) VALUES (?1, ?2, ?3)";
-            app.db
-                .conn
-                .execute(query, (Some(self.project_id), card_id, label.0))?;
+            let query = "INSERT INTO card_label (project_id, card_id, label_id, created_at, \
+                         updated_at) VALUES (?1, ?2, ?3, ?4, ?5)";
+            conn.execute(
+                query,
+                (
+                    Some(self.project_id),
+                    card_id,
+                    label.0,
+                    current_timestamp(),
+                    current_timestamp(),
+                ),
+            )?;
         }
 
         Ok(())
     }
 
-    fn db_edit_card(&self, app: &mut App) -> Result<i32, &str> {
+    fn db_edit_card(&self, db: &Database) -> Result<i32, &str> {
         if let Some(data) = &self.data {
             let query = "UPDATE project_card SET title = ?1, description = ?2, important = ?3, \
                          start_date = ?4, due_date = ?5, reminder = ?6, updated_at = ?7 WHERE id \
                          = ?8";
-            let mut stmt = app.db.conn.prepare(query).unwrap();
+            let conn = db.conn();
+            let mut stmt = conn.prepare(query).unwrap();
             let inputs = &self.inputs.properties.inputs;
             stmt.execute((
                 self.inputs.title.input_string(),
@@ -289,7 +301,7 @@ impl CardEditor {
             ))
             .unwrap();
 
-            self.db_edit_card_labels(app, data.id).unwrap();
+            self.db_edit_card_labels(db, data.id).unwrap();
 
             Ok(data.id)
         } else {
@@ -297,19 +309,28 @@ impl CardEditor {
         }
     }
 
-    fn db_edit_card_labels(&self, app: &App, card_id: i32) -> rusqlite::Result<()> {
+    fn db_edit_card_labels(&self, db: &Database, card_id: i32) -> rusqlite::Result<()> {
+        let conn = db.conn();
+
         for (i, label) in self.inputs.labels.options.iter().enumerate() {
             if self.inputs.labels.selected.contains(&i) {
                 if !self.original_labels.contains(&i) {
-                    let query = "INSERT INTO card_label (project_id, card_id, label_id) VALUES \
-                                 (?1, ?2, ?3)";
-                    app.db
-                        .conn
-                        .execute(query, (Some(self.project_id), card_id, label.0))?;
+                    let query = "INSERT INTO card_label (project_id, card_id, label_id, \
+                                 created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)";
+                    conn.execute(
+                        query,
+                        (
+                            Some(self.project_id),
+                            card_id,
+                            label.0,
+                            current_timestamp(),
+                            current_timestamp(),
+                        ),
+                    )?;
                 }
             } else {
                 let query = "DELETE FROM card_label WHERE card_id = ?1 and label_id = ?2";
-                let mut stmt = app.db.conn.prepare(query)?;
+                let mut stmt = conn.prepare(query)?;
                 stmt.execute((card_id, &label.0))?;
             }
         }
@@ -373,9 +394,9 @@ impl CardEditor {
         if self.focused_pane == FocusedPane::Actions {
             if self.inputs.actions.is_focused(Action::Save) {
                 let id = if self.is_new {
-                    Some(self.db_new_card(app).unwrap_or_else(|e| panic!("{e}")))
+                    Some(self.db_new_card(&app.db).unwrap_or_else(|e| panic!("{e}")))
                 } else {
-                    Some(self.db_edit_card(app).unwrap_or_else(|e| panic!("{e}")))
+                    Some(self.db_edit_card(&app.db).unwrap_or_else(|e| panic!("{e}")))
                 };
                 self.reset();
                 app.reset_display();
@@ -426,12 +447,14 @@ impl CardEditor {
         );
     }
 
-    pub fn set_data(&mut self, app: &App, card_id: i32) -> rusqlite::Result<()> {
+    pub fn set_data(&mut self, db: &Database, card_id: i32) -> rusqlite::Result<()> {
         self.reset();
+
+        let conn = db.conn();
 
         let query = "SELECT id, title, description, important, start_date, due_date, reminder, \
                      position, created_at, updated_at FROM project_card WHERE id = ?1";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         let mut card = stmt.query_row([card_id], |r| {
             Ok(CardData {
                 id: r.get(0)?,
@@ -447,7 +470,7 @@ impl CardEditor {
             })
         })?;
 
-        self.db_get_card_labels(app, &mut card)?;
+        self.db_get_card_labels(db, &mut card)?;
         self.data = Some(card);
 
         if let Some(data) = &self.data {
@@ -483,9 +506,10 @@ impl CardEditor {
         Ok(())
     }
 
-    fn db_get_card_labels(&mut self, app: &App, data: &mut CardData) -> rusqlite::Result<()> {
+    fn db_get_card_labels(&mut self, db: &Database, data: &mut CardData) -> rusqlite::Result<()> {
+        let conn = db.conn();
         let query = "SELECT label_id from card_label WHERE card_id = ?1";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         let label_id_iter = stmt.query_map([data.id], |r| r.get(0))?;
 
         for label in label_id_iter {

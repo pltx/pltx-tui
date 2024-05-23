@@ -1,15 +1,11 @@
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, thread, time::Duration};
 
 use pltx_tracing::trace_panic;
-use rusqlite::Connection;
+use pltx_utils::current_timestamp;
+use r2d2::{Pool, PooledConnection};
+use r2d2_sqlite::SqliteConnectionManager;
 
-pub struct Session {
-    pub id: i32,
-    pub started: String,
-    pub ended: Option<String>,
-}
-
-fn get_db_path() -> PathBuf {
+fn get_db_path(filename: &str) -> PathBuf {
     let home_dir = home::home_dir().unwrap_or_else(|| panic!("failed to find home directory"));
     let data_dir = PathBuf::from(format!("{}/.local/share/pltx", home_dir.to_str().unwrap()));
 
@@ -23,29 +19,56 @@ fn get_db_path() -> PathBuf {
         });
     }
 
-    data_dir.join("data.db")
+    data_dir.join(filename)
 }
 
 pub struct Database {
-    pub conn: Connection,
+    pool: Pool<SqliteConnectionManager>,
+    filename: String,
+    session_started: bool,
+    pub session_id: Option<i32>,
 }
 
 impl Database {
-    pub fn init() -> Database {
-        let db_path = get_db_path();
-        let conn = Connection::open(db_path).unwrap();
-        Database { conn }
+    pub fn init(filename: &str) -> Database {
+        let db_file_path = get_db_path(filename);
+        let manager = SqliteConnectionManager::file(db_file_path);
+        let pool = Pool::new(manager).unwrap();
+
+        Database {
+            pool,
+            filename: filename.to_string(),
+            session_id: None,
+            session_started: false,
+        }
+    }
+
+    /// Access the pooled connection.
+    pub fn conn(&self) -> PooledConnection<SqliteConnectionManager> {
+        self.pool.get().unwrap()
+    }
+
+    pub fn start_session(&mut self) -> rusqlite::Result<()> {
+        self.ensure_tables()?;
+        self.conn().execute(
+            "INSERT INTO session (started, ended) VALUES (?1, ?2)",
+            [current_timestamp(), current_timestamp()],
+        )?;
+        self.session_id = Some(self.last_row_id("session").unwrap());
+        self.session_started = true;
+        self.create_sync_session_thread()?;
+        Ok(())
     }
 
     /// Ensure that the tables needed in the database are created here. If they
     /// don't, then create them.
     /// Non-global modules, popups, etc, manage their own data initialization.
-    pub fn ensure_tables(&self) -> rusqlite::Result<()> {
-        self.conn.execute(
+    fn ensure_tables(&self) -> rusqlite::Result<()> {
+        self.conn().execute(
             "CREATE TABLE IF NOT EXISTS session (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                started DATETIME DEFAULT CURRENT_TIMESTAMP,
-                ended DATETIME
+                started DATETIME NOT NULL,
+                ended DATETIME NOT NULL
             )",
             (),
         )?;
@@ -53,21 +76,31 @@ impl Database {
         Ok(())
     }
 
-    pub fn insert_session(&self) -> rusqlite::Result<()> {
-        self.conn
-            .execute("INSERT INTO session (id) VALUES (NULL)", ())?;
+    fn create_sync_session_thread(&self) -> rusqlite::Result<()> {
+        let pool = self.pool.clone();
+        let session_id = self.session_id;
+
+        thread::spawn(move || loop {
+            let conn = pool.get().unwrap();
+            conn.execute(
+                "UPDATE session SET ended = ?1 WHERE id = ?2",
+                (current_timestamp(), session_id),
+            )
+            .unwrap();
+            thread::sleep(Duration::from_secs(1));
+        });
+
         Ok(())
     }
 
     pub fn reset(&self) {
-        let db_path = get_db_path();
-        fs::remove_file(db_path).unwrap();
+        fs::remove_file(get_db_path(&self.filename)).unwrap();
     }
 
     pub fn get_position(&self, table: &str, id: i32) -> rusqlite::Result<i32> {
         let query = format!("SELECT position FROM {} WHERE id = ?1", table);
-        let mut stmt = self.conn.prepare(&query)?;
-        let position: i32 = stmt.query_row([id], |r| r.get(0))?;
+        let conn = self.conn();
+        let position: i32 = conn.prepare(&query)?.query_row([id], |r| r.get(0))?;
         Ok(position)
     }
 
@@ -75,8 +108,11 @@ impl Database {
         let query = format!(
             "SELECT position from {table} WHERE position = (SELECT MAX(position) FROM {table})"
         );
-        let mut stmt = self.conn.prepare(&query)?;
-        let highest_position: i32 = stmt.query_row([], |r| r.get(0)).unwrap_or(-1);
+        let highest_position: i32 = self
+            .conn()
+            .prepare(&query)?
+            .query_row([], |r| r.get(0))
+            .unwrap_or(-1);
         Ok(highest_position)
     }
 
@@ -93,18 +129,20 @@ impl Database {
             "SELECT position from {} WHERE position = (SELECT MAX(position) FROM {}) AND {} = ?1",
             table, table, field,
         );
-        let mut stmt = self.conn.prepare(&query)?;
+        let conn = self.conn();
+        let mut stmt = conn.prepare(&query)?;
         let highest_position: i32 = stmt.query_row([equals], |r| r.get(0)).unwrap_or(-1);
         Ok(highest_position)
     }
 
     pub fn update_positions(&self, table: &str, old_position: i32) -> rusqlite::Result<()> {
         let update_position_query = format!(
-            "UPDATE {} SET position = position - 1 WHERE position > ?1",
+            "UPDATE {} SET position = position - 1, updated_at = ?1 WHERE position > ?2",
             table
         );
-        let mut update_position_stmt = self.conn.prepare(&update_position_query)?;
-        update_position_stmt.execute([old_position])?;
+        let conn = self.conn();
+        let mut update_position_stmt = conn.prepare(&update_position_query)?;
+        update_position_stmt.execute((current_timestamp(), old_position))?;
         Ok(())
     }
 
@@ -113,7 +151,8 @@ impl Database {
             "SELECT id from {} WHERE id = (SELECT MAX(id) FROM {})",
             table, table
         );
-        let mut stmt = self.conn.prepare(&query).unwrap();
+        let conn = self.conn();
+        let mut stmt = conn.prepare(&query).unwrap();
         let recent_id: i32 = stmt.query_row((), |r| r.get(0)).unwrap();
         Ok(recent_id)
     }

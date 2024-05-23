@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Pane, App};
+use pltx_app::{state::Pane, App, Module, Screen};
 use pltx_config::ColorsConfig;
-use pltx_utils::{Module, Screen};
+use pltx_database::Database;
 use projects::Projects;
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -45,18 +45,16 @@ pub struct ProjectManagement {
 
 impl Module for ProjectManagement {
     fn init(app: &App) -> ProjectManagement {
-        let project_management = ProjectManagement {
+        ProjectManagement::init_data(&app.db).unwrap();
+
+        ProjectManagement {
             tab: Tab::Projects,
             last_pane: ProjectManagementPane::Main,
             pane: ProjectManagementPane::None,
             pages: Pages {
                 projects: Projects::init(app),
             },
-        };
-
-        project_management.init_data(app).unwrap();
-
-        project_management
+        }
     }
 
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
@@ -140,8 +138,8 @@ impl Module for ProjectManagement {
 }
 
 impl ProjectManagement {
-    fn init_data(&self, app: &App) -> rusqlite::Result<()> {
-        app.db.conn.execute_batch(
+    pub fn init_data(db: &Database) -> rusqlite::Result<()> {
+        db.conn().execute_batch(
             "BEGIN;
 
             CREATE TABLE IF NOT EXISTS project (
@@ -150,8 +148,8 @@ impl ProjectManagement {
                 description TEXT,
                 position INTEGER NOT NULL,
                 archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS project_label (
@@ -161,8 +159,8 @@ impl ProjectManagement {
                 color TEXT NOT NULL,
                 position INTEGER NOT NULL,
                 archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
                 FOREIGN KEY (project_id)
                     REFERENCES project (id)
                         ON DELETE CASCADE
@@ -175,8 +173,8 @@ impl ProjectManagement {
                 title TEXT NOT NULL,
                 position INTEGER NOT NULL,
                 archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
                 FOREIGN KEY (project_id)
                     REFERENCES project (id)
                         ON DELETE CASCADE
@@ -196,8 +194,8 @@ impl ProjectManagement {
                 completed BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
                 position INTEGER NOT NULL,
                 archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
                 FOREIGN KEY (list_id)
                     REFERENCES project_list (id)
                         ON DELETE CASCADE
@@ -214,8 +212,8 @@ impl ProjectManagement {
                 card_id INTEGER NOT NULL,
                 label_id INTEGER NOT NULL,
                 archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
                 FOREIGN KEY (project_id)
                     REFERENCES project (id)
                         ON DELETE CASCADE
@@ -237,8 +235,8 @@ impl ProjectManagement {
                 value TEXT NOT NULL,
                 completed BOOLEAN NOT NULL CHECK (completed IN (0, 1)),
                 archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
                 FOREIGN KEY (project_id)
                     REFERENCES project (id)
                         ON DELETE CASCADE

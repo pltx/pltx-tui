@@ -1,7 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Display, App};
+use pltx_app::{state::Display, App, DefaultWidget, KeyEventHandler, Popup};
+use pltx_database::Database;
 use pltx_tracing::trace_panic;
-use pltx_utils::{DefaultWidget, KeyEventHandler, Popup};
+use pltx_utils::current_timestamp;
 use pltx_widgets::{self, PopupSize, PopupWidget, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -54,7 +55,7 @@ impl Popup<Option<i32>> for ListEditor {
                             .unwrap_or_else(|e| panic!("{e}")),
                     )
                 } else {
-                    Some(self.db_edit_list(app).unwrap_or_else(|e| panic!("{e}")))
+                    Some(self.db_edit_list(&app.db).unwrap_or_else(|e| panic!("{e}")))
                 };
                 app.reset_display();
                 self.inputs.title.reset();
@@ -94,25 +95,33 @@ impl ListEditor {
             return Err(format!("cannot create more than {} lists", max_lists));
         }
 
-        let query = "INSERT INTO project_list (project_id, title, position) VALUES (?1, ?2, ?3)";
+        let query = "INSERT INTO project_list (project_id, title, position, created_at, \
+                     updated_at) VALUES (?1, ?2, ?3, ?4, ?5)";
         let params = (
             project_id,
             self.inputs.title.input_string(),
             highest_position + 1,
+            current_timestamp(),
+            current_timestamp(),
         );
-        app.db.conn.execute(query, params).unwrap();
+        app.db.conn().execute(query, params).unwrap();
 
         let new_list_id = app.db.last_row_id("project_list").unwrap();
 
         Ok(new_list_id)
     }
 
-    fn db_edit_list(&self, app: &mut App) -> Result<i32, &str> {
+    fn db_edit_list(&self, db: &Database) -> Result<i32, &str> {
         if let Some(data) = &self.data {
-            let query = "UPDATE project_list SET title = ?1 WHERE id = ?2";
-            let mut stmt = app.db.conn.prepare(query).unwrap();
-            stmt.execute((&self.inputs.title.input_string(), data.id))
-                .unwrap();
+            let conn = db.conn();
+            let query = "UPDATE project_list SET title = ?1, updated_at = ?2 WHERE id = ?3";
+            let mut stmt = conn.prepare(query).unwrap();
+            stmt.execute((
+                &self.inputs.title.input_string(),
+                current_timestamp(),
+                data.id,
+            ))
+            .unwrap();
             Ok(data.id)
         } else {
             Err("list data was not set")
@@ -130,9 +139,10 @@ impl ListEditor {
         self.project_id = Some(project_id)
     }
 
-    pub fn set(&mut self, app: &App, list_id: i32) -> Result<(), &str> {
+    pub fn set(&mut self, db: &Database, list_id: i32) -> Result<(), &str> {
+        let conn = db.conn();
         let query = "SELECT id, title FROM project_list WHERE id = ?1";
-        let mut stmt = app.db.conn.prepare(query).unwrap();
+        let mut stmt = conn.prepare(query).unwrap();
         let list = stmt
             .query_row([list_id], |r| {
                 Ok(ListData {

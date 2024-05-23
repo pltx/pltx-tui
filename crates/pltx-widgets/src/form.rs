@@ -1,8 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crossterm::event::KeyEvent;
-use pltx_app::{state::Display, App};
-use pltx_utils::{CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler};
+use pltx_app::{state::Display, App, CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,

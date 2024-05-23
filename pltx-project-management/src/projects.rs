@@ -1,7 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::App;
+use pltx_app::{App, Screen};
 use pltx_tracing::trace_panic;
-use pltx_utils::Screen;
 use ratatui::{layout::Rect, Frame};
 
 use super::{
@@ -55,7 +54,7 @@ impl Screen for Projects {
                     if let Some(selected_id) = self.pages.list_projects.selected_id {
                         self.pages
                             .edit_project
-                            .set_project(app, selected_id)
+                            .set_project(&app.db, selected_id)
                             .unwrap_or_else(|e| panic!("{e}"));
                         self.page = Page::EditProject;
                     }
@@ -86,7 +85,7 @@ impl Screen for Projects {
             self.page = Page::ListProjects;
             self.pages
                 .list_projects
-                .db_get_projects(app)
+                .db_get_projects(&app.db)
                 .unwrap_or_else(|e| panic!("{e}"));
         }
     }

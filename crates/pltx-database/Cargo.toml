@@ -23,7 +23,10 @@ missing_safety_doc = "deny"
 
 [dependencies]
 pltx_tracing = { workspace = true }
-rusqlite = { workspace = true }
+pltx_utils = { workspace = true }
+chrono = { workspace = true }
 home = { workspace = true }
-tracing = {workspace = true}
-
+tracing = { workspace = true }
+r2d2 = { workspace = true }
+r2d2_sqlite = { workspace = true }
+rusqlite = { workspace = true }

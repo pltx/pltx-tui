@@ -2,9 +2,8 @@ use crossterm::event::{KeyCode, KeyEvent};
 use fst::{automaton::Levenshtein, IntoStreamer};
 use pltx_app::{
     state::{Display, GlobalPopup},
-    App,
+    App, DefaultWidget, KeyEventHandler, Popup,
 };
-use pltx_utils::{DefaultWidget, KeyEventHandler, Popup};
 use pltx_widgets::{self, PopupSize, PopupWidget, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},

@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::App;
-use pltx_utils::{current_timestamp, CompositeWidget, DefaultWidget, KeyEventHandler, Screen};
+use pltx_app::{App, CompositeWidget, DefaultWidget, KeyEventHandler, Screen};
+use pltx_database::Database;
+use pltx_utils::current_timestamp;
 use pltx_widgets::{Buttons, TextInput};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -137,7 +138,7 @@ impl Screen<bool> for ProjectEditor {
                         && self.focused_label_option == LabelOption::AddLabel
                     {
                         self.add_label(app);
-                    } else if self.save_project(app) {
+                    } else if self.save_project(&app.db) {
                         return true;
                     }
                 }
@@ -222,41 +223,46 @@ impl ProjectEditor {
         self.projects_state = Some(projects_state);
     }
 
-    fn db_new_project(&self, app: &App) -> rusqlite::Result<()> {
+    fn db_new_project(&self, db: &Database) -> rusqlite::Result<()> {
         let description = if self.inputs.description.input_string().chars().count() == 0 {
             None
         } else {
             Some(self.inputs.description.input_string())
         };
 
-        let highest_position = app.db.get_highest_position("project").unwrap();
-        app.db.conn.execute(
-            "INSERT INTO project (title, description, position) VALUES (?1, ?2, ?3)",
+        let highest_position = db.get_highest_position("project").unwrap();
+        db.conn().execute(
+            "INSERT INTO project (title, description, position, created_at, updated_at) VALUES \
+             (?1, ?2, ?3, ?4, ?5)",
             (
                 self.inputs.title.input_string(),
                 description,
                 highest_position + 1,
+                current_timestamp(),
+                current_timestamp(),
             ),
         )?;
 
-        let new_project_id = app.db.last_row_id("project")?;
+        let new_project_id = db.last_row_id("project")?;
 
-        self.db_new_labels(app, new_project_id)?;
+        self.db_new_labels(db, new_project_id)?;
 
         Ok(())
     }
 
-    fn db_new_labels(&self, app: &App, project_id: i32) -> rusqlite::Result<()> {
+    fn db_new_labels(&self, db: &Database, project_id: i32) -> rusqlite::Result<()> {
         for (i, label) in self.inputs.labels.iter().enumerate() {
-            let query = "INSERT INTO project_label (project_id, title, color, position) VALUES \
-                         (?1, ?2, ?3, ?4)";
-            app.db.conn.execute(
+            let query = "INSERT INTO project_label (project_id, title, color, position, \
+                         created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
+            db.conn().execute(
                 query,
                 (
                     project_id,
                     label.1.input_string(),
                     label.2.input_string(),
                     i,
+                    current_timestamp(),
+                    current_timestamp(),
                 ),
             )?;
         }
@@ -264,16 +270,19 @@ impl ProjectEditor {
         Ok(())
     }
 
-    fn db_edit_project(&self, app: &App) -> rusqlite::Result<()> {
+    fn db_edit_project(&self, db: &Database) -> rusqlite::Result<()> {
         if let Some(data) = &self.data {
-            let query = "UPDATE project SET title = ?1, description = ?2 WHERE id = ?3";
-            let mut stmt = app.db.conn.prepare(query)?;
+            let conn = db.conn();
+            let query =
+                "UPDATE project SET title = ?1, description = ?2, updated_at = ?3 WHERE id = ?4";
+            let mut stmt = conn.prepare(query)?;
             stmt.execute((
                 self.inputs.title.input_string(),
                 self.inputs.description.input_string(),
+                current_timestamp(),
                 data.id,
             ))?;
-            self.db_edit_labels(app, data.id)?;
+            self.db_edit_labels(db, data.id)?;
         } else {
             panic!("project data was not set")
         }
@@ -281,12 +290,13 @@ impl ProjectEditor {
         Ok(())
     }
 
-    fn db_edit_labels(&self, app: &App, project_id: i32) -> rusqlite::Result<()> {
+    fn db_edit_labels(&self, db: &Database, project_id: i32) -> rusqlite::Result<()> {
+        let conn = db.conn();
         for (i, label) in self.inputs.labels.iter().enumerate() {
             if let Some(label_id) = label.0 {
                 let query = "UPDATE project_label SET title = ?1, color = ?2, updated_at = ?3 \
                              WHERE project_id = ?4 and id = ?5";
-                let mut stmt = app.db.conn.prepare(query)?;
+                let mut stmt = conn.prepare(query)?;
                 stmt.execute((
                     label.1.input_string(),
                     label.2.input_string(),
@@ -295,15 +305,17 @@ impl ProjectEditor {
                     label_id,
                 ))?;
             } else {
-                let query = "INSERT INTO project_label (project_id, title, color, position) \
-                             VALUES (?1, ?2, ?3, ?4)";
-                app.db.conn.execute(
+                let query = "INSERT INTO project_label (project_id, title, color, position, \
+                             created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
+                conn.execute(
                     query,
                     (
                         project_id,
                         label.1.input_string(),
                         label.2.input_string(),
                         i,
+                        current_timestamp(),
+                        current_timestamp(),
                     ),
                 )?;
             }
@@ -418,13 +430,13 @@ impl ProjectEditor {
         app.insert_mode();
     }
 
-    fn save_project(&mut self, app: &mut App) -> bool {
+    fn save_project(&mut self, db: &Database) -> bool {
         if self.focused_pane == FocusedPane::Actions {
             if self.inputs.actions.is_focused(Action::Save) {
                 if self.new {
-                    self.db_new_project(app).unwrap_or_else(|e| panic!("{e}"));
+                    self.db_new_project(db).unwrap_or_else(|e| panic!("{e}"));
                 } else {
-                    self.db_edit_project(app).unwrap_or_else(|e| panic!("{e}"));
+                    self.db_edit_project(db).unwrap_or_else(|e| panic!("{e}"));
                 }
                 self.reset()
             } else if self.inputs.actions.is_focused(Action::Cancel) {
@@ -526,9 +538,10 @@ impl ProjectEditor {
         self
     }
 
-    pub fn set_project(&mut self, app: &App, project_id: i32) -> rusqlite::Result<()> {
+    pub fn set_project(&mut self, db: &Database, project_id: i32) -> rusqlite::Result<()> {
+        let conn = db.conn();
         let project_query = "SELECT id, title, description FROM project WHERE id = ?1";
-        let mut project_stmt = app.db.conn.prepare(project_query)?;
+        let mut project_stmt = conn.prepare(project_query)?;
         let mut project = project_stmt.query_row([project_id], |r| {
             Ok(ProjectData {
                 id: r.get(0)?,
@@ -538,7 +551,7 @@ impl ProjectEditor {
             })
         })?;
 
-        project.labels = self.db_get_labels(app, project_id)?;
+        project.labels = self.db_get_labels(db, project_id)?;
 
         self.data = Some(project);
 
@@ -556,10 +569,15 @@ impl ProjectEditor {
         Ok(())
     }
 
-    fn db_get_labels(&mut self, app: &App, project_id: i32) -> rusqlite::Result<Vec<ProjectLabel>> {
+    fn db_get_labels(
+        &mut self,
+        db: &Database,
+        project_id: i32,
+    ) -> rusqlite::Result<Vec<ProjectLabel>> {
+        let conn = db.conn();
         let query = "SELECT project_id, id, title, color FROM project_label WHERE project_id = ?1 \
                      ORDER BY position";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         let labels_iter = stmt.query_map([project_id], |r| {
             Ok(ProjectLabel {
                 project_id: r.get(0)?,

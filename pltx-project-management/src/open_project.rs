@@ -5,9 +5,10 @@ use std::{
 
 use chrono::{DateTime, Duration, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::GlobalPopup, App};
+use pltx_app::{state::GlobalPopup, App, Popup, Screen};
+use pltx_database::Database;
 use pltx_tracing::trace_panic;
-use pltx_utils::{after_datetime, db_datetime, Popup, Screen};
+use pltx_utils::{after_datetime, current_timestamp, db_datetime_option};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
@@ -205,7 +206,7 @@ impl Screen<bool> for OpenProject {
                         self.popup = OpenProjectPopup::EditList;
                         self.popups
                             .edit_list
-                            .set(app, list_id)
+                            .set(&app.db, list_id)
                             .unwrap_or_else(|e| panic! {"{e}"});
                         app.popup_display();
                         app.insert_mode();
@@ -219,7 +220,7 @@ impl Screen<bool> for OpenProject {
                                 self.popup = OpenProjectPopup::EditCard;
                                 self.popups
                                     .edit_card
-                                    .set_data(app, card_id)
+                                    .set_data(&app.db, card_id)
                                     .unwrap_or_else(|e| panic!("{e}"));
                                 app.popup_display();
                             }
@@ -231,7 +232,7 @@ impl Screen<bool> for OpenProject {
                         let list_index = self.selected_list_index().unwrap_or(0);
                         let card_index = self.selected_card_index().unwrap_or(0);
                         let completed = &self.data.lists[list_index].cards[card_index].completed;
-                        self.db_toggle_card_completed(app, card_id, *completed)
+                        self.db_toggle_card_completed(&app.db, card_id, *completed)
                             .unwrap();
                         self.db_get_project(app).unwrap();
                     }
@@ -241,7 +242,7 @@ impl Screen<bool> for OpenProject {
                         let list_index = self.selected_list_index().unwrap_or(0);
                         let card_index = self.selected_card_index().unwrap_or(0);
                         let important = &self.data.lists[list_index].cards[card_index].important;
-                        self.db_toggle_card_important(app, card_id, *important)
+                        self.db_toggle_card_important(&app.db, card_id, *important)
                             .unwrap();
                         self.db_get_project(app).unwrap();
                     }
@@ -330,14 +331,14 @@ impl Screen<bool> for OpenProject {
                 KeyCode::Char('y') => {
                     if self.delete_selection == DeleteSelection::List {
                         if let Some(selected_list_id) = self.selected_list_id {
-                            self.db_delete_list(app, selected_list_id)
+                            self.db_delete_list(&app.db, selected_list_id)
                                 .unwrap_or_else(|e| panic!("{e}"));
                             self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
                             app.normal_mode();
                         }
                     } else if self.delete_selection == DeleteSelection::Card {
                         if let Some(selected_card_id) = self.selected_card_id() {
-                            self.db_delete_card(app, selected_card_id)
+                            self.db_delete_card(&app.db, selected_card_id)
                                 .unwrap_or_else(|e| trace_panic!("{e}"));
                             self.db_get_project(app)
                                 .unwrap_or_else(|e| trace_panic!("{e}"));
@@ -430,9 +431,10 @@ impl OpenProject {
     }
 
     pub fn db_get_project(&mut self, app: &mut App) -> Result<(), &str> {
+        let conn = app.db.conn();
         let query = "SELECT title, description, position, created_at, updated_at FROM project \
                      WHERE id = ?1 ORDER BY position";
-        let mut stmt = app.db.conn.prepare(query).unwrap();
+        let mut stmt = conn.prepare(query).unwrap();
 
         if let Some(project_id) = self.project_id {
             let mut project = stmt
@@ -444,14 +446,17 @@ impl OpenProject {
                     })
                 })
                 .unwrap();
+
             project.labels = self.db_get_labels(app).unwrap();
-            project.lists = self.db_get_lists(app, project_id).unwrap();
-            project = self.db_get_cards(app, &mut project, project_id).unwrap();
+            project.lists = self.db_get_lists(&app.db, project_id).unwrap();
             project = self
-                .db_get_card_labels(app, &mut project, project_id)
+                .db_get_cards(&app.db, &mut project, project_id)
                 .unwrap();
             project = self
-                .db_get_card_subtasks(app, &mut project, project_id)
+                .db_get_card_labels(&app.db, &mut project, project_id)
+                .unwrap();
+            project = self
+                .db_get_card_subtasks(&app.db, &mut project, project_id)
                 .unwrap();
 
             if !project.lists.is_empty() {
@@ -471,7 +476,7 @@ impl OpenProject {
             }
 
             if let Some(list_id) = self.selected_list_id {
-                self.popups.edit_list.set(app, list_id).unwrap();
+                self.popups.edit_list.set(&app.db, list_id).unwrap();
 
                 if let Some(project_id) = self.project_id {
                     self.popups.new_card.ids(project_id, list_id);
@@ -487,9 +492,11 @@ impl OpenProject {
 
     fn db_get_labels(&mut self, app: &App) -> rusqlite::Result<Vec<ProjectLabel>> {
         let mut labels = vec![];
+
+        let conn = app.db.conn();
         let project_label_query = "SELECT id, title, color, position, created_at, updated_at FROM \
                                    project_label WHERE project_id = ?1 ORDER BY position";
-        let mut project_label_stmt = app.db.conn.prepare(project_label_query)?;
+        let mut project_label_stmt = conn.prepare(project_label_query)?;
 
         let project_label_iter = project_label_stmt.query_map([&self.project_id], |r| {
             Ok(ProjectLabel {
@@ -514,11 +521,13 @@ impl OpenProject {
         Ok(labels)
     }
 
-    fn db_get_lists(&self, app: &App, project_id: i32) -> rusqlite::Result<Vec<ProjectList>> {
+    fn db_get_lists(&self, db: &Database, project_id: i32) -> rusqlite::Result<Vec<ProjectList>> {
         let mut lists = vec![];
+
+        let conn = db.conn();
         let query =
             "SELECT id, title, position FROM project_list WHERE project_id = ?1 ORDER BY position";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         let project_list_iter = stmt.query_map([project_id], |r| {
             Ok(ProjectList {
                 id: r.get(0)?,
@@ -535,22 +544,23 @@ impl OpenProject {
 
     fn db_get_cards(
         &self,
-        app: &App,
+        db: &Database,
         project: &mut ProjectData,
         project_id: i32,
     ) -> rusqlite::Result<ProjectData> {
+        let conn = db.conn();
         let project_card_query = "SELECT id, list_id, title, important, start_date, due_date, \
                                   completed, position FROM project_card WHERE project_id = ?1 \
                                   ORDER BY position";
-        let mut project_card_stmt = app.db.conn.prepare(project_card_query)?;
+        let mut project_card_stmt = conn.prepare(project_card_query)?;
         let project_card_iter = project_card_stmt.query_map([project_id], |r| {
             Ok(OpenProjectCard {
                 id: r.get(0)?,
                 list_id: r.get(1)?,
                 title: r.get(2)?,
                 important: r.get(3)?,
-                start_date: db_datetime(r.get(4)?),
-                due_date: db_datetime(r.get(5)?),
+                start_date: db_datetime_option(r.get(4)?),
+                due_date: db_datetime_option(r.get(5)?),
                 completed: r.get(6)?,
                 // position: r.get(7)?,
                 labels: HashSet::new(),
@@ -571,12 +581,13 @@ impl OpenProject {
 
     fn db_get_card_labels(
         &self,
-        app: &App,
+        db: &Database,
         project: &mut ProjectData,
         project_id: i32,
     ) -> rusqlite::Result<ProjectData> {
+        let conn = db.conn();
         let card_label_query = "SELECT card_id, label_id FROM card_label WHERE project_id = ?1";
-        let mut card_label_stmt = app.db.conn.prepare(card_label_query)?;
+        let mut card_label_stmt = conn.prepare(card_label_query)?;
         let card_label_iter = card_label_stmt.query_map([project_id], |r| {
             Ok(ProjectCardLabel {
                 card_id: r.get(0)?,
@@ -607,13 +618,15 @@ impl OpenProject {
 
     fn db_get_card_subtasks(
         &self,
-        app: &App,
+
+        db: &Database,
         project: &mut ProjectData,
         project_id: i32,
     ) -> rusqlite::Result<ProjectData> {
+        let conn = db.conn();
         let card_subtask_query =
             "SELECT card_id, completed FROM card_subtask WHERE project_id = ?1";
-        let mut card_subtask_stmt = app.db.conn.prepare(card_subtask_query)?;
+        let mut card_subtask_stmt = conn.prepare(card_subtask_query)?;
         let card_subtask_iter = card_subtask_stmt.query_map([project_id], |r| {
             Ok(ProjectCardSubtask {
                 card_id: r.get(0)?,
@@ -639,14 +652,15 @@ impl OpenProject {
         Ok(project.clone())
     }
 
-    fn db_delete_list(&mut self, app: &App, selected_list_id: i32) -> rusqlite::Result<()> {
-        let original_position = app.db.get_position("project_list", selected_list_id)?;
+    fn db_delete_list(&mut self, db: &Database, selected_list_id: i32) -> rusqlite::Result<()> {
+        let original_position = db.get_position("project_list", selected_list_id)?;
 
+        let conn = db.conn();
         let query = "DELETE FROM project_list WHERE id = ?1";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         stmt.execute([selected_list_id])?;
 
-        app.db.update_positions("project_list", original_position)?;
+        db.update_positions("project_list", original_position)?;
 
         // Update the position of `selected_list_id` before `data` is updated.
         let selected_list_index = self.selected_list_index().unwrap_or(0);
@@ -661,14 +675,15 @@ impl OpenProject {
         Ok(())
     }
 
-    fn db_delete_card(&mut self, app: &mut App, selected_card_id: i32) -> rusqlite::Result<()> {
-        let original_position = app.db.get_position("project_card", selected_card_id)?;
+    fn db_delete_card(&mut self, db: &Database, selected_card_id: i32) -> rusqlite::Result<()> {
+        let original_position = db.get_position("project_card", selected_card_id)?;
 
+        let conn = db.conn();
         let query = "DELETE FROM project_card WHERE id = ?1";
-        let mut stmt = app.db.conn.prepare(query)?;
+        let mut stmt = conn.prepare(query)?;
         stmt.execute([selected_card_id])?;
 
-        app.db.update_positions("project_card", original_position)?;
+        db.update_positions("project_card", original_position)?;
 
         let list_index = self.selected_list_index().unwrap_or(0);
         let list = &self.data.lists[list_index];
@@ -692,25 +707,27 @@ impl OpenProject {
 
     fn db_toggle_card_completed(
         &mut self,
-        app: &App,
+        db: &Database,
         card_id: i32,
         completed: bool,
     ) -> rusqlite::Result<()> {
-        let query = "UPDATE project_card SET completed = ?1 WHERE id = ?2";
-        let mut stmt = app.db.conn.prepare(query)?;
-        stmt.execute((!completed, card_id))?;
+        let conn = db.conn();
+        let query = "UPDATE project_card SET completed = ?1, updated_at = ?2 WHERE id = ?3";
+        let mut stmt = conn.prepare(query)?;
+        stmt.execute((!completed, current_timestamp(), card_id))?;
         Ok(())
     }
 
     fn db_toggle_card_important(
         &mut self,
-        app: &App,
+        db: &Database,
         card_id: i32,
         important: bool,
     ) -> rusqlite::Result<()> {
-        let query = "UPDATE project_card SET important = ?1 WHERE id = ?2";
-        let mut stmt = app.db.conn.prepare(query)?;
-        stmt.execute((!important, card_id))?;
+        let conn = db.conn();
+        let query = "UPDATE project_card SET important = ?1, updated_at = ?2 WHERE id = ?3";
+        let mut stmt = conn.prepare(query)?;
+        stmt.execute((!important, current_timestamp(), card_id))?;
         Ok(())
     }
 }

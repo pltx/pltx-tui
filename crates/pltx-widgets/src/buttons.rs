@@ -1,5 +1,4 @@
-use pltx_app::App;
-use pltx_utils::{CompositeWidget, DefaultWidget};
+use pltx_app::{App, CompositeWidget, DefaultWidget};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
