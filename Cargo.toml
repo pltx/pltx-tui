@@ -46,7 +46,6 @@ codegen-units = 1
 strip = "debuginfo"
 panic = "abort"
 
-
 [workspace.lints.rust]
 unused_extern_crates = "deny"
 
