@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf, thread, time::Duration};
 
 use pltx_tracing::trace_panic;
-use pltx_utils::current_timestamp;
+use pltx_utils::DateTime;
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 
@@ -52,7 +52,7 @@ impl Database {
         self.ensure_tables()?;
         self.conn().execute(
             "INSERT INTO session (started, ended) VALUES (?1, ?2)",
-            [current_timestamp(), current_timestamp()],
+            [DateTime::now(), DateTime::now()],
         )?;
         self.session_id = Some(self.last_row_id("session").unwrap());
         self.session_started = true;
@@ -84,7 +84,7 @@ impl Database {
             let conn = pool.get().unwrap();
             conn.execute(
                 "UPDATE session SET ended = ?1 WHERE id = ?2",
-                (current_timestamp(), session_id),
+                (DateTime::now(), session_id),
             )
             .unwrap();
             thread::sleep(Duration::from_secs(1));
@@ -142,7 +142,7 @@ impl Database {
         );
         let conn = self.conn();
         let mut update_position_stmt = conn.prepare(&update_position_query)?;
-        update_position_stmt.execute((current_timestamp(), old_position))?;
+        update_position_stmt.execute((DateTime::now(), old_position))?;
         Ok(())
     }
 

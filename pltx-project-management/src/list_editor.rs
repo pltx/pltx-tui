@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::Display, App, DefaultWidget, KeyEventHandler, Popup};
 use pltx_database::Database;
 use pltx_tracing::trace_panic;
-use pltx_utils::current_timestamp;
+use pltx_utils::DateTime;
 use pltx_widgets::{self, PopupSize, PopupWidget, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -101,8 +101,8 @@ impl ListEditor {
             project_id,
             self.inputs.title.input_string(),
             highest_position + 1,
-            current_timestamp(),
-            current_timestamp(),
+            DateTime::now(),
+            DateTime::now(),
         );
         app.db.conn().execute(query, params).unwrap();
 
@@ -116,12 +116,8 @@ impl ListEditor {
             let conn = db.conn();
             let query = "UPDATE project_list SET title = ?1, updated_at = ?2 WHERE id = ?3";
             let mut stmt = conn.prepare(query).unwrap();
-            stmt.execute((
-                &self.inputs.title.input_string(),
-                current_timestamp(),
-                data.id,
-            ))
-            .unwrap();
+            stmt.execute((&self.inputs.title.input_string(), DateTime::now(), data.id))
+                .unwrap();
             Ok(data.id)
         } else {
             Err("list data was not set")

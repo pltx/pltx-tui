@@ -727,7 +727,6 @@ dependencies = [
 name = "pltx_dashboard"
 version = "0.0.1"
 dependencies = [
- "chrono",
  "crossterm",
  "pltx_app",
  "pltx_database",
@@ -739,7 +738,6 @@ dependencies = [
 name = "pltx_database"
 version = "0.0.1"
 dependencies = [
- "chrono",
  "home",
  "pltx_tracing",
  "pltx_utils",
@@ -753,7 +751,6 @@ dependencies = [
 name = "pltx_project_management"
 version = "0.0.1"
 dependencies = [
- "chrono",
  "crossterm",
  "pltx_app",
  "pltx_config",
@@ -783,7 +780,9 @@ version = "0.0.1"
 dependencies = [
  "chrono",
  "crossterm",
+ "pltx_tracing",
  "ratatui",
+ "tracing",
 ]
 
 [[package]]

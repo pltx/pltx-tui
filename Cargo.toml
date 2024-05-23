@@ -71,7 +71,6 @@ pltx_dashboard = { path = "pltx-dashboard" }
 pltx_project_management = { path = "pltx-project-management" }
 
 color-eyre = "0.6.3"
-chrono = "0.4.38"
 crossterm = "0.27.0"
 ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, CompositeWidget, DefaultWidget, KeyEventHandler, Screen};
 use pltx_database::Database;
-use pltx_utils::current_timestamp;
+use pltx_utils::DateTime;
 use pltx_widgets::{Buttons, TextInput};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -238,8 +238,8 @@ impl ProjectEditor {
                 self.inputs.title.input_string(),
                 description,
                 highest_position + 1,
-                current_timestamp(),
-                current_timestamp(),
+                DateTime::now(),
+                DateTime::now(),
             ),
         )?;
 
@@ -261,8 +261,8 @@ impl ProjectEditor {
                     label.1.input_string(),
                     label.2.input_string(),
                     i,
-                    current_timestamp(),
-                    current_timestamp(),
+                    DateTime::now(),
+                    DateTime::now(),
                 ),
             )?;
         }
@@ -279,7 +279,7 @@ impl ProjectEditor {
             stmt.execute((
                 self.inputs.title.input_string(),
                 self.inputs.description.input_string(),
-                current_timestamp(),
+                DateTime::now(),
                 data.id,
             ))?;
             self.db_edit_labels(db, data.id)?;
@@ -300,7 +300,7 @@ impl ProjectEditor {
                 stmt.execute((
                     label.1.input_string(),
                     label.2.input_string(),
-                    current_timestamp(),
+                    DateTime::now(),
                     project_id,
                     label_id,
                 ))?;
@@ -314,8 +314,8 @@ impl ProjectEditor {
                         label.1.input_string(),
                         label.2.input_string(),
                         i,
-                        current_timestamp(),
-                        current_timestamp(),
+                        DateTime::now(),
+                        DateTime::now(),
                     ),
                 )?;
             }

@@ -3,12 +3,11 @@ use std::{
     str::FromStr,
 };
 
-use chrono::{DateTime, Duration, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::GlobalPopup, App, Popup, Screen};
 use pltx_database::Database;
 use pltx_tracing::trace_panic;
-use pltx_utils::{after_datetime, current_timestamp, db_datetime_option};
+use pltx_utils::DateTime;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
@@ -45,8 +44,8 @@ struct OpenProjectCard {
     list_id: i32,
     title: String,
     important: bool,
-    start_date: Option<DateTime<Utc>>,
-    due_date: Option<DateTime<Utc>>,
+    start_date: Option<DateTime>,
+    due_date: Option<DateTime>,
     completed: bool,
     // position: i32,
     labels: HashSet<i32>,
@@ -55,17 +54,15 @@ struct OpenProjectCard {
 
 impl OpenProjectCard {
     fn in_progress(&self) -> bool {
-        self.start_date.is_some_and(after_datetime) && !self.overdue()
+        self.start_date.as_ref().is_some_and(|d| d.is_past()) && !self.overdue()
     }
 
     fn due_soon(&self) -> bool {
-        self.due_date
-            .is_some_and(|d| after_datetime(d - Duration::days(3)))
-            && !self.overdue()
+        self.due_date.as_ref().is_some_and(|d| d.is_past_days(3)) && !self.overdue()
     }
 
     fn overdue(&self) -> bool {
-        self.due_date.is_some_and(after_datetime)
+        self.due_date.as_ref().is_some_and(|d| d.is_past())
     }
 }
 
@@ -559,8 +556,8 @@ impl OpenProject {
                 list_id: r.get(1)?,
                 title: r.get(2)?,
                 important: r.get(3)?,
-                start_date: db_datetime_option(r.get(4)?),
-                due_date: db_datetime_option(r.get(5)?),
+                start_date: DateTime::from_db_option(r.get(4)?),
+                due_date: DateTime::from_db_option(r.get(5)?),
                 completed: r.get(6)?,
                 // position: r.get(7)?,
                 labels: HashSet::new(),
@@ -714,7 +711,7 @@ impl OpenProject {
         let conn = db.conn();
         let query = "UPDATE project_card SET completed = ?1, updated_at = ?2 WHERE id = ?3";
         let mut stmt = conn.prepare(query)?;
-        stmt.execute((!completed, current_timestamp(), card_id))?;
+        stmt.execute((!completed, DateTime::now(), card_id))?;
         Ok(())
     }
 
@@ -727,7 +724,7 @@ impl OpenProject {
         let conn = db.conn();
         let query = "UPDATE project_card SET important = ?1, updated_at = ?2 WHERE id = ?3";
         let mut stmt = conn.prepare(query)?;
-        stmt.execute((!important, current_timestamp(), card_id))?;
+        stmt.execute((!important, DateTime::now(), card_id))?;
         Ok(())
     }
 }

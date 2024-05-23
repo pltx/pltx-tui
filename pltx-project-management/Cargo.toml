@@ -15,7 +15,6 @@ pltx_database = { workspace = true }
 pltx_tracing = { workspace = true }
 pltx_utils = { workspace = true }
 pltx_widgets = { workspace = true }
-chrono = { workspace = true }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
 rusqlite = { workspace = true }

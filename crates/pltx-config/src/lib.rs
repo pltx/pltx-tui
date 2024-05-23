@@ -99,7 +99,7 @@ fn get_base_config() -> Config {
             input_cursor_insert_fg: get_color("#000000"),
             input_cursor_insert_bg: get_color("#FFFFFF"),
             active_fg: get_color("#000000"),
-            active_bg: get_color("#4db3ff"),
+            active_bg: get_color("#00ffff"),
             border: get_color("#777777"),
             border_insert: get_color("#00FFFF"),
             popup_bg: get_color("#111111"),

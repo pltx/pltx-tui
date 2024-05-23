@@ -1,7 +1,6 @@
-use chrono::{DateTime, Timelike, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::Pane, App, Module};
-use pltx_utils::{db_datetime_option, display_timestamp_seconds};
+use pltx_utils::DateTime;
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Style, Stylize},
@@ -11,8 +10,8 @@ use ratatui::{
 
 struct Session {
     id: i32,
-    started: Option<DateTime<Utc>>,
-    ended: Option<DateTime<Utc>>,
+    started: Option<DateTime>,
+    ended: Option<DateTime>,
     is_current: bool,
 }
 
@@ -39,8 +38,8 @@ impl Module for Dashboard {
                     id: row.get(0)?,
                     // Parsed as Option<DateTime<Utc>> instead of DateTime<Utc> because the current
                     // session won't have a ended datetime when this data is fetched.
-                    started: db_datetime_option(row.get(1)?),
-                    ended: db_datetime_option(row.get(2)?),
+                    started: DateTime::from_db_option(row.get(1)?),
+                    ended: DateTime::from_db_option(row.get(2)?),
                     is_current: false,
                 })
             })
@@ -99,20 +98,23 @@ impl Dashboard {
             .map(|s| {
                 Row::new(vec![
                     Cell::new(s.id.to_string()),
-                    Cell::new(if let Some(started) = s.started {
-                        if let Some(ended) = s.ended {
-                            let days = ended.hour().saturating_sub(started.hour());
-                            let hours = ended.hour().saturating_sub(started.hour());
-                            let minutes = ended.minute().saturating_sub(started.minute());
-                            let seconds = ended.second().saturating_sub(started.second());
-                            if days > 0 {
-                                format!("{}d {}h {}m", days, hours, minutes)
-                            } else if hours > 0 {
-                                format!("{}h {}m {}s", hours, minutes, seconds)
-                            } else if minutes != 0 {
-                                format!("{}m {}s", minutes, seconds)
+                    Cell::new(if let Some(started) = &s.started {
+                        if let Some(ended) = &s.ended {
+                            let duration = ended.since(started);
+                            if duration.days > 0 {
+                                format!(
+                                    "{}d {}h {}m",
+                                    duration.days, duration.hours, duration.minutes
+                                )
+                            } else if duration.hours > 0 {
+                                format!(
+                                    "{}h {}m {}s",
+                                    duration.hours, duration.minutes, duration.seconds
+                                )
+                            } else if duration.minutes != 0 {
+                                format!("{}m {}s", duration.minutes, duration.seconds)
                             } else {
-                                format!("{}s", seconds)
+                                format!("{}s", duration.seconds)
                             }
                         } else {
                             "<unknown>".to_string()
@@ -120,15 +122,15 @@ impl Dashboard {
                     } else {
                         "<pending>".to_string()
                     }),
-                    Cell::new(if let Some(started) = s.started {
-                        display_timestamp_seconds(started)
+                    Cell::new(if let Some(started) = &s.started {
+                        started.display_with_seconds()
                     } else {
                         "<pending>".to_string()
                     }),
                     Cell::new(if s.is_current {
                         "<current>".to_string()
-                    } else if let Some(ended) = s.ended {
-                        display_timestamp_seconds(ended)
+                    } else if let Some(ended) = &s.ended {
+                        ended.display_with_seconds()
                     } else {
                         "<empty>".to_string()
                     }),

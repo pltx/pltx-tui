@@ -6,7 +6,8 @@ use pltx_app::{
 };
 use pltx_config::ColorsConfig;
 use pltx_database::Database;
-use pltx_utils::{current_timestamp, db_datetime_to_string, parse_user_datetime_option};
+use pltx_tracing::trace_debug;
+use pltx_utils::DateTime;
 use pltx_widgets::{self, Buttons, Form, PopupSize, PopupWidget, Selection, Switch, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -54,8 +55,8 @@ struct CardData {
     title: String,
     description: Option<String>,
     important: bool,
-    start_date: Option<String>,
-    due_date: Option<String>,
+    start_date: Option<DateTime>,
+    due_date: Option<DateTime>,
     reminder: Option<i32>,
     // position: i32,
     // created_at: String,
@@ -237,18 +238,21 @@ impl CardEditor {
                      important, start_date, due_date, reminder, position, created_at, updated_at) \
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)";
         let inputs = &self.inputs.properties.inputs;
+        trace_debug!(DateTime::input_to_db(
+            (*inputs.start_date).borrow().input_string()
+        ));
         let params = (
             Some(self.project_id),
             Some(self.list_id),
             self.inputs.title.input_string(),
             self.inputs.description.input_string(),
             (*inputs.important).borrow().state,
-            parse_user_datetime_option((*inputs.start_date).borrow().input_string()),
-            parse_user_datetime_option((*inputs.due_date).borrow().input_string()),
+            DateTime::input_to_db((*inputs.start_date).borrow().input_string()),
+            DateTime::input_to_db((*inputs.due_date).borrow().input_string()),
             Option::<String>::None,
             highest_position + 1,
-            current_timestamp(),
-            current_timestamp(),
+            DateTime::now(),
+            DateTime::now(),
         );
         db.conn().execute(query, params).unwrap();
 
@@ -272,8 +276,8 @@ impl CardEditor {
                     Some(self.project_id),
                     card_id,
                     label.0,
-                    current_timestamp(),
-                    current_timestamp(),
+                    DateTime::now(),
+                    DateTime::now(),
                 ),
             )?;
         }
@@ -293,10 +297,10 @@ impl CardEditor {
                 self.inputs.title.input_string(),
                 self.inputs.description.input_string(),
                 (*inputs.important).borrow().state,
-                parse_user_datetime_option((*inputs.start_date).borrow().input_string()),
-                parse_user_datetime_option((*inputs.due_date).borrow().input_string()),
+                DateTime::input_to_db((*inputs.start_date).borrow().input_string()),
+                DateTime::input_to_db((*inputs.due_date).borrow().input_string()),
                 Option::<String>::None,
-                current_timestamp(),
+                DateTime::now(),
                 data.id,
             ))
             .unwrap();
@@ -323,8 +327,8 @@ impl CardEditor {
                             Some(self.project_id),
                             card_id,
                             label.0,
-                            current_timestamp(),
-                            current_timestamp(),
+                            DateTime::now(),
+                            DateTime::now(),
                         ),
                     )?;
                 }
@@ -461,8 +465,8 @@ impl CardEditor {
                 title: r.get(1)?,
                 description: r.get(2)?,
                 important: r.get(3)?,
-                start_date: db_datetime_to_string(r.get(4)?),
-                due_date: db_datetime_to_string(r.get(5)?),
+                start_date: DateTime::from_db_option(r.get(4)?),
+                due_date: DateTime::from_db_option(r.get(5)?),
                 reminder: r.get(6)?,
                 // position: r.get(7)?,
                 // created_at: r.get(8)?,
@@ -487,13 +491,13 @@ impl CardEditor {
             if let Some(start_date) = &data.start_date {
                 (*self.inputs.properties.inputs.start_date)
                     .borrow_mut()
-                    .input(start_date.clone());
+                    .input(start_date.display());
             }
 
             if let Some(due_date) = &data.due_date {
                 (*self.inputs.properties.inputs.due_date)
                     .borrow_mut()
-                    .input(due_date.clone());
+                    .input(due_date.display());
             }
 
             if let Some(reminder) = &data.reminder {
@@ -527,7 +531,7 @@ impl CardEditor {
         if let Some(start_date) = &data.start_date {
             (*self.inputs.properties.inputs.start_date)
                 .borrow_mut()
-                .input(start_date.clone());
+                .input(start_date.display());
         }
 
         Ok(())

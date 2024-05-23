@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::Display, App, DefaultWidget, FormWidget, KeyEventHandler};
-use pltx_utils::display_current_timestamp;
+use pltx_utils::DateTime;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
@@ -208,7 +208,7 @@ impl TextInput {
 
     pub fn datetime_input(mut self) -> Self {
         self.input_type = TextInputType::Date;
-        self.placeholder = Some(display_current_timestamp());
+        self.placeholder = Some(DateTime::display_now());
         self.min = Some(16);
         self.max = Some(16);
         self

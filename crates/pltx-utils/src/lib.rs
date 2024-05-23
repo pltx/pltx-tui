@@ -4,7 +4,7 @@ mod datetime;
 mod module;
 mod widget;
 
-pub use datetime::*;
+pub use datetime::DateTime;
 pub use module::*;
 pub use widget::*;
 

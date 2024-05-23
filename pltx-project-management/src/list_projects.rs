@@ -1,10 +1,7 @@
-use chrono::{DateTime, Duration, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::Mode, App, Screen};
 use pltx_database::Database;
-use pltx_utils::{
-    after_datetime, current_timestamp, db_datetime, db_datetime_option, display_timestamp,
-};
+use pltx_utils::DateTime;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
@@ -22,8 +19,8 @@ struct Project {
     title: String,
     description: Option<String>,
     position: i32,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    created_at: DateTime,
+    updated_at: DateTime,
     labels: i32,
     lists: i32,
     total_cards: i32,
@@ -260,11 +257,11 @@ impl Screen<bool> for ListProjects {
                 ]),
                 Line::from(vec![
                     Span::styled("Created At: ", Style::new().fg(colors.secondary)),
-                    Span::from(display_timestamp(project.created_at)),
+                    Span::from(project.created_at.display()),
                 ]),
                 Line::from(vec![
                     Span::styled("Updated At: ", Style::new().fg(colors.secondary)),
-                    Span::from(display_timestamp(project.updated_at)),
+                    Span::from(project.updated_at.display()),
                 ]),
             ];
             let info_text = Text::from([info_1, description, info_2].concat());
@@ -309,8 +306,8 @@ impl ListProjects {
                     title: row.get(1)?,
                     description: row.get(2)?,
                     position: row.get(3)?,
-                    created_at: db_datetime(row.get(4)?),
-                    updated_at: db_datetime(row.get(5)?),
+                    created_at: DateTime::from_db(row.get(4)?),
+                    updated_at: DateTime::from_db(row.get(5)?),
                     labels: 0,
                     lists: 0,
                     total_cards: 0,
@@ -380,8 +377,8 @@ impl ListProjects {
     ) -> rusqlite::Result<Vec<Project>> {
         struct ListProjectCard {
             project_id: i32,
-            start_date: Option<DateTime<Utc>>,
-            due_date: Option<DateTime<Utc>>,
+            start_date: Option<DateTime>,
+            due_date: Option<DateTime>,
             important: bool,
         }
 
@@ -392,8 +389,8 @@ impl ListProjects {
         let card_iter = stmt.query_map([], |row| {
             Ok(ListProjectCard {
                 project_id: row.get(0)?,
-                start_date: db_datetime_option(row.get(1)?),
-                due_date: db_datetime_option(row.get(2)?),
+                start_date: DateTime::from_db_option(row.get(1)?),
+                due_date: DateTime::from_db_option(row.get(2)?),
                 important: row.get(3)?,
             })
         })?;
@@ -406,19 +403,18 @@ impl ListProjects {
                 .unwrap();
             projects[index].total_cards += 1;
 
-            if card.start_date.is_some_and(after_datetime)
-                && !card.due_date.is_some_and(after_datetime)
+            if card.start_date.as_ref().is_some_and(|d| d.is_past())
+                && !card.due_date.as_ref().is_some_and(|d| d.is_past())
             {
                 projects[index].cards_in_progress += 1;
             }
 
             if let Some(due_date) = card.due_date {
-                let due_soon_datetime = due_date - Duration::days(3);
-                if after_datetime(due_soon_datetime) && !after_datetime(due_date) {
+                if due_date.is_past_days(3) && !due_date.is_past() {
                     projects[index].cards_due_soon += 1;
                 }
 
-                if after_datetime(due_date) {
+                if due_date.is_past() {
                     projects[index].cards_overdue += 1;
                 }
             }
@@ -453,7 +449,7 @@ impl ListProjects {
         let update_position_query =
             "UPDATE project SET position = position - 1, updated_at = ?1 WHERE position > ?2";
         let mut update_position_stmt = conn.prepare(update_position_query)?;
-        update_position_stmt.execute((current_timestamp(), select.position))?;
+        update_position_stmt.execute((DateTime::now(), select.position))?;
 
         if let Some(selected_id) = self.selected_id {
             let selected_index = self

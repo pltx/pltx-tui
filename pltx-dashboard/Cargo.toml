@@ -12,6 +12,5 @@ authors.workspace = true
 pltx_app = { workspace = true }
 pltx_database = { workspace = true }
 pltx_utils = { workspace = true }
-chrono = { workspace = true }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
