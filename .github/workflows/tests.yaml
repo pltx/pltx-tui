@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  RUSTFLAGS: "-Dwarnings"
+
 jobs:
   tests:
     name: Tests
@@ -29,7 +32,7 @@ jobs:
         run: cargo fmt --all -- --check --verbose
 
       - name: Clippy
-        run: cargo clippy -- -D warnings --verbose
+        run: cargo clippy --all-target --all-features
 
       - name: Test
         run: cargo test --verbose --workspace

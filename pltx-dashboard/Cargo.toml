@@ -8,6 +8,9 @@ repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 pltx_app = { workspace = true }
 pltx_database = { workspace = true }
