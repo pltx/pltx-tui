@@ -44,7 +44,7 @@ impl Screen<bool> for ListProjects {
             projects_state: None,
         };
 
-        list_projects.db_get_projects(&app.db).unwrap();
+        list_projects.db_get_projects(app).unwrap();
 
         list_projects
     }
@@ -87,8 +87,7 @@ impl Screen<bool> for ListProjects {
                     KeyCode::Char('y') => {
                         self.db_delete_project(&app.db)
                             .unwrap_or_else(|e| panic!("{e}"));
-                        self.db_get_projects(&app.db)
-                            .unwrap_or_else(|e| panic!("{e}"));
+                        self.db_get_projects(app).unwrap_or_else(|e| panic!("{e}"));
                         app.reset_display();
                     }
                     KeyCode::Char('n') => app.reset_display(),
@@ -294,8 +293,8 @@ impl ListProjects {
         self.projects_state = Some(projects_state);
     }
 
-    pub fn db_get_projects(&mut self, db: &Database) -> rusqlite::Result<()> {
-        let conn = db.conn();
+    pub fn db_get_projects(&mut self, app: &App) -> rusqlite::Result<()> {
+        let conn = app.db.conn();
         let project_query = "SELECT id, title, description, position, created_at, updated_at FROM \
                              project ORDER BY position";
         let mut project_stmt = conn.prepare(project_query).unwrap();
@@ -323,9 +322,9 @@ impl ListProjects {
             projects.push(p.unwrap())
         }
 
-        projects = self.db_get_labels(db, &mut projects).unwrap();
-        projects = self.db_get_lists(db, &mut projects).unwrap();
-        projects = self.db_get_cards(db, &mut projects).unwrap();
+        projects = self.db_get_labels(&app.db, &mut projects).unwrap();
+        projects = self.db_get_lists(&app.db, &mut projects).unwrap();
+        projects = self.db_get_cards(app, &mut projects).unwrap();
 
         if !projects.is_empty() && self.selected_id.is_none() {
             self.selected_id = Some(projects[0].id);
@@ -370,11 +369,7 @@ impl ListProjects {
         Ok(projects.to_vec())
     }
 
-    fn db_get_cards(
-        &self,
-        db: &Database,
-        projects: &mut [Project],
-    ) -> rusqlite::Result<Vec<Project>> {
+    fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
         struct ListProjectCard {
             project_id: i32,
             start_date: Option<DateTime>,
@@ -382,7 +377,7 @@ impl ListProjects {
             important: bool,
         }
 
-        let conn = db.conn();
+        let conn = app.db.conn();
         let query = "SELECT project_id, start_date, due_date, important FROM project_card ORDER \
                      BY position";
         let mut stmt = conn.prepare(query)?;
@@ -410,7 +405,9 @@ impl ListProjects {
             }
 
             if let Some(due_date) = card.due_date {
-                if due_date.is_past_days(3) && !due_date.is_past() {
+                if due_date.is_past_days(app.config.modules.project_management.due_soon_days)
+                    && !due_date.is_past()
+                {
                     projects[index].cards_due_soon += 1;
                 }
 

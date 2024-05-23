@@ -50,14 +50,15 @@ struct ConfigFile {
 
 /// The merged project management config.
 #[derive(Deserialize, Serialize, Clone)]
-pub struct ProjectMangementModule<LimitType, CharType> {
-    pub max_lists: LimitType,
-    pub completed_char: CharType,
-    pub overdue_char: CharType,
-    pub due_soon_char: CharType,
-    pub in_progress_char: CharType,
-    pub important_char: CharType,
-    pub default_char: CharType,
+pub struct ProjectMangementModule<NumT, CharT> {
+    pub max_lists: NumT,
+    pub due_soon_days: NumT,
+    pub completed_char: CharT,
+    pub overdue_char: CharT,
+    pub due_soon_char: CharT,
+    pub in_progress_char: CharT,
+    pub important_char: CharT,
+    pub default_char: CharT,
 }
 
 /// The merged modules config.
@@ -122,6 +123,7 @@ fn get_base_config() -> Config {
         modules: ModulesConfig {
             project_management: ProjectMangementModule {
                 max_lists: 5,
+                due_soon_days: 3,
                 completed_char: String::from("✅"),
                 overdue_char: String::from("🚫"),
                 due_soon_char: String::from("⏰"),
@@ -256,6 +258,9 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                         max_lists: project_management
                             .max_lists
                             .unwrap_or(base_config.modules.project_management.max_lists),
+                        due_soon_days: project_management
+                            .due_soon_days
+                            .unwrap_or(base_config.modules.project_management.due_soon_days),
                         completed_char: project_management
                             .completed_char
                             .unwrap_or(base_config.modules.project_management.completed_char),

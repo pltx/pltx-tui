@@ -85,7 +85,7 @@ impl Screen for Projects {
             self.page = Page::ListProjects;
             self.pages
                 .list_projects
-                .db_get_projects(&app.db)
+                .db_get_projects(app)
                 .unwrap_or_else(|e| panic!("{e}"));
         }
     }

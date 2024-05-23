@@ -90,6 +90,8 @@ status_bar_delete_mode_fg = "#000000"
 [modules.project_management]
 # The maximum number of lists allowed in a project.
 max_lists = 5
+# Days before the due date that a card should be considered due soon.
+due_soon_days = 3
 completed_char = "✅"
 overdue_char = "🚫"
 due_soon_char = "⏰"

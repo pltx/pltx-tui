@@ -57,8 +57,8 @@ impl OpenProjectCard {
         self.start_date.as_ref().is_some_and(|d| d.is_past()) && !self.overdue()
     }
 
-    fn due_soon(&self) -> bool {
-        self.due_date.as_ref().is_some_and(|d| d.is_past_days(3)) && !self.overdue()
+    fn due_soon(&self, days: i32) -> bool {
+        self.due_date.as_ref().is_some_and(|d| d.is_past_days(days)) && !self.overdue()
     }
 
     fn overdue(&self) -> bool {
@@ -803,7 +803,7 @@ impl OpenProject {
             &config.completed_char
         } else if card.overdue() {
             &config.overdue_char
-        } else if card.due_soon() {
+        } else if card.due_soon(app.config.modules.project_management.due_soon_days) {
             &config.due_soon_char
         } else if card.in_progress() {
             &config.in_progress_char

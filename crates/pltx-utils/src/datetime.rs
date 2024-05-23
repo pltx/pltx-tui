@@ -111,8 +111,8 @@ impl DateTime {
         Utc::now().timestamp() > self.datetime.timestamp()
     }
 
-    pub fn is_past_days(&self, days: i64) -> bool {
-        Utc::now().timestamp() > (self.datetime - Duration::days(days)).timestamp()
+    pub fn is_past_days(&self, days: i32) -> bool {
+        Utc::now().timestamp() > (self.datetime - Duration::days(days as i64)).timestamp()
     }
 
     pub fn since(&self, past: &DateTime) -> DurationSince {
