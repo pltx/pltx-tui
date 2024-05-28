@@ -109,8 +109,7 @@ impl Screen<Result<bool>> for ListProjects {
             let rows = self
                 .projects
                 .iter()
-                .enumerate()
-                .map(|(_, p)| {
+                .map(|p| {
                     Row::new(vec![
                         Cell::new(format!(" {}", p.position)),
                         Cell::new(p.title.clone()),

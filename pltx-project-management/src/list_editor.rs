@@ -3,7 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::Display, App, DefaultWidget, KeyEventHandler, Popup};
 use pltx_database::Database;
 use pltx_utils::DateTime;
-use pltx_widgets::{self, PopupSize, PopupWidget, TextInput};
+use pltx_widgets::{PopupSize, PopupWidget, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     Frame,

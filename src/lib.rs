@@ -32,11 +32,10 @@ pub fn run_tui(app: &mut App) -> Result<()> {
                 tui.events
                     .key_events(app, &mut interface, &mut command_handler, key_event)?
             }
-            Event::Mouse(_) => {}
-            Event::Resize(_, _) => {}
+            // Event::Mouse(_) => {}
+            // Event::Resize(_, _) => {}
             Event::FocusGained => {}
-            Event::FocusLost => {}
-            Event::Paste(_) => {}
+            Event::FocusLost => {} // Event::Paste(_) => {}
         }
     }
 

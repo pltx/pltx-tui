@@ -2,7 +2,7 @@ use color_eyre::Result;
 use pltx_config::ProfileConfig;
 use pltx_utils::dirs;
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{self, layer::SubscriberExt, util::SubscriberInitExt, Layer};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 /// Initialize the tracing crate.
 pub fn init_logging(log_level: &str, profile: &ProfileConfig) -> Result<()> {

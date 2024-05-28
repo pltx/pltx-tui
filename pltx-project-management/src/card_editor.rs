@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashSet, convert::From, rc::Rc, str::FromStr};
+use std::{cell::RefCell, collections::HashSet, rc::Rc, str::FromStr};
 
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -8,7 +8,7 @@ use pltx_app::{
 use pltx_config::ColorsConfig;
 use pltx_database::Database;
 use pltx_utils::DateTime;
-use pltx_widgets::{self, Buttons, Form, PopupSize, PopupWidget, Selection, Switch, TextInput};
+use pltx_widgets::{Buttons, Form, PopupSize, PopupWidget, Selection, Switch, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},

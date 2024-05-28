@@ -5,9 +5,7 @@ use std::{
 };
 
 use color_eyre::{eyre::Context, Result};
-use crossterm::event::{
-    self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind, MouseEvent,
-};
+use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind};
 use pltx_app::{
     state::{AppModule, AppPopup, Display},
     App, Module, Popup,
@@ -18,11 +16,11 @@ use crate::{command_handler::CommandHandler, ui::Interface};
 pub enum Event {
     Tick,
     Key(KeyEvent),
-    Mouse(MouseEvent),
-    Resize(u16, u16),
+    // Mouse(MouseEvent),
+    // Resize(u16, u16),
     FocusGained,
     FocusLost,
-    Paste(String),
+    // Paste(String),
 }
 
 pub struct EventHandler {
@@ -50,14 +48,26 @@ impl EventHandler {
 
                     if event::poll(timeout).expect("no events available") {
                         match event::read().expect("enable to read event") {
-                            CrosstermEvent::Key(e) => sender.send(Event::Key(e)),
-                            CrosstermEvent::Mouse(e) => sender.send(Event::Mouse(e)),
-                            CrosstermEvent::Resize(w, h) => sender.send(Event::Resize(w, h)),
-                            CrosstermEvent::FocusGained => sender.send(Event::FocusGained),
-                            CrosstermEvent::FocusLost => sender.send(Event::FocusLost),
-                            CrosstermEvent::Paste(s) => sender.send(Event::Paste(s)),
+                            CrosstermEvent::Key(e) => {
+                                sender
+                                    .send(Event::Key(e))
+                                    .expect("failed to send key event");
+                            }
+                            // CrosstermEvent::Mouse(e) => sender.send(Event::Mouse(e)),
+                            // CrosstermEvent::Resize(w, h) => sender.send(Event::Resize(w, h)),
+                            CrosstermEvent::FocusGained => {
+                                sender
+                                    .send(Event::FocusGained)
+                                    .expect("failed to send focus gained event");
+                            }
+                            CrosstermEvent::FocusLost => {
+                                sender
+                                    .send(Event::FocusLost)
+                                    .expect("failed to send focus lost event");
+                            }
+                            // CrosstermEvent::Paste(s) => sender.send(Event::Paste(s)),
+                            _ => {}
                         }
-                        .expect("failed to send terminal event")
                     }
 
                     if last_tick.elapsed() >= tick_rate {

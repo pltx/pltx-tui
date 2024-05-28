@@ -40,9 +40,7 @@ struct Inputs {
     actions: Buttons<Action>,
 }
 
-#[derive(Clone)]
 pub struct ProjectLabel {
-    pub project_id: i32,
     pub id: i32,
     pub title: String,
     pub color: String,
@@ -541,15 +539,14 @@ impl ProjectEditor {
 
     fn db_get_labels(&mut self, db: &Database, project_id: i32) -> Result<Vec<ProjectLabel>> {
         let conn = db.conn();
-        let query = "SELECT project_id, id, title, color FROM project_label WHERE project_id = ?1 \
-                     ORDER BY position";
+        let query =
+            "SELECT id, title, color FROM project_label WHERE project_id = ?1 ORDER BY position";
         let mut stmt = conn.prepare(query)?;
         let labels_iter = stmt.query_map([project_id], |r| {
             Ok(ProjectLabel {
-                project_id: r.get(0)?,
-                id: r.get(1)?,
-                title: r.get(2)?,
-                color: r.get(3)?,
+                id: r.get(0)?,
+                title: r.get(1)?,
+                color: r.get(2)?,
             })
         })?;
 
