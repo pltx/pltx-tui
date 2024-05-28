@@ -146,3 +146,12 @@ All contributions to the project are welcome! Please read the [Contributing Guid
 ## License
 
 This project is licensed under the [GPL-3.0](./LICENSE) license.
+
+## Similar Projects
+
+- [`kdheepak/taskwarrior-tui`](https://github.com/kdheepak/taskwarrior-tui) (project management)
+- [`PlankCipher/kabmat`](https://github.com/PlankCipher/kabmat) (project management)
+- [`Zaloog/kanban-python`](https://github.com/Zaloog/kanban-python) (project management)
+- [`topydo/topydo`](https://github.com/topydo/topydo) (project management)
+
+Have a similar project? [Open an issue](https://github.com/pltx/tui/issues/new).
