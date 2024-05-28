@@ -9,6 +9,9 @@ const README_FILE: &str = "docs/REPO_README.md";
 const README_DEST: &str = "README.md";
 
 fn main() -> io::Result<()> {
+    println!("cargo:rerun-if-changed={}", DEFAULT_CONFIG_FILE);
+    println!("cargo:rerun-if-changed={}", README_FILE);
+
     let dest_path = PathBuf::from(README_DEST);
     let mut dest_file = File::create(dest_path).expect("failed to create readme file");
 

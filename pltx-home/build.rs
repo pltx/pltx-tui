@@ -19,11 +19,13 @@ struct Frontmatter {
     last_updated: String,
 }
 
-const IGNORE_FILES: [&str; 2] = ["README", "REPO_README"];
+const IGNORE_FILES: [&str; 1] = ["REPO_README"];
 const DOCS_DIR: &str = "../docs";
 const DOCS_DEST: &str = "src/generated_docs.rs";
 
 fn main() -> io::Result<()> {
+    println!("cargo:rerun-if-changed={}", DOCS_DIR);
+
     let dest_path = PathBuf::from(DOCS_DEST);
     let mut dest_file = File::create(dest_path).expect("failed to create generated_docs.rs");
 

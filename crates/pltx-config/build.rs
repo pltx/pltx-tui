@@ -19,6 +19,8 @@ pub struct DefaultConfig {
 }
 
 fn main() -> io::Result<()> {
+    println!("cargo:rerun-if-changed={}", DEFAULT_CONFIG_FILE);
+
     let dest_path = PathBuf::from(CONFIG_DEST);
     let mut dest_file = File::create(dest_path).expect("failed to create generated_config.rs");
 
