@@ -12,7 +12,7 @@
 - Fully configurable at `~/.config/pltx/config.toml`.
 - ~~Data is encrypted by default with a passphrase (coming soon).~~
 - Data is stored locally ~~or on a [server](https://github.com/pltx/server) (coming soon)~~.
-- Modules: Project Management + more coming soon.
+- [See all modules here](#modules).
 
 > [!IMPORTANT]
 > This software is designed for use on Linux. However, porting for use on other OSs would not be a difficult task if there is a demand.
@@ -21,6 +21,7 @@
 
 - [Installation](#installation)
 - [Usage](#usage)
+- [Modules](#modules)
 - [Configuration](#configuration)
 
 ## Installation
@@ -43,6 +44,12 @@ Run `pltx` to start the application.
 <!-- TODO: Add links to docs when docs are available -->
 
 ~~Pressing **`?`** will take you to the help pages with all the information on how to use pltx-tui (coming soon).~~
+
+## Modules
+
+- **Home:** Includes the dashboard, settings, and help pages.
+- **Project Management:** Manage project or general tasks. Similar to Trello or GitHub projects.
+- More coming soon!
 
 ## Configuration
 
