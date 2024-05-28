@@ -30,7 +30,6 @@ impl Card {
         self.margin = margin;
         self
     }
-    
 
     pub fn child_layout(&self) -> Rect {
         let [_, block_bottom_layout] = Layout::default()

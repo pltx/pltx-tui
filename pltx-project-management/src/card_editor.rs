@@ -482,7 +482,7 @@ impl CardEditor {
         let conn = db.conn();
         let query = "SELECT label_id from card_label WHERE card_id = ?1";
         let mut stmt = conn.prepare(query)?;
-        let label_id_iter = stmt.query_map([data.id], |r| r.get(0))?;
+        let label_id_iter = stmt.query_map([data.id], |r| r.get::<usize, i32>(0))?;
 
         for label in label_id_iter {
             let label_id = label?;

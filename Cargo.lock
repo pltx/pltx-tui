@@ -908,6 +908,7 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_derive",
+ "serde_json",
  "toml",
 ]
 

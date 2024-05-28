@@ -6,223 +6,42 @@ use std::str::FromStr;
 use color_eyre::Result;
 use pltx_utils::dirs;
 use ratatui::style::Color;
-use serde::{Deserialize, Serialize};
 
 const COLOR_PRESETS: [&str; 1] = ["default"];
 
-/// The base/merged colors config.
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ColorsConfig<S = String, C = Color> {
-    // TODO: color presets to be implemented
-    pub preset: S,
-    pub fg: C,
-    pub bg: C,
-    pub secondary_fg: C,
-    pub tertiary_fg: C,
-    pub highlight_fg: C,
-    pub primary: C,
-    pub success: C,
-    pub warning: C,
-    pub danger: C,
-    pub date_fg: C,
-    pub time_fg: C,
-    pub input_fg: C,
-    pub input_bg: C,
-    pub input_focus_fg: C,
-    pub input_focus_bg: C,
-    pub input_cursor_fg: C,
-    pub input_cursor_bg: C,
-    pub input_cursor_insert_fg: C,
-    pub input_cursor_insert_bg: C,
-    pub active_fg: C,
-    pub active_bg: C,
-    pub border: C,
-    pub border_active: C,
-    pub border_insert: C,
-    pub popup_bg: C,
-    pub popup_border: C,
-    pub keybind_key: C,
-    pub keybind_fg: C,
-    pub title_bar_bg: C,
-    pub title_bar_fg: C,
-    pub tab_fg: C,
-    pub tab_active_fg: C,
-    pub tab_border: C,
-    pub status_bar_bg: C,
-    pub status_bar_fg: C,
-    pub status_bar_normal_mode_bg: C,
-    pub status_bar_normal_mode_fg: C,
-    pub status_bar_insert_mode_bg: C,
-    pub status_bar_insert_mode_fg: C,
-    pub status_bar_interactive_mode_bg: C,
-    pub status_bar_interactive_mode_fg: C,
-    pub status_bar_delete_mode_bg: C,
-    pub status_bar_delete_mode_fg: C,
-}
+mod config;
 
-/// The base/merged home module config.
-#[derive(Deserialize, Serialize, Clone)]
-pub struct HomeModule<S> {
-    pub dashboard_title: S,
-    pub dashboard_message: S,
-}
+include!("generated_config.rs");
 
-/// The base/merged project management config.
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ProjectMangementModule<N, C> {
-    pub max_lists: N,
-    pub due_soon_days: N,
-    pub completed_char: C,
-    pub overdue_char: C,
-    pub due_soon_char: C,
-    pub in_progress_char: C,
-    pub important_char: C,
-    pub default_char: C,
-}
-
-/// The base/merged modules config.
-#[derive(Clone)]
-pub struct ModulesConfig {
-    pub home: HomeModule<String>,
-    pub project_management: ProjectMangementModule<i32, String>,
-}
-
-/// The user modules config.
-#[derive(Deserialize, Serialize)]
-pub struct ModulesConfigFile {
-    pub home: Option<HomeModule<Option<String>>>,
-    pub project_management: Option<ProjectMangementModule<Option<i32>, Option<String>>>,
-}
-
-/// The base/merged profile config
-#[derive(Clone, Deserialize, Serialize)]
-pub struct ProfileConfig<S = String> {
-    pub name: S,
-    pub config_file: S,
-    pub db_file: S,
-    pub log_file: S,
-}
-
-/// The user config.
-#[derive(Deserialize, Serialize)]
-struct ConfigFile {
-    log_level: Option<String>,
-    default_profile: Option<String>,
-    profiles: Option<Vec<ProfileConfig<Option<String>>>>,
-    colors: Option<ColorsConfig<Option<String>, Option<String>>>,
-    modules: Option<ModulesConfigFile>,
-}
+pub use config::*;
+use serde::{Deserialize, Serialize};
 
 /// The main base/merged config.
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
+pub struct DefaultConfig {
+    pub log_level: &'static str,
+    pub default_profile: &'static str,
+    pub colors: ColorsConfig<&'static str, &'static str>,
+    pub modules: ModulesConfig<&'static str>,
+    pub profiles: [ProfileConfig<&'static str>; 2],
+}
+
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Config {
     pub log_level: String,
     pub default_profile: String,
     pub colors: ColorsConfig,
     pub modules: ModulesConfig,
-    pub profiles: Vec<ProfileConfig<String>>,
+    pub profiles: Vec<ProfileConfig>,
 }
 
-/// Default config values. Overridden if user config values are provided.
-fn base_config(default_profile: ProfileConfig) -> Config {
-    // NOTE: Remember to update `README.md` with the default configuration values.
-    Config {
-        log_level: String::from("info"),
-        default_profile: String::from("default"),
-        colors: {
-            let fg = "#c0caf5";
-            let secondary_fg = "#7f87ac";
-            let tertiary_fg = "#2c344d";
-            let bg = "#11121D";
-            let secondary_bg = "#232b44";
-            let tertiary_bg = "#373f58";
-
-            ColorsConfig {
-                preset: String::from("default"),
-                fg: get_color(fg),
-                secondary_fg: get_color(secondary_fg),
-                tertiary_fg: get_color(tertiary_fg),
-                highlight_fg: get_color("#61a4ff"),
-                bg: get_color(bg),
-                primary: get_color("#9556f7"),
-                success: get_color("#85f67a"),
-                warning: get_color("#ff9382"),
-                danger: get_color("#ff4d66"),
-                date_fg: get_color("#9293b8"),
-                time_fg: get_color("#717299"),
-                input_fg: get_color(fg),
-                input_bg: get_color(secondary_bg),
-                input_focus_fg: get_color(fg),
-                input_focus_bg: get_color(tertiary_bg),
-                input_cursor_fg: get_color("#000000"),
-                input_cursor_bg: get_color(secondary_fg),
-                input_cursor_insert_fg: get_color("#000000"),
-                input_cursor_insert_bg: get_color(fg),
-                active_fg: get_color(secondary_bg),
-                active_bg: get_color("#00ffff"),
-                border: get_color(secondary_bg),
-                border_active: get_color("#4d556e"),
-                border_insert: get_color("#00FFFF"),
-                popup_bg: get_color(bg),
-                popup_border: get_color("#A485DD"),
-                keybind_key: get_color("#A485DD"),
-                keybind_fg: get_color("#6698FF"),
-                title_bar_bg: get_color(tertiary_bg),
-                title_bar_fg: get_color("#CCCCCC"),
-                tab_fg: get_color(secondary_fg),
-                tab_active_fg: get_color(fg),
-                tab_border: get_color(tertiary_bg),
-                status_bar_bg: get_color(secondary_bg),
-                status_bar_fg: get_color(secondary_fg),
-                status_bar_normal_mode_bg: get_color("#9bff46"),
-                status_bar_normal_mode_fg: get_color(secondary_bg),
-                status_bar_insert_mode_bg: get_color("#00ffff"),
-                status_bar_insert_mode_fg: get_color(secondary_bg),
-                status_bar_interactive_mode_bg: get_color("#ffff32"),
-                status_bar_interactive_mode_fg: get_color(secondary_bg),
-                status_bar_delete_mode_bg: get_color("#ff4d66"),
-                status_bar_delete_mode_fg: get_color(secondary_bg),
-            }
-        },
-        modules: ModulesConfig {
-            home: HomeModule {
-                dashboard_title: String::from("Privacy Life Tracker X"),
-                dashboard_message: String::from(
-                    "Manage your personal life privately and securely.",
-                ),
-            },
-            project_management: ProjectMangementModule {
-                max_lists: 5,
-                due_soon_days: 3,
-                completed_char: String::from("✅"),
-                overdue_char: String::from("🚫"),
-                due_soon_char: String::from("⏰"),
-                in_progress_char: String::from("🌐"),
-                important_char: String::from("⭐"),
-                default_char: String::from(" "),
-            },
-        },
-        profiles: vec![
-            default_profile,
-            ProfileConfig {
-                name: String::from("dev"),
-                config_file: String::from("dev.toml"),
-                db_file: String::from("dev.db"),
-                log_file: String::from("dev.log"),
-            },
-        ],
+impl From<DefaultConfig> for Config {
+    fn from(value: DefaultConfig) -> Self {
+        let serialized = serde_json::to_string(&value).unwrap();
+        serde_json::from_str(&serialized).unwrap()
     }
 }
 
-fn base_dev_config(base_config: Config) -> Config {
-    let mut dev_config = base_config;
-    dev_config.log_level = String::from("debug");
-    dev_config.modules.home.dashboard_title = String::from("DEVELOPER PROFILE ENABLED");
-    dev_config.modules.home.dashboard_message = String::from("This profile's data is separate!");
-    dev_config
-}
-
-/// Read the config file if it exists.
 fn read_config_file(filename: &str) -> Result<Option<ConfigFile>> {
     let config_file = dirs::config_dir().join(filename);
     let config_contents: Option<String> = std::fs::read_to_string(config_file).ok();
@@ -233,13 +52,13 @@ fn read_config_file(filename: &str) -> Result<Option<ConfigFile>> {
     Ok(config_toml)
 }
 
-/// Get the ratatui compatible color from a hex color.
+/// Get a ratatui compatible color from a hex color.
 fn get_color(color: &str) -> Color {
     Color::from_str(color).expect("failed to get color from string")
 }
 
-/// Call the `get_color()` function if provided (from user config), otherwise
-/// return the base config value.
+/// Call the `get_color()` function if a color is provided (from user config),
+/// otherwise return the base config value.
 fn color_op(color_op: Option<String>, base_config_color: Color) -> Color {
     match color_op {
         Some(color) => get_color(&color),
@@ -341,7 +160,7 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
 
         let project_management = modules.project_management.map(|a| {
             let b = bcm.project_management.clone();
-            ProjectMangementModule {
+            ProjectManagementModule {
                 max_lists: a.max_lists.unwrap_or(b.max_lists),
                 due_soon_days: a.due_soon_days.unwrap_or(b.due_soon_days),
                 completed_char: a.completed_char.unwrap_or(b.completed_char),
@@ -361,29 +180,33 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
 
     let profiles = user_config.profiles.map(|a| {
         a.iter()
-            .map(|profile| ProfileConfig::<String> {
-                name: profile.name.clone().expect("profile name not provided"),
+            .map(|profile| ProfileConfig {
+                name: profile
+                    .name
+                    .as_ref()
+                    .expect("profile name not provided")
+                    .clone(),
                 config_file: profile
                     .config_file
-                    .clone()
-                    .expect("profile config file not provided"),
+                    .as_ref()
+                    .expect("profile config file not provided")
+                    .clone(),
                 db_file: profile
                     .db_file
-                    .clone()
-                    .expect("profile db file not provided"),
+                    .as_ref()
+                    .expect("profile db file not provided")
+                    .clone(),
                 log_file: profile
                     .log_file
-                    .clone()
-                    .expect("profile log file not provided"),
+                    .as_ref()
+                    .expect("profile log file not provided")
+                    .clone(),
             })
             .collect()
     });
 
     Config {
-        log_level: user_config
-            .log_level
-            .clone()
-            .unwrap_or(base_config.log_level),
+        log_level: user_config.log_level.unwrap_or(base_config.log_level),
         default_profile: user_config
             .default_profile
             .unwrap_or(base_config.default_profile),
@@ -395,36 +218,31 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
 
 /// Read, parse, and marge the configuration.
 pub fn init_config(profile: Option<String>) -> Result<(Config, ProfileConfig)> {
-    let default_profile = ProfileConfig {
-        name: String::from("default"),
-        config_file: String::from("config.toml"),
-        db_file: String::from("data.db"),
-        log_file: String::from("debug.log"),
-    };
-    let base_config = base_config(default_profile.clone());
-    let default_config_file = read_config_file(&default_profile.config_file);
-
-    let default_config = match default_config_file? {
-        Some(user_config) => merge_config(user_config, base_config.clone()),
-        None => base_config.clone(),
-    };
+    let base_config = base_config();
+    let default_profile_name = base_config.default_profile;
+    let default_profile = base_config
+        .profiles
+        .as_ref()
+        .iter()
+        .find(|p| p.name == default_profile_name)
+        .expect("failed to get default profile")
+        .clone();
 
     if let Some(profile_name) = profile {
-        let profile = default_config
+        let profile = base_config
             .profiles
             .iter()
             .find(|p| p.name == profile_name)
             .unwrap_or_else(|| panic!("no profile \"{}\" in config.toml", profile_name))
             .to_owned();
 
-        let profile_config_file = read_config_file(&profile.config_file);
-        let base_dev_config = base_dev_config(base_config);
+        let profile_config_file = read_config_file(profile.config_file);
         let profile_config = match profile_config_file? {
-            Some(user_config) => merge_config(user_config, base_dev_config),
-            None => base_dev_config,
+            Some(user_config) => merge_config(user_config, base_config.into()),
+            None => base_config.into(),
         };
-        Ok((profile_config, profile))
+        Ok((profile_config, profile.into()))
     } else {
-        Ok((default_config, default_profile))
+        Ok((base_config.into(), (default_profile).into()))
     }
 }

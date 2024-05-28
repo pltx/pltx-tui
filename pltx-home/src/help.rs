@@ -6,15 +6,15 @@ use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, Screen};
 use pltx_utils::{centered_rect, symbols};
 use pltx_widgets::Scrollable;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Padding, Paragraph};
-use ratatui::{layout::Rect, Frame};
+use ratatui::{
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Style, Stylize},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Borders, Padding, Paragraph},
+    Frame,
+};
 use serde::{Deserialize, Serialize};
-use syntect::easy::HighlightLines;
-use syntect::highlighting::ThemeSet;
-use syntect::parsing::SyntaxSet;
+use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
 
 use crate::generated_docs::DOCUMENTS;
 
@@ -86,7 +86,15 @@ impl Screen for Help {
                     self.focused += 1;
                 }
 
-                tracing::debug!("focused = {}, focused_prev = {}, from_top = {}, line_count = {}, area_height = {}",self.focused, self.focused_prev, self.from_top, self.line_count, *(self.area_height.borrow()));
+                tracing::debug!(
+                    "focused = {}, focused_prev = {}, from_top = {}, line_count = {}, area_height \
+                     = {}",
+                    self.focused,
+                    self.focused_prev,
+                    self.from_top,
+                    self.line_count,
+                    *(self.area_height.borrow())
+                );
             }
             KeyCode::Char('k') => {
                 if self.page == Page::Selection {
@@ -122,8 +130,8 @@ impl Screen for Help {
                 self.document = Some(document);
                 self.page = Page::Document;
 
-                // TODO: This is very slow, possibly try to render the content first and load the
-                // highlighting in the background?
+                // TODO: This is very slow, possibly try to render the content first and load
+                // the highlighting in the background?
                 let ps = SyntaxSet::load_defaults_newlines();
                 let ts = ThemeSet::load_defaults();
                 let syntax = ps.find_syntax_by_extension("md").unwrap();

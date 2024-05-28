@@ -2,8 +2,9 @@ use std::fmt;
 
 use chrono::{DateTime as ChronoDateTime, Duration, Local, Utc};
 
-/// Custom struct around [`Chrono`](chrono) for managing datetime within the application. Provides convenience methods to
-/// reduce the need for repetitive code.
+/// Custom struct around [`Chrono`](chrono) for managing datetime within the
+/// application. Provides convenience methods to reduce the need for repetitive
+/// code.
 #[derive(Clone)]
 pub struct DateTime {
     pub datetime: ChronoDateTime<Utc>,
@@ -129,7 +130,8 @@ impl DateTime {
             .to_string()
     }
 
-    /// Convert and display the timedate to just the time with seconds in local format.
+    /// Convert and display the timedate to just the time with seconds in local
+    /// format.
     pub fn display_time_with_seconds(&self) -> String {
         ChronoDateTime::<Local>::from(self.datetime)
             .format("%H:%M:%S")
@@ -146,9 +148,9 @@ impl DateTime {
         Utc::now().timestamp() > self.datetime.timestamp()
     }
 
-    /// Checks if the current datetime is past a datetime minus a specified number of days, which
-    /// means the number of days *before* the datetime.
-    /// ```
+    /// Checks if the current datetime is past a datetime minus a specified
+    /// number of days, which means the number of days *before* the
+    /// datetime. ```
     /// # use pltx_utils::DateTime;
     /// let datetime = DateTime::from("2000-01-01T00:00:00+00:00");
     /// assert!(datetime.is_past_days(100));
@@ -190,7 +192,8 @@ impl DateTime {
         Utc::now().to_rfc3339()
     }
 
-    /// Create an instance from an database DATETIME field that doesn't have DEFAULT or NOT NULL.
+    /// Create an instance from an database DATETIME field that doesn't have
+    /// DEFAULT or NOT NULL.
     pub fn from_db_option(db_option: Option<String>) -> Option<Self> {
         db_option.map(Self::from)
     }
@@ -206,13 +209,13 @@ impl DateTime {
         )
     }
 
-    /// Converts the current datetime to rfc3999 format for storing in the database.
-    /// ```
+    /// Converts the current datetime to rfc3999 format for storing in the
+    /// database. ```
     /// # use pltx_utils::DateTime;
     /// # use chrono::DateTime as ChronoDateTime;
     /// let datetime = DateTime::from("2000-01-01T00:00:00+00:00");
-    /// assert!(ChronoDateTime::parse_from_rfc3339(&datetime.datetime.to_rfc3339()).is_ok());
-    /// ```
+    /// assert!(ChronoDateTime::parse_from_rfc3339(&datetime.datetime.
+    /// to_rfc3339()).is_ok()); ```
     pub fn into_db(&self) -> String {
         self.datetime.to_rfc3339()
     }

@@ -1,7 +1,10 @@
+use std::{
+    fs::{self, File},
+    io::{self, Write},
+    path::PathBuf,
+};
+
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::{self, Write};
-use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Document {
@@ -24,16 +27,13 @@ fn main() -> io::Result<()> {
     let dest_path = PathBuf::from(DOCS_DEST);
     let mut dest_file = File::create(dest_path).expect("failed to create generated_docs.rs");
 
-    let start_of_file = "
-        use crate::help::{Document,Frontmatter};
-        #[allow(private_interfaces)]
-        \n"
-    .split('\n')
-    .map(|s| s.trim_start())
-    .collect::<Vec<&str>>()
-    .join("\n");
-
-    write!(dest_file, "{}", start_of_file)?;
+    write!(
+        dest_file,
+        "
+use crate::help::{{Document,Frontmatter}};
+#[allow(private_interfaces)]
+"
+    )?;
 
     writeln!(dest_file, "pub static DOCUMENTS: &[Document] = &[")?;
 

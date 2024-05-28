@@ -85,8 +85,8 @@ impl KeyEventHandler for Scrollable {
     }
 }
 
-// TODO: Allow a Row widget or something similar to be passed as rows, so the user doesn't have to
-// specify a row style for each cell.
+// TODO: Allow a Row widget or something similar to be passed as rows, so the
+// user doesn't have to specify a row style for each cell.
 impl Scrollable {
     pub fn render<T>(&self, frame: &mut Frame, area: Rect, header: T, table: Vec<T>)
     where
