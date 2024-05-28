@@ -12,9 +12,10 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+pltx_utils = { workspace = true }
 ratatui = { workspace = true }
+color-eyre = { workspace = true }
 crossterm = { workspace = true }
-home = { workspace = true }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_derive = "1.0.197"
 toml = "0.8.12"

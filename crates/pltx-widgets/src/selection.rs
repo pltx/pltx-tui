@@ -32,9 +32,9 @@ impl<T> DefaultWidget for Selection<T> {
                 Span::from(if focused { "❯" } else { " " })
                     .bold()
                     .fg(colors.primary),
-                Span::from("[").fg(colors.secondary),
+                Span::from("[").fg(colors.secondary_fg),
                 Span::from(if self.selected.contains(&i) { "x" } else { " " }),
-                Span::from("] ").fg(colors.secondary),
+                Span::from("] ").fg(colors.secondary_fg),
                 if focused {
                     option.1.clone().bold()
                 } else {
@@ -59,24 +59,14 @@ impl<T> DefaultWidget for Selection<T> {
 }
 
 impl<T> CompositeWidget for Selection<T> {
-    fn focus_next_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_last() {
-            cb()
-        } else {
+    fn focus_next(&mut self) {
+        if !self.is_focus_last() {
             self.focused_option += 1;
         }
     }
 
-    fn focus_prev_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_first() {
-            cb()
-        } else {
+    fn focus_prev(&mut self) {
+        if !self.is_focus_first() {
             self.focused_option -= 1;
         }
     }

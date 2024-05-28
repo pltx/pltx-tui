@@ -4,10 +4,9 @@ members = [
   "crates/pltx-app",
   "crates/pltx-config",
   "crates/pltx-database",
-  "crates/pltx-tracing",
   "crates/pltx-utils",
   "crates/pltx-widgets",
-  "pltx-dashboard",
+  "pltx-home",
   "pltx-project-management",
 ]
 
@@ -65,13 +64,10 @@ workspace = true
 pltx_app = { path = "crates/pltx-app" }
 pltx_config = { path = "crates/pltx-config" }
 pltx_database = { path = "crates/pltx-database" }
-pltx_tracing = { path = "crates/pltx-tracing" }
 pltx_utils = { path = "crates/pltx-utils" }
 pltx_widgets = { path = "crates/pltx-widgets" }
-
-pltx_dashboard = { path = "pltx-dashboard" }
+pltx_home = { path = "pltx-home" }
 pltx_project_management = { path = "pltx-project-management" }
-
 color-eyre = "0.6.3"
 crossterm = "0.27.0"
 ratatui = { version = "0.26.1", features = ["widget-calendar", "serde"] }
@@ -79,24 +75,22 @@ rusqlite = { version = "0.31.0", features = ["bundled"] }
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.24.0"
 tracing = "0.1.40"
-home = "0.5.9"
 
 [dependencies]
 pltx_app = { workspace = true }
 pltx_database = { workspace = true }
 pltx_config = { workspace = true }
-pltx_tracing = { workspace = true }
+pltx_home = { workspace = true }
+pltx_project_management = { workspace = true }
 pltx_utils = { workspace = true }
 pltx_widgets = { workspace = true }
-
-pltx_dashboard = { workspace = true }
-pltx_project_management = { workspace = true }
-
 color-eyre = { workspace = true }
 crossterm = { workspace = true }
-fst = { version = "0.4.7", features = ["levenshtein"] }
 ratatui = { workspace = true }
 r2d2 = { workspace = true }
 r2d2_sqlite = { workspace = true }
 tracing = { workspace = true }
 clap = { version = "4.5.4", features = ["derive"] }
+nucleo = "0.5.0"
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

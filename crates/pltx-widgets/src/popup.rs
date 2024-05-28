@@ -60,8 +60,8 @@ pub struct PopupWidget<'a> {
     title_top: Option<&'a str>,
     title_bottom: Option<&'a str>,
     pub size: PopupSize,
-    pub area: Rect,
-    rect: Rect,
+    pub popup_area: Rect,
+    area: Rect,
     pub sub_area: Rect,
     colors: &'a ColorsConfig,
 }
@@ -80,36 +80,36 @@ impl<'a> PopupWidget<'a> {
             block = block.title(Title::from(format!(" {title} ")).alignment(Alignment::Center))
         }
 
-        frame.render_widget(Clear, self.area);
-        frame.render_widget(block, self.area);
+        frame.render_widget(Clear, self.popup_area);
+        frame.render_widget(block, self.popup_area);
         self
     }
 }
 
 impl<'a> PopupWidget<'a> {
-    pub fn new(app: &'a App, rect: Rect) -> PopupWidget<'a> {
+    pub fn new(app: &'a App, area: Rect) -> PopupWidget<'a> {
         let colors = &app.config.colors;
 
         let size = PopupSize::default();
 
-        let area = centered_rect(
+        let popup = centered_rect(
             (size.width, size.percentage_based_width),
             (size.height, size.percentage_based_height),
-            rect,
+            area,
         );
 
         let [sub_area] = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(2)
             .constraints([Constraint::Fill(1)])
-            .areas(area);
+            .areas(popup);
 
         PopupWidget {
             title_top: None,
             title_bottom: None,
-            rect,
-            size,
             area,
+            size,
+            popup_area: popup,
             sub_area,
             colors,
         }
@@ -117,16 +117,17 @@ impl<'a> PopupWidget<'a> {
 
     pub fn size(mut self, size: PopupSize) -> Self {
         self.size = size.clone();
-        self.area = centered_rect(
+        self.popup_area = centered_rect(
             (size.width, size.percentage_based_width),
             (size.height, size.percentage_based_height),
-            self.rect,
+            self.area,
         );
+
         self.sub_area = Layout::default()
             .vertical_margin(1)
             .horizontal_margin(2)
             .constraints([Constraint::Fill(1)])
-            .areas::<1>(self.area)[0];
+            .areas::<1>(self.popup_area)[0];
 
         self
     }

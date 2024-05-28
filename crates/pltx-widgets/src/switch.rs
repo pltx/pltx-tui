@@ -35,7 +35,7 @@ impl DefaultWidget for Switch {
                 .fg(colors.active_fg)
                 .bg(colors.active_bg)
         } else {
-            Style::new().fg(colors.secondary)
+            Style::new().fg(colors.secondary_fg)
         };
 
         let paragraph = Paragraph::new(Line::from(vec![

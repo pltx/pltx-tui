@@ -3,10 +3,10 @@ use std::{
     str::FromStr,
 };
 
+use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::GlobalPopup, App, Popup, Screen};
+use pltx_app::{state::AppPopup, App, Popup, Screen};
 use pltx_database::Database;
-use pltx_tracing::trace_panic;
 use pltx_utils::DateTime;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -16,8 +16,7 @@ use ratatui::{
     Frame,
 };
 
-use super::{card_editor::CardEditor, list_editor::ListEditor, projects::ProjectsState};
-use crate::ProjectManagementPane;
+use super::{card_editor::CardEditor, list_editor::ListEditor};
 
 #[derive(Clone)]
 pub struct ProjectLabel {
@@ -112,12 +111,11 @@ pub struct OpenProject {
     popup: OpenProjectPopup,
     popups: Popups,
     delete_selection: DeleteSelection,
-    projects_state: Option<ProjectsState>,
 }
 
-impl Screen<bool> for OpenProject {
-    fn init(app: &App) -> OpenProject {
-        OpenProject {
+impl Screen<Result<bool>> for OpenProject {
+    fn init(app: &App) -> Result<OpenProject> {
+        Ok(OpenProject {
             project_id: None,
             selected_list_id: None,
             selected_card_ids: HashMap::new(),
@@ -130,45 +128,44 @@ impl Screen<bool> for OpenProject {
                 edit_card: CardEditor::init(app),
             },
             delete_selection: DeleteSelection::None,
-            projects_state: None,
-        }
+        })
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> bool {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         if app.display.is_popup() {
+            if app.is_normal_mode() && key_event.code == KeyCode::Char('q') {
+                app.reset_display();
+                self.popup = OpenProjectPopup::None;
+            }
+
             if self.popup == OpenProjectPopup::NewList {
-                if let Some(new_list_id) = self.popups.new_list.key_event_handler(app, key_event) {
+                if let Some(new_list_id) = self.popups.new_list.key_event_handler(app, key_event)? {
                     self.selected_list_id = Some(new_list_id);
-                    self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
+                    self.db_get_project(app)?;
                 }
             } else if self.popup == OpenProjectPopup::NewCard {
-                if let Some(new_card_id) = self.popups.new_card.key_event_handler(app, key_event) {
+                if let Some(new_card_id) = self.popups.new_card.key_event_handler(app, key_event)? {
                     if let Some(selected_list_id) = self.selected_list_id {
                         self.selected_card_ids
                             .insert(selected_list_id, Some(new_card_id));
-                        self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
+                        self.db_get_project(app)?;
                     }
                 }
             }
 
             if match self.popup {
                 OpenProjectPopup::EditList => {
-                    self.popups.edit_list.key_event_handler(app, key_event)
+                    self.popups.edit_list.key_event_handler(app, key_event)?
                 }
                 OpenProjectPopup::EditCard => {
-                    self.popups.edit_card.key_event_handler(app, key_event)
+                    self.popups.edit_card.key_event_handler(app, key_event)?
                 }
                 _ => None,
             }
             .is_some()
             {
-                self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"))
+                self.db_get_project(app)?
             }
-        }
-
-        if app.display.is_popup() && key_event.code == KeyCode::Char('q') {
-            app.reset_display();
-            self.popup = OpenProjectPopup::None;
         }
 
         let selected_list_index = self.selected_list_index();
@@ -182,7 +179,7 @@ impl Screen<bool> for OpenProject {
             };
 
             match key_event.code {
-                KeyCode::Char('[') => return true,
+                KeyCode::Char('[') => return Ok(true),
                 KeyCode::Char('N') => {
                     self.popup = OpenProjectPopup::NewList;
                     app.popup_display();
@@ -229,9 +226,8 @@ impl Screen<bool> for OpenProject {
                         let list_index = self.selected_list_index().unwrap_or(0);
                         let card_index = self.selected_card_index().unwrap_or(0);
                         let completed = &self.data.lists[list_index].cards[card_index].completed;
-                        self.db_toggle_card_completed(&app.db, card_id, *completed)
-                            .unwrap();
-                        self.db_get_project(app).unwrap();
+                        self.db_toggle_card_completed(&app.db, card_id, *completed)?;
+                        self.db_get_project(app)?;
                     }
                 }
                 KeyCode::Char('i') => {
@@ -239,9 +235,8 @@ impl Screen<bool> for OpenProject {
                         let list_index = self.selected_list_index().unwrap_or(0);
                         let card_index = self.selected_card_index().unwrap_or(0);
                         let important = &self.data.lists[list_index].cards[card_index].important;
-                        self.db_toggle_card_important(&app.db, card_id, *important)
-                            .unwrap();
-                        self.db_get_project(app).unwrap();
+                        self.db_toggle_card_important(&app.db, card_id, *important)?;
+                        self.db_get_project(app)?;
                     }
                 }
                 KeyCode::Char('D') => {
@@ -263,7 +258,7 @@ impl Screen<bool> for OpenProject {
                             .lists
                             .iter()
                             .position(|l| l.id == list_id)
-                            .unwrap();
+                            .expect("failed to get project list index");
                         if list_index != 0 {
                             self.selected_list_id =
                                 Some(self.data.lists[list_index.saturating_sub(1)].id);
@@ -277,7 +272,7 @@ impl Screen<bool> for OpenProject {
                             .lists
                             .iter()
                             .position(|l| l.id == list_id)
-                            .unwrap();
+                            .expect("failed to get project list index");
                         if list_index != self.data.lists.len().saturating_sub(1) {
                             self.selected_list_id = Some(self.data.lists[list_index + 1].id);
                         }
@@ -328,17 +323,14 @@ impl Screen<bool> for OpenProject {
                 KeyCode::Char('y') => {
                     if self.delete_selection == DeleteSelection::List {
                         if let Some(selected_list_id) = self.selected_list_id {
-                            self.db_delete_list(&app.db, selected_list_id)
-                                .unwrap_or_else(|e| panic!("{e}"));
-                            self.db_get_project(app).unwrap_or_else(|e| panic!("{e}"));
+                            self.db_delete_list(&app.db, selected_list_id)?;
+                            self.db_get_project(app)?;
                             app.normal_mode();
                         }
                     } else if self.delete_selection == DeleteSelection::Card {
                         if let Some(selected_card_id) = self.selected_card_id() {
-                            self.db_delete_card(&app.db, selected_card_id)
-                                .unwrap_or_else(|e| trace_panic!("{e}"));
-                            self.db_get_project(app)
-                                .unwrap_or_else(|e| trace_panic!("{e}"));
+                            self.db_delete_card(&app.db, selected_card_id)?;
+                            self.db_get_project(app)?;
                             app.normal_mode();
                         }
                     }
@@ -349,7 +341,7 @@ impl Screen<bool> for OpenProject {
                 _ => {}
             }
         }
-        false
+        Ok(false)
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
@@ -369,21 +361,7 @@ impl Screen<bool> for OpenProject {
                 Span::styled("N", Style::new().bold().fg(colors.keybind_key)),
                 Span::from(" to create a new list."),
             ])]))
-            .block(
-                block.border_style(
-                    Style::new().fg(
-                        if self
-                            .projects_state
-                            .as_ref()
-                            .is_some_and(|s| s.module_pane == ProjectManagementPane::Main)
-                        {
-                            colors.primary
-                        } else {
-                            colors.border
-                        },
-                    ),
-                ),
-            );
+            .block(block.border_style(Style::new().fg(colors.border)));
             frame.render_widget(content, area)
         } else {
             frame.render_widget(block.border_style(Style::new().fg(colors.border)), area);
@@ -410,7 +388,7 @@ impl Screen<bool> for OpenProject {
             }
         }
 
-        if app.display.is_popup() && app.popup == GlobalPopup::None {
+        if app.display.is_popup() && app.popup == AppPopup::None {
             match self.popup {
                 OpenProjectPopup::NewList => self.popups.new_list.render(app, frame, area),
                 OpenProjectPopup::EditList => self.popups.edit_list.render(app, frame, area),
@@ -423,38 +401,26 @@ impl Screen<bool> for OpenProject {
 }
 
 impl OpenProject {
-    pub fn projects_state(&mut self, projects_state: ProjectsState) {
-        self.projects_state = Some(projects_state);
-    }
-
-    pub fn db_get_project(&mut self, app: &mut App) -> Result<(), &str> {
+    pub fn db_get_project(&mut self, app: &mut App) -> Result<()> {
         let conn = app.db.conn();
         let query = "SELECT title, description, position, created_at, updated_at FROM project \
                      WHERE id = ?1 ORDER BY position";
-        let mut stmt = conn.prepare(query).unwrap();
+        let mut stmt = conn.prepare(query)?;
 
         if let Some(project_id) = self.project_id {
-            let mut project = stmt
-                .query_row([project_id], |r| {
-                    Ok(ProjectData {
-                        title: r.get(0)?,
-                        labels: vec![],
-                        lists: vec![],
-                    })
+            let mut project = stmt.query_row([project_id], |r| {
+                Ok(ProjectData {
+                    title: r.get(0)?,
+                    labels: vec![],
+                    lists: vec![],
                 })
-                .unwrap();
+            })?;
 
-            project.labels = self.db_get_labels(app).unwrap();
-            project.lists = self.db_get_lists(&app.db, project_id).unwrap();
-            project = self
-                .db_get_cards(&app.db, &mut project, project_id)
-                .unwrap();
-            project = self
-                .db_get_card_labels(&app.db, &mut project, project_id)
-                .unwrap();
-            project = self
-                .db_get_card_subtasks(&app.db, &mut project, project_id)
-                .unwrap();
+            project.labels = self.db_get_labels(app)?;
+            project.lists = self.db_get_lists(&app.db, project_id)?;
+            project = self.db_get_cards(&app.db, &mut project, project_id)?;
+            project = self.db_get_card_labels(&app.db, &mut project, project_id)?;
+            project = self.db_get_card_subtasks(&app.db, &mut project, project_id)?;
 
             if !project.lists.is_empty() {
                 if self.selected_list_id.is_none() {
@@ -473,7 +439,7 @@ impl OpenProject {
             }
 
             if let Some(list_id) = self.selected_list_id {
-                self.popups.edit_list.set(&app.db, list_id).unwrap();
+                self.popups.edit_list.set(&app.db, list_id)?;
 
                 if let Some(project_id) = self.project_id {
                     self.popups.new_card.ids(project_id, list_id);
@@ -487,7 +453,7 @@ impl OpenProject {
         Ok(())
     }
 
-    fn db_get_labels(&mut self, app: &App) -> rusqlite::Result<Vec<ProjectLabel>> {
+    fn db_get_labels(&mut self, app: &App) -> Result<Vec<ProjectLabel>> {
         let mut labels = vec![];
 
         let conn = app.db.conn();
@@ -503,9 +469,8 @@ impl OpenProject {
             })
         })?;
 
-        for l in project_label_iter {
-            let label = l.unwrap();
-            labels.push(label);
+        for label in project_label_iter {
+            labels.push(label?);
         }
 
         self.popups
@@ -518,7 +483,7 @@ impl OpenProject {
         Ok(labels)
     }
 
-    fn db_get_lists(&self, db: &Database, project_id: i32) -> rusqlite::Result<Vec<ProjectList>> {
+    fn db_get_lists(&self, db: &Database, project_id: i32) -> Result<Vec<ProjectList>> {
         let mut lists = vec![];
 
         let conn = db.conn();
@@ -534,7 +499,7 @@ impl OpenProject {
             })
         })?;
         for list in project_list_iter {
-            lists.push(list.unwrap())
+            lists.push(list?)
         }
         Ok(lists)
     }
@@ -544,7 +509,7 @@ impl OpenProject {
         db: &Database,
         project: &mut ProjectData,
         project_id: i32,
-    ) -> rusqlite::Result<ProjectData> {
+    ) -> Result<ProjectData> {
         let conn = db.conn();
         let project_card_query = "SELECT id, list_id, title, important, start_date, due_date, \
                                   completed, position FROM project_card WHERE project_id = ?1 \
@@ -565,12 +530,12 @@ impl OpenProject {
             })
         })?;
         for card in project_card_iter {
-            let c = card.unwrap();
+            let c = card?;
             let index = project
                 .lists
                 .iter()
                 .position(|l| l.id == c.list_id)
-                .unwrap();
+                .expect("failed to get project list index");
             project.lists[index].cards.push(c);
         }
         Ok(project.clone())
@@ -581,7 +546,7 @@ impl OpenProject {
         db: &Database,
         project: &mut ProjectData,
         project_id: i32,
-    ) -> rusqlite::Result<ProjectData> {
+    ) -> Result<ProjectData> {
         let conn = db.conn();
         let card_label_query = "SELECT card_id, label_id FROM card_label WHERE project_id = ?1";
         let mut card_label_stmt = conn.prepare(card_label_query)?;
@@ -593,18 +558,18 @@ impl OpenProject {
         })?;
 
         for card_label in card_label_iter {
-            let label = card_label.unwrap();
+            let label = card_label?;
 
             let list_index = project
                 .lists
                 .iter()
                 .position(|l| l.cards.iter().any(|c| c.id == label.card_id))
-                .unwrap();
+                .expect("failed to get project list index");
             let card_index = project.lists[list_index]
                 .cards
                 .iter()
                 .position(|c| c.id == label.card_id)
-                .unwrap();
+                .expect("failed to get project card index");
             project.lists[list_index].cards[card_index]
                 .labels
                 .insert(label.label_id);
@@ -619,7 +584,7 @@ impl OpenProject {
         db: &Database,
         project: &mut ProjectData,
         project_id: i32,
-    ) -> rusqlite::Result<ProjectData> {
+    ) -> Result<ProjectData> {
         let conn = db.conn();
         let card_subtask_query =
             "SELECT card_id, completed FROM card_subtask WHERE project_id = ?1";
@@ -631,17 +596,17 @@ impl OpenProject {
             })
         })?;
         for card_subtask in card_subtask_iter {
-            let subtask = card_subtask.unwrap();
+            let subtask = card_subtask?;
             let list_index = project
                 .lists
                 .iter()
                 .position(|l| l.cards.iter().any(|c| c.id == subtask.card_id))
-                .unwrap();
+                .expect("failed to get project list index");
             let card_index = project.lists[list_index]
                 .cards
                 .iter()
                 .position(|c| c.id == subtask.card_id)
-                .unwrap();
+                .expect("failed to get project card index");
             project.lists[list_index].cards[card_index]
                 .subtasks
                 .push(subtask);
@@ -649,7 +614,7 @@ impl OpenProject {
         Ok(project.clone())
     }
 
-    fn db_delete_list(&mut self, db: &Database, selected_list_id: i32) -> rusqlite::Result<()> {
+    fn db_delete_list(&mut self, db: &Database, selected_list_id: i32) -> Result<()> {
         let original_position = db.get_position("project_list", selected_list_id)?;
 
         let conn = db.conn();
@@ -672,7 +637,7 @@ impl OpenProject {
         Ok(())
     }
 
-    fn db_delete_card(&mut self, db: &Database, selected_card_id: i32) -> rusqlite::Result<()> {
+    fn db_delete_card(&mut self, db: &Database, selected_card_id: i32) -> Result<()> {
         let original_position = db.get_position("project_card", selected_card_id)?;
 
         let conn = db.conn();
@@ -707,7 +672,7 @@ impl OpenProject {
         db: &Database,
         card_id: i32,
         completed: bool,
-    ) -> rusqlite::Result<()> {
+    ) -> Result<()> {
         let conn = db.conn();
         let query = "UPDATE project_card SET completed = ?1, updated_at = ?2 WHERE id = ?3";
         let mut stmt = conn.prepare(query)?;
@@ -720,7 +685,7 @@ impl OpenProject {
         db: &Database,
         card_id: i32,
         important: bool,
-    ) -> rusqlite::Result<()> {
+    ) -> Result<()> {
         let conn = db.conn();
         let query = "UPDATE project_card SET important = ?1, updated_at = ?2 WHERE id = ?3";
         let mut stmt = conn.prepare(query)?;
@@ -735,11 +700,7 @@ impl OpenProject {
 
         let list_width = layout.width as usize - 2;
         let list = &self.data.lists[index];
-        let selected_list = self
-            .projects_state
-            .as_ref()
-            .is_some_and(|s| s.module_pane == ProjectManagementPane::Main)
-            && self.selected_list_id.is_some_and(|id| id == list.id);
+        let selected_list = self.selected_list_id.is_some_and(|id| id == list.id);
 
         let list_block = Block::new()
             .title(Title::from(format!(" {} ", list.title)).alignment(Alignment::Center))
@@ -818,14 +779,14 @@ impl OpenProject {
         } else if unfocused_selected {
             Style::new().bold().fg(colors.fg)
         } else {
-            Style::new().fg(colors.secondary)
+            Style::new().fg(colors.secondary_fg)
         };
 
         let title = Line::from(vec![
             Span::from(format!(" [{}] ", status_char)).fg(if selected_list && selected {
                 colors.bg
             } else {
-                colors.secondary
+                colors.secondary_fg
             }),
             Span::from(card.title.to_string()).fg(if selected_list && selected {
                 colors.bg
@@ -846,10 +807,10 @@ impl OpenProject {
                         .labels
                         .iter()
                         .find(|l| label == &l.id)
-                        .unwrap()
+                        .expect("failed to find project label")
                         .color,
                 )
-                .unwrap()),
+                .expect("failed to parse label color")),
             );
         }
 

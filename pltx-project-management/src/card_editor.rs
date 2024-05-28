@@ -1,12 +1,12 @@
 use std::{cell::RefCell, collections::HashSet, convert::From, rc::Rc, str::FromStr};
 
+use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{
     state::Display, App, CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler, Popup,
 };
 use pltx_config::ColorsConfig;
 use pltx_database::Database;
-use pltx_tracing::trace_debug;
 use pltx_utils::DateTime;
 use pltx_widgets::{self, Buttons, Form, PopupSize, PopupWidget, Selection, Switch, TextInput};
 use ratatui::{
@@ -83,7 +83,7 @@ pub struct CardEditor {
     focused_pane: FocusedPane,
 }
 
-impl Popup<Option<i32>> for CardEditor {
+impl Popup<Result<Option<i32>>> for CardEditor {
     fn init(_: &App) -> Self {
         let size = PopupSize::default().percentage_based().width(80).height(80);
 
@@ -136,7 +136,7 @@ impl Popup<Option<i32>> for CardEditor {
         }
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Option<i32> {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<Option<i32>> {
         match self.focused_pane {
             FocusedPane::Title => {
                 self.inputs.title.key_event_handler(app, key_event);
@@ -159,16 +159,12 @@ impl Popup<Option<i32>> for CardEditor {
                 }
                 KeyCode::Char('j') => self.next_pane(),
                 KeyCode::Char('k') => self.prev_pane(),
-                KeyCode::Enter => {
-                    if let Some(id) = self.submit(app) {
-                        return Some(id);
-                    }
-                }
+                KeyCode::Enter => return self.submit(app),
                 _ => {}
             }
         }
 
-        None
+        Ok(None)
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
@@ -191,7 +187,7 @@ impl Popup<Option<i32>> for CardEditor {
                     Constraint::Length(self.inputs.properties.input_widgets.len() as u16 + 2),
                     Constraint::Length(4),
                 ])
-                .areas(popup.area);
+                .areas(popup.popup_area);
 
         self.inputs.title.render(
             frame,
@@ -231,39 +227,36 @@ impl Popup<Option<i32>> for CardEditor {
 }
 
 impl CardEditor {
-    fn db_new_card(&self, db: &Database) -> Result<i32, &str> {
-        let highest_position = db.get_highest_position("project_card").unwrap();
+    fn db_new_card(&self, db: &Database) -> Result<i32> {
+        let highest_position = db.get_highest_position("project_card")?;
 
         let query = "INSERT INTO project_card (project_id, list_id, title, description, \
                      important, start_date, due_date, reminder, position, created_at, updated_at) \
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)";
         let inputs = &self.inputs.properties.inputs;
-        trace_debug!(DateTime::input_to_db(
-            (*inputs.start_date).borrow().input_string()
-        ));
         let params = (
             Some(self.project_id),
             Some(self.list_id),
             self.inputs.title.input_string(),
             self.inputs.description.input_string(),
             (*inputs.important).borrow().state,
-            DateTime::input_to_db((*inputs.start_date).borrow().input_string()),
-            DateTime::input_to_db((*inputs.due_date).borrow().input_string()),
+            DateTime::from_input((*inputs.start_date).borrow().input_string()),
+            DateTime::from_input((*inputs.due_date).borrow().input_string()),
             Option::<String>::None,
             highest_position + 1,
             DateTime::now(),
             DateTime::now(),
         );
-        db.conn().execute(query, params).unwrap();
+        db.conn().execute(query, params)?;
 
-        let new_card_id = db.last_row_id("project_card").unwrap();
+        let new_card_id = db.last_row_id("project_card")?;
 
-        self.db_new_card_labels(db, new_card_id).unwrap();
+        self.db_new_card_labels(db, new_card_id)?;
 
         Ok(new_card_id)
     }
 
-    fn db_new_card_labels(&self, db: &Database, card_id: i32) -> rusqlite::Result<()> {
+    fn db_new_card_labels(&self, db: &Database, card_id: i32) -> Result<()> {
         let conn = db.conn();
 
         for index in self.inputs.labels.selected.iter() {
@@ -285,35 +278,30 @@ impl CardEditor {
         Ok(())
     }
 
-    fn db_edit_card(&self, db: &Database) -> Result<i32, &str> {
-        if let Some(data) = &self.data {
-            let query = "UPDATE project_card SET title = ?1, description = ?2, important = ?3, \
-                         start_date = ?4, due_date = ?5, reminder = ?6, updated_at = ?7 WHERE id \
-                         = ?8";
-            let conn = db.conn();
-            let mut stmt = conn.prepare(query).unwrap();
-            let inputs = &self.inputs.properties.inputs;
-            stmt.execute((
-                self.inputs.title.input_string(),
-                self.inputs.description.input_string(),
-                (*inputs.important).borrow().state,
-                DateTime::input_to_db((*inputs.start_date).borrow().input_string()),
-                DateTime::input_to_db((*inputs.due_date).borrow().input_string()),
-                Option::<String>::None,
-                DateTime::now(),
-                data.id,
-            ))
-            .unwrap();
+    fn db_edit_card(&self, db: &Database) -> Result<i32> {
+        let data = self.data.as_ref().expect("list data was not set");
+        let query = "UPDATE project_card SET title = ?1, description = ?2, important = ?3, \
+                     start_date = ?4, due_date = ?5, reminder = ?6, updated_at = ?7 WHERE id = ?8";
+        let conn = db.conn();
+        let mut stmt = conn.prepare(query)?;
+        let inputs = &self.inputs.properties.inputs;
+        stmt.execute((
+            self.inputs.title.input_string(),
+            self.inputs.description.input_string(),
+            (*inputs.important).borrow().state,
+            DateTime::from_input((*inputs.start_date).borrow().input_string()),
+            DateTime::from_input((*inputs.due_date).borrow().input_string()),
+            Option::<String>::None,
+            DateTime::now(),
+            data.id,
+        ))?;
 
-            self.db_edit_card_labels(db, data.id).unwrap();
+        self.db_edit_card_labels(db, data.id)?;
 
-            Ok(data.id)
-        } else {
-            Err("list data was not set")
-        }
+        Ok(data.id)
     }
 
-    fn db_edit_card_labels(&self, db: &Database, card_id: i32) -> rusqlite::Result<()> {
+    fn db_edit_card_labels(&self, db: &Database, card_id: i32) -> Result<()> {
         let conn = db.conn();
 
         for (i, label) in self.inputs.labels.options.iter().enumerate() {
@@ -354,18 +342,9 @@ impl CardEditor {
                     self.focused_pane = FocusedPane::Labels;
                 }
             }
-            FocusedPane::Labels => self
-                .inputs
-                .labels
-                .focus_next_or(|| self.focused_pane = FocusedPane::Properties),
-            FocusedPane::Properties => self
-                .inputs
-                .properties
-                .focus_next_or(|| self.focused_pane = FocusedPane::Actions),
-            FocusedPane::Actions => self
-                .inputs
-                .actions
-                .focus_next_or(|| self.focused_pane = FocusedPane::Title),
+            FocusedPane::Labels => self.inputs.labels.focus_next(),
+            FocusedPane::Properties => self.inputs.properties.focus_next(),
+            FocusedPane::Actions => self.inputs.actions.focus_next(),
         }
     }
 
@@ -376,41 +355,30 @@ impl CardEditor {
                 self.inputs.actions.focus_last();
             }
             FocusedPane::Description => self.focused_pane = FocusedPane::Title,
-            FocusedPane::Labels => self
-                .inputs
-                .labels
-                .focus_prev_or(|| self.focused_pane = FocusedPane::Description),
-            FocusedPane::Properties => self.inputs.properties.focus_prev_or(|| {
-                if self.inputs.labels.options.is_empty() {
-                    self.focused_pane = FocusedPane::Description;
-                } else {
-                    self.focused_pane = FocusedPane::Labels;
-                }
-            }),
-            FocusedPane::Actions => self
-                .inputs
-                .actions
-                .focus_prev_or(|| self.focused_pane = FocusedPane::Properties),
+            FocusedPane::Labels => self.inputs.labels.focus_prev(),
+            FocusedPane::Properties => self.inputs.properties.focus_prev(),
+            FocusedPane::Actions => self.inputs.actions.focus_prev(),
         }
     }
 
-    fn submit(&mut self, app: &mut App) -> Option<i32> {
+    fn submit(&mut self, app: &mut App) -> Result<Option<i32>> {
         if self.focused_pane == FocusedPane::Actions {
             if self.inputs.actions.is_focused(Action::Save) {
                 let id = if self.is_new {
-                    Some(self.db_new_card(&app.db).unwrap_or_else(|e| panic!("{e}")))
+                    self.db_new_card(&app.db)?
                 } else {
-                    Some(self.db_edit_card(&app.db).unwrap_or_else(|e| panic!("{e}")))
+                    self.db_edit_card(&app.db)?
                 };
                 self.reset();
                 app.reset_display();
-                return id;
+                return Ok(Some(id));
             } else if self.inputs.actions.is_focused(Action::Cancel) {
                 self.reset();
                 app.reset_display();
             }
         }
-        None
+
+        Ok(None)
     }
 }
 
@@ -451,7 +419,7 @@ impl CardEditor {
         );
     }
 
-    pub fn set_data(&mut self, db: &Database, card_id: i32) -> rusqlite::Result<()> {
+    pub fn set_data(&mut self, db: &Database, card_id: i32) -> Result<()> {
         self.reset();
 
         let conn = db.conn();
@@ -510,21 +478,21 @@ impl CardEditor {
         Ok(())
     }
 
-    fn db_get_card_labels(&mut self, db: &Database, data: &mut CardData) -> rusqlite::Result<()> {
+    fn db_get_card_labels(&mut self, db: &Database, data: &mut CardData) -> Result<()> {
         let conn = db.conn();
         let query = "SELECT label_id from card_label WHERE card_id = ?1";
         let mut stmt = conn.prepare(query)?;
         let label_id_iter = stmt.query_map([data.id], |r| r.get(0))?;
 
         for label in label_id_iter {
-            let label_id = label.unwrap();
+            let label_id = label?;
             let index_in_project_labels = self
                 .inputs
                 .labels
                 .options
                 .iter()
                 .position(|l| l.0 == label_id)
-                .unwrap();
+                .expect("failed to get project label index");
             self.inputs.labels.selected.insert(index_in_project_labels);
             self.original_labels.insert(index_in_project_labels);
         }

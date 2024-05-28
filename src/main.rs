@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
-use pltx::{errors, run_tui};
+use color_eyre::Result;
+use pltx::{errors, run_tui, tracing::init_logging};
 use pltx_app::App;
-use pltx_config::get_config;
-use pltx_tracing::initialize_logging;
+use pltx_config::init_config;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 static HELP_TEMPLATE: &str = "\
@@ -26,6 +26,9 @@ static HELP_TEMPLATE: &str = "\
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
+    /// Use a profile
+    #[arg(short, long)]
+    profile: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -34,17 +37,17 @@ enum Commands {
     Reset,
 }
 
-fn main() -> color_eyre::eyre::Result<()> {
+fn main() -> Result<()> {
     errors::install_hooks()?;
-    let config = get_config();
-    initialize_logging(&config.log_level)?;
-
     let cli = Cli::parse();
-    let mut app = App::new(config);
+    let (config, profile) = init_config(cli.profile.clone())?;
+    init_logging(&config.log_level, &profile)?;
+
+    let mut app = App::new(config, profile);
 
     match &cli.command {
         Some(Commands::Reset) => {
-            app.db.reset();
+            app.db.reset()?;
             println!("Ok")
         }
         None => {

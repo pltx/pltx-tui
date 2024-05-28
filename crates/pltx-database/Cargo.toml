@@ -12,9 +12,8 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
-pltx_tracing = { workspace = true }
 pltx_utils = { workspace = true }
-home = { workspace = true }
+color-eyre = { workspace = true }
 tracing = { workspace = true }
 r2d2 = { workspace = true }
 r2d2_sqlite = { workspace = true }

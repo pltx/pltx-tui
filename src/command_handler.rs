@@ -1,7 +1,10 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use fst::{automaton::Levenshtein, IntoStreamer};
+use nucleo::{
+    pattern::{Atom, AtomKind, CaseMatching, Normalization},
+    Matcher,
+};
 use pltx_app::{
-    state::{Display, GlobalPopup},
+    state::{AppModule, AppPopup, Display},
     App, DefaultWidget, KeyEventHandler, Popup,
 };
 use pltx_widgets::{self, PopupSize, PopupWidget, TextInput};
@@ -15,7 +18,9 @@ use ratatui::{
 
 #[derive(PartialEq, Clone)]
 enum Command {
+    Dashboard,
     Help,
+    ProjectManagement,
     Quit,
     None,
 }
@@ -36,37 +41,43 @@ pub struct CommandHandler {
     size: PopupSize,
     content: Content,
     focused_pane: FocusedPane,
-    command_set: fst::Set<Vec<u8>>,
     command_options: Vec<String>,
     selected_option: usize,
+    matcher: Matcher,
 }
 
-fn command_list<'a>() -> Vec<(Command, &'a str)> {
+fn command_data<'a>() -> Vec<(Command, &'a str)> {
     fn get_command<'b>(cmd: Command) -> &'b str {
         match cmd {
+            Command::Dashboard => "dashboard",
             Command::Help => "help",
+            Command::ProjectManagement => "project management",
             Command::Quit => "quit",
             Command::None => "",
         }
     }
 
-    // NOTE: This must be in lexicographic (alphabetical) order.
-    let cmds = [Command::Help, Command::Quit];
+    let cmds = [
+        Command::Dashboard,
+        Command::Help,
+        Command::ProjectManagement,
+        Command::Quit,
+    ];
 
     let mut list = vec![];
     for cmd in cmds {
         list.push((cmd.clone(), get_command(cmd)))
     }
+
     list
 }
 
-fn command_options_list<'a>() -> Vec<&'a str> {
-    command_list().iter().map(|c| c.1).collect::<Vec<&str>>()
+fn command_strings<'a>() -> Vec<&'a str> {
+    command_data().iter().map(|c| c.1).collect::<Vec<&str>>()
 }
 
 impl Popup for CommandHandler {
     fn init(_: &App) -> CommandHandler {
-        let command_set = fst::Set::from_iter(command_options_list()).unwrap();
         let size = PopupSize::default().width(60).height(20);
 
         CommandHandler {
@@ -78,12 +89,9 @@ impl Popup for CommandHandler {
             size,
             content: Content::CommandInput,
             focused_pane: FocusedPane::Input,
-            command_set,
-            command_options: command_options_list()
-                .iter()
-                .map(|s| s.to_string())
-                .collect(),
+            command_options: command_strings().iter().map(|s| s.to_string()).collect(),
             selected_option: 0,
+            matcher: nucleo::Matcher::default(),
         }
     }
 
@@ -125,10 +133,10 @@ impl Popup for CommandHandler {
         }
     }
 
-    fn render(&self, app: &App, frame: &mut Frame, _: Rect) {
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
 
-        let popup = PopupWidget::new(app, frame.size())
+        let popup = PopupWidget::new(app, area)
             .size(self.size.clone())
             .render(frame);
 
@@ -136,7 +144,7 @@ impl Popup for CommandHandler {
             .vertical_margin(1)
             .horizontal_margin(2)
             .constraints([Constraint::Length(3), Constraint::Min(1)])
-            .areas(popup.area);
+            .areas(popup.popup_area);
 
         self.command.render(
             frame,
@@ -159,7 +167,7 @@ impl Popup for CommandHandler {
                                 .fg(colors.active_fg)
                                 .bg(colors.active_bg)
                         } else {
-                            Style::new().fg(colors.secondary)
+                            Style::new().fg(colors.secondary_fg)
                         })
                     })
                     .collect::<Vec<Line>>(),
@@ -196,7 +204,7 @@ impl CommandHandler {
             return Command::None;
         }
         let command_str = self.command_options[self.selected_option].clone();
-        for command in command_list() {
+        for command in command_data() {
             if command.1.contains(&command_str) {
                 return command.0;
             }
@@ -207,9 +215,17 @@ impl CommandHandler {
     fn execute_command(&mut self, app: &mut App) {
         let command = self.parse_command();
         match command {
+            Command::Dashboard => {
+                app.reset_display();
+                app.module = AppModule::Dashboard;
+            }
             Command::Help => {
                 app.popup_display();
-                app.popup = GlobalPopup::Help;
+                app.popup = AppPopup::Help;
+            }
+            Command::ProjectManagement => {
+                app.reset_display();
+                app.module = AppModule::ProjectManagement;
             }
             Command::Quit => app.exit(),
             Command::None => {}
@@ -221,7 +237,7 @@ impl CommandHandler {
 
     fn update_options(&mut self) {
         let is_longer_than_longest_option = self.command.input_string().chars().count()
-            > command_list()
+            > command_data()
                 .iter()
                 .map(|c| c.1.chars().count())
                 .max()
@@ -229,13 +245,21 @@ impl CommandHandler {
         if is_longer_than_longest_option {
             self.command_options = vec![];
         } else if self.command.input_string().chars().count() == 0 {
-            let command_list = command_list().iter().map(|c| c.1).collect::<Vec<&str>>();
+            let command_list = command_data().iter().map(|c| c.1).collect::<Vec<&str>>();
             self.command_options = command_list.iter().map(|s| s.to_string()).collect();
         } else {
-            let query = Levenshtein::new(&self.command.input_string(), 3).unwrap();
-            let stream = self.command_set.search(query).into_stream();
-            let keys = stream.into_strs().unwrap_or(vec![]);
-            self.command_options = keys;
+            let pattern = Atom::new(
+                &self.command.input_string(),
+                CaseMatching::Smart,
+                Normalization::Smart,
+                AtomKind::Fuzzy,
+                false,
+            );
+            self.command_options = pattern
+                .match_list(command_strings(), &mut self.matcher)
+                .iter()
+                .map(|s| s.0.to_string())
+                .collect::<Vec<String>>();
         }
         self.selected_option = 0;
     }

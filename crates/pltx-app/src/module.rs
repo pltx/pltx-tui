@@ -1,3 +1,4 @@
+use color_eyre::Result;
 use crossterm::event::KeyEvent;
 use ratatui::{layout::Rect, Frame};
 
@@ -5,15 +6,19 @@ use crate::App;
 
 /// Create a new module. Used to represent a new
 /// module or section of the application.
-pub trait Module {
-    fn init(app: &App) -> Self;
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent);
-    fn render(&mut self, app: &App, frame: &mut Frame, area: Rect);
+pub trait Module<T = ()> {
+    fn init(app: &App) -> Result<Self>
+    where
+        Self: Sized;
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> T;
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect);
 }
 
 /// Create new screen. Used to represent a new screen in a module.
 pub trait Screen<T = ()> {
-    fn init(app: &App) -> Self;
+    fn init(app: &App) -> Result<Self>
+    where
+        Self: Sized;
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> T;
     fn render(&self, app: &App, frame: &mut Frame, area: Rect);
 }

@@ -1,3 +1,4 @@
+use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::Mode, App, Screen};
 use pltx_database::Database;
@@ -9,9 +10,6 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table},
     Frame,
 };
-
-use super::projects::ProjectsState;
-use crate::ProjectManagementPane;
 
 #[derive(Clone)]
 struct Project {
@@ -33,23 +31,21 @@ struct Project {
 pub struct ListProjects {
     projects: Vec<Project>,
     pub selected_id: Option<i32>,
-    projects_state: Option<ProjectsState>,
 }
 
-impl Screen<bool> for ListProjects {
-    fn init(app: &App) -> ListProjects {
+impl Screen<Result<bool>> for ListProjects {
+    fn init(app: &App) -> Result<ListProjects> {
         let mut list_projects = ListProjects {
             projects: vec![],
             selected_id: None,
-            projects_state: None,
         };
 
-        list_projects.db_get_projects(app).unwrap();
+        list_projects.db_get_projects(app)?;
 
-        list_projects
+        Ok(list_projects)
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> bool {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         if let Some(selected_id) = self.selected_id {
             if app.is_normal_mode() {
                 let selected_index = self
@@ -85,9 +81,8 @@ impl Screen<bool> for ListProjects {
             if app.mode() == Mode::Delete {
                 match key_event.code {
                     KeyCode::Char('y') => {
-                        self.db_delete_project(&app.db)
-                            .unwrap_or_else(|e| panic!("{e}"));
-                        self.db_get_projects(app).unwrap_or_else(|e| panic!("{e}"));
+                        self.db_delete_project(&app.db)?;
+                        self.db_get_projects(app)?;
                         app.reset_display();
                     }
                     KeyCode::Char('n') => app.reset_display(),
@@ -95,33 +90,20 @@ impl Screen<bool> for ListProjects {
                 }
             }
         }
-        false
+        Ok(false)
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let [list_layout, info_layout] = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(1), Constraint::Length(40)])
+            .constraints([Constraint::Fill(1), Constraint::Length(40)])
             .areas(area);
 
         let colors = &app.config.colors.clone();
         let block = Block::new()
-            .padding(Padding::horizontal(1))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(
-                Style::new().fg(
-                    if self
-                        .projects_state
-                        .as_ref()
-                        .is_some_and(|s| s.module_pane == ProjectManagementPane::Main)
-                    {
-                        colors.primary
-                    } else {
-                        colors.border
-                    },
-                ),
-            );
+            .border_style(Style::new().fg(colors.border));
 
         if let Some(selected_id) = self.selected_id {
             let rows = self
@@ -177,16 +159,16 @@ impl Screen<bool> for ListProjects {
                 .projects
                 .iter()
                 .position(|p| p.id == selected_id)
-                .unwrap();
+                .expect("failed to project index");
             let project = &self.projects[project_index];
 
             let info_1 = vec![
                 Line::from(vec![
-                    Span::styled("ID: ", Style::new().fg(colors.secondary)),
+                    Span::styled("ID: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.id.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Title: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Title: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(&project.title),
                 ]),
             ];
@@ -205,7 +187,7 @@ impl Screen<bool> for ListProjects {
                         let mut text = vec![];
                         if i == 0 {
                             text.push(Line::from(vec![
-                                Span::styled("Description: ", Style::new().fg(colors.secondary)),
+                                Span::styled("Description: ", Style::new().fg(colors.secondary_fg)),
                                 Span::from(desc[..first_line_length].to_string()),
                             ]))
                         }
@@ -217,49 +199,49 @@ impl Screen<bool> for ListProjects {
                     .collect::<Vec<Line>>()
             } else {
                 vec![Line::from(vec![
-                    Span::styled("Description: ", Style::new().fg(colors.secondary)),
-                    Span::styled("<empty>", Style::new().fg(colors.secondary)),
+                    Span::styled("Description: ", Style::new().fg(colors.secondary_fg)),
+                    Span::styled("<empty>", Style::new().fg(colors.secondary_fg)),
                 ])]
             };
             let info_2 = vec![
                 Line::from(vec![
-                    Span::styled("Position: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Position: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.position.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Labels: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Labels: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.labels.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Lists: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Lists: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.lists.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Cards: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Cards: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.total_cards.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Cards In Progress: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Cards In Progress: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.cards_in_progress.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Cards Due Soon: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Cards Due Soon: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.cards_due_soon.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Cards Overdue: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Cards Overdue: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.cards_overdue.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Important Cards: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Important Cards: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.important_cards.to_string()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Created At: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Created At: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.created_at.display()),
                 ]),
                 Line::from(vec![
-                    Span::styled("Updated At: ", Style::new().fg(colors.secondary)),
+                    Span::styled("Updated At: ", Style::new().fg(colors.secondary_fg)),
                     Span::from(project.updated_at.display()),
                 ]),
             ];
@@ -268,7 +250,7 @@ impl Screen<bool> for ListProjects {
                 Block::new()
                     .title(" Project Information ")
                     .title_style(Style::new().fg(colors.fg))
-                    .padding(Padding::proportional(1))
+                    .padding(Padding::horizontal(1))
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
                     .border_style(colors.border),
@@ -289,42 +271,36 @@ impl Screen<bool> for ListProjects {
 }
 
 impl ListProjects {
-    pub fn projects_state(&mut self, projects_state: ProjectsState) {
-        self.projects_state = Some(projects_state);
-    }
-
-    pub fn db_get_projects(&mut self, app: &App) -> rusqlite::Result<()> {
+    pub fn db_get_projects(&mut self, app: &App) -> Result<()> {
         let conn = app.db.conn();
         let project_query = "SELECT id, title, description, position, created_at, updated_at FROM \
                              project ORDER BY position";
-        let mut project_stmt = conn.prepare(project_query).unwrap();
-        let project_iter = project_stmt
-            .query_map([], |row| {
-                Ok(Project {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    description: row.get(2)?,
-                    position: row.get(3)?,
-                    created_at: DateTime::from_db(row.get(4)?),
-                    updated_at: DateTime::from_db(row.get(5)?),
-                    labels: 0,
-                    lists: 0,
-                    total_cards: 0,
-                    cards_in_progress: 0,
-                    cards_due_soon: 0,
-                    cards_overdue: 0,
-                    important_cards: 0,
-                })
+        let mut project_stmt = conn.prepare(project_query)?;
+        let project_iter = project_stmt.query_map([], |row| {
+            Ok(Project {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                description: row.get(2)?,
+                position: row.get(3)?,
+                created_at: DateTime::from_db(row.get(4)?),
+                updated_at: DateTime::from_db(row.get(5)?),
+                labels: 0,
+                lists: 0,
+                total_cards: 0,
+                cards_in_progress: 0,
+                cards_due_soon: 0,
+                cards_overdue: 0,
+                important_cards: 0,
             })
-            .unwrap();
+        })?;
         let mut projects = Vec::new();
         for p in project_iter {
-            projects.push(p.unwrap())
+            projects.push(p?)
         }
 
-        projects = self.db_get_labels(&app.db, &mut projects).unwrap();
-        projects = self.db_get_lists(&app.db, &mut projects).unwrap();
-        projects = self.db_get_cards(app, &mut projects).unwrap();
+        projects = self.db_get_labels(&app.db, &mut projects)?;
+        projects = self.db_get_lists(&app.db, &mut projects)?;
+        projects = self.db_get_cards(app, &mut projects)?;
 
         if !projects.is_empty() && self.selected_id.is_none() {
             self.selected_id = Some(projects[0].id);
@@ -335,41 +311,39 @@ impl ListProjects {
         Ok(())
     }
 
-    fn db_get_labels(
-        &self,
-        db: &Database,
-        projects: &mut [Project],
-    ) -> rusqlite::Result<Vec<Project>> {
+    fn db_get_labels(&self, db: &Database, projects: &mut [Project]) -> Result<Vec<Project>> {
         let conn = db.conn();
         let query = "SELECT project_id FROM project_label ORDER BY position";
         let mut stmt = conn.prepare(query)?;
         let label_iter = stmt.query_map([], |row| row.get::<usize, i32>(0))?;
         for label_id in label_iter {
-            let id = label_id.unwrap();
-            let index = projects.iter().position(|p| p.id == id).unwrap();
+            let id = label_id?;
+            let index = projects
+                .iter()
+                .position(|p| p.id == id)
+                .expect("failed to get project index");
             projects[index].labels += 1;
         }
         Ok(projects.to_vec())
     }
 
-    fn db_get_lists(
-        &self,
-        db: &Database,
-        projects: &mut [Project],
-    ) -> rusqlite::Result<Vec<Project>> {
+    fn db_get_lists(&self, db: &Database, projects: &mut [Project]) -> Result<Vec<Project>> {
         let conn = db.conn();
         let query = "SELECT project_id FROM project_list";
         let mut stmt = conn.prepare(query)?;
         let id_iter = stmt.query_map([], |r| r.get::<usize, i32>(0))?;
         for list_id in id_iter {
-            let id = list_id.unwrap();
-            let index = projects.iter().position(|p| p.id == id).unwrap();
+            let id = list_id?;
+            let index = projects
+                .iter()
+                .position(|p| p.id == id)
+                .expect("failed to get project index");
             projects[index].lists += 1;
         }
         Ok(projects.to_vec())
     }
 
-    fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> rusqlite::Result<Vec<Project>> {
+    fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> Result<Vec<Project>> {
         struct ListProjectCard {
             project_id: i32,
             start_date: Option<DateTime>,
@@ -391,11 +365,11 @@ impl ListProjects {
         })?;
 
         for c in card_iter {
-            let card = c.unwrap();
+            let card = c?;
             let index = projects
                 .iter()
                 .position(|p| p.id == card.project_id)
-                .unwrap();
+                .expect("failed to get project index");
             projects[index].total_cards += 1;
 
             if card.start_date.as_ref().is_some_and(|d| d.is_past())
@@ -426,7 +400,7 @@ impl ListProjects {
 }
 
 impl ListProjects {
-    fn db_delete_project(&mut self, db: &Database) -> rusqlite::Result<()> {
+    fn db_delete_project(&mut self, db: &Database) -> Result<()> {
         struct Select {
             position: i32,
         }

@@ -82,7 +82,7 @@ impl<T> DefaultWidget for Buttons<T> {
                     .fg(colors.active_fg)
                     .bg(colors.active_bg)
             } else {
-                Style::new().fg(colors.secondary)
+                Style::new().fg(colors.secondary_fg)
             })
         };
 
@@ -108,24 +108,14 @@ impl<T> CompositeWidget for Buttons<T> {
         self.focused_button = self.buttons.len() - 1;
     }
 
-    fn focus_next_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_last() {
-            cb()
-        } else {
+    fn focus_next(&mut self) {
+        if !self.is_focus_last() {
             self.focused_button += 1;
         }
     }
 
-    fn focus_prev_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_first() {
-            cb()
-        } else {
+    fn focus_prev(&mut self) {
+        if !self.is_focus_first() {
             self.focused_button -= 1;
         }
     }

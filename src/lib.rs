@@ -1,35 +1,45 @@
-use color_eyre::eyre::WrapErr;
+use color_eyre::Result;
+use keybinds::Event;
 use pltx_app::App;
 
 mod command_handler;
 pub mod errors;
 mod keybinds;
 mod popups;
-pub mod tui;
+pub mod tracing;
+mod tui;
 mod ui;
 
 use command_handler::CommandHandler;
-use keybinds::EventHandler;
 use pltx_app::Popup;
+use tui::Tui;
 use ui::Interface;
 
-pub fn run_tui(app: &mut App) -> color_eyre::eyre::Result<()> {
-    let mut terminal = tui::init()?;
+pub fn run_tui(app: &mut App) -> Result<()> {
+    let mut tui = Tui::new()?;
     app.db.start_session()?;
-    let mut interface = Interface::init(app);
+    let mut interface = Interface::init(app)?;
     let mut command_handler = CommandHandler::init(app);
-    let mut event_handler = EventHandler::init();
 
     while !app.exit {
-        terminal.draw(|frame| {
+        tui.terminal.draw(|frame| {
             interface.render(frame, app, &mut command_handler);
         })?;
 
-        event_handler
-            .handle_events(app, &mut interface, &mut command_handler)
-            .wrap_err("handle events failed")?;
+        match tui.events.next()? {
+            Event::Tick => app.tick(),
+            Event::Key(key_event) => {
+                tui.events
+                    .key_events(app, &mut interface, &mut command_handler, key_event)?
+            }
+            Event::Mouse(_) => {}
+            Event::Resize(_, _) => {}
+            Event::FocusGained => {}
+            Event::FocusLost => {}
+            Event::Paste(_) => {}
+        }
     }
 
-    tui::restore()?;
+    Tui::restore()?;
     Ok(())
 }

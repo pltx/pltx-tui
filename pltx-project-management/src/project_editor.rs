@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, CompositeWidget, DefaultWidget, KeyEventHandler, Screen};
 use pltx_database::Database;
@@ -12,9 +13,6 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
     Frame,
 };
-
-use super::projects::ProjectsState;
-use crate::ProjectManagementPane;
 
 const PROJECT_TITLE_MAX_LENGTH: usize = 50;
 const PROJECT_DESCRIPTION_MAX_LENGTH: usize = 500;
@@ -77,12 +75,11 @@ pub struct ProjectEditor {
     selected_label: usize,
     focused_label_option: LabelOption,
     label_col: LabelCol,
-    projects_state: Option<ProjectsState>,
 }
 
-impl Screen<bool> for ProjectEditor {
-    fn init(_: &App) -> ProjectEditor {
-        ProjectEditor {
+impl Screen<Result<bool>> for ProjectEditor {
+    fn init(_: &App) -> Result<ProjectEditor> {
+        Ok(ProjectEditor {
             new: false,
             data: None,
             focused_pane: FocusedPane::Title,
@@ -98,11 +95,10 @@ impl Screen<bool> for ProjectEditor {
             selected_label: 0,
             focused_label_option: LabelOption::Labels,
             label_col: LabelCol::Title,
-            projects_state: None,
-        }
+        })
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> bool {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         match self.focused_pane {
             FocusedPane::Title => self.inputs.title.key_event_handler(app, key_event),
             FocusedPane::Description => self.inputs.description.key_event_handler(app, key_event),
@@ -124,41 +120,41 @@ impl Screen<bool> for ProjectEditor {
 
         if app.is_normal_mode() {
             match key_event.code {
-                KeyCode::Char('n') => app.insert_mode(),
                 KeyCode::Char('[') => {
                     self.reset();
-                    return true;
+                    return Ok(true);
                 }
-                KeyCode::BackTab => self.prev_label(),
-                KeyCode::Tab => self.next_label(),
-                KeyCode::Char('j') => self.next_focus(),
-                KeyCode::Char('k') => self.prev_focus(),
+                KeyCode::Char('K') => self.focus_prev(),
+                KeyCode::Char('J') => self.focus_next(),
+                KeyCode::Char('j') => match self.focused_pane {
+                    FocusedPane::Labels => self.next_label(),
+                    FocusedPane::Actions => self.inputs.actions.focus_next(),
+                    _ => {}
+                },
+                KeyCode::Char('k') => match self.focused_pane {
+                    FocusedPane::Labels => self.prev_label(),
+                    FocusedPane::Actions => self.inputs.actions.focus_prev(),
+                    _ => {}
+                },
+                KeyCode::Tab | KeyCode::BackTab => self.toggle_label_col(),
                 KeyCode::Enter => {
                     if self.focused_pane == FocusedPane::Labels
                         && self.focused_label_option == LabelOption::AddLabel
                     {
                         self.add_label(app);
-                    } else if self.save_project(&app.db) {
-                        return true;
+                    } else if self.save_project(&app.db)? {
+                        return Ok(true);
                     }
                 }
                 _ => {}
             }
         }
 
-        if app.is_insert_mode() && key_event.code == KeyCode::Tab {
-            self.next_label();
-        }
-
-        false
+        Ok(false)
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors.clone();
-        let main_pane_focused = self
-            .projects_state
-            .as_ref()
-            .is_some_and(|s| s.module_pane == ProjectManagementPane::Main);
 
         let block = Block::new()
             .title(if self.new {
@@ -197,40 +193,36 @@ impl Screen<bool> for ProjectEditor {
             frame,
             app,
             title_layout,
-            self.focused_pane == FocusedPane::Title && main_pane_focused,
+            self.focused_pane == FocusedPane::Title,
         );
 
         self.inputs.description.render(
             frame,
             app,
             description_layout,
-            self.focused_pane == FocusedPane::Description && main_pane_focused,
+            self.focused_pane == FocusedPane::Description,
         );
 
-        self.render_labels(frame, app, fixed_width_label_layout, main_pane_focused);
+        self.render_labels(frame, app, fixed_width_label_layout);
 
         self.inputs.actions.render(
             frame,
             app,
             actions_layout,
-            self.focused_pane == FocusedPane::Actions && main_pane_focused,
+            self.focused_pane == FocusedPane::Actions,
         );
     }
 }
 
 impl ProjectEditor {
-    pub fn projects_state(&mut self, projects_state: ProjectsState) {
-        self.projects_state = Some(projects_state);
-    }
-
-    fn db_new_project(&self, db: &Database) -> rusqlite::Result<()> {
+    fn db_new_project(&self, db: &Database) -> Result<()> {
         let description = if self.inputs.description.input_string().chars().count() == 0 {
             None
         } else {
             Some(self.inputs.description.input_string())
         };
 
-        let highest_position = db.get_highest_position("project").unwrap();
+        let highest_position = db.get_highest_position("project")?;
         db.conn().execute(
             "INSERT INTO project (title, description, position, created_at, updated_at) VALUES \
              (?1, ?2, ?3, ?4, ?5)",
@@ -250,7 +242,7 @@ impl ProjectEditor {
         Ok(())
     }
 
-    fn db_new_labels(&self, db: &Database, project_id: i32) -> rusqlite::Result<()> {
+    fn db_new_labels(&self, db: &Database, project_id: i32) -> Result<()> {
         for (i, label) in self.inputs.labels.iter().enumerate() {
             let query = "INSERT INTO project_label (project_id, title, color, position, \
                          created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
@@ -270,7 +262,7 @@ impl ProjectEditor {
         Ok(())
     }
 
-    fn db_edit_project(&self, db: &Database) -> rusqlite::Result<()> {
+    fn db_edit_project(&self, db: &Database) -> Result<()> {
         if let Some(data) = &self.data {
             let conn = db.conn();
             let query =
@@ -290,7 +282,7 @@ impl ProjectEditor {
         Ok(())
     }
 
-    fn db_edit_labels(&self, db: &Database, project_id: i32) -> rusqlite::Result<()> {
+    fn db_edit_labels(&self, db: &Database, project_id: i32) -> Result<()> {
         let conn = db.conn();
         for (i, label) in self.inputs.labels.iter().enumerate() {
             if let Some(label_id) = label.0 {
@@ -326,89 +318,68 @@ impl ProjectEditor {
 }
 
 impl ProjectEditor {
-    fn next_focus(&mut self) {
+    fn focus_next(&mut self) {
         match self.focused_pane {
             FocusedPane::Title => self.focused_pane = FocusedPane::Description,
             FocusedPane::Description => {
-                self.focused_pane = FocusedPane::Labels;
-                self.focused_label_option = if self.inputs.labels.is_empty() {
-                    LabelOption::AddLabel
-                } else {
-                    LabelOption::Labels
-                };
-            }
-            FocusedPane::Labels => {
-                if self.focused_label_option == LabelOption::Labels {
+                if self.inputs.labels.is_empty() {
                     self.focused_label_option = LabelOption::AddLabel;
-                } else {
-                    self.focused_pane = FocusedPane::Actions;
-                    self.inputs.actions.focus_first();
                 }
+                self.focused_pane = FocusedPane::Labels;
             }
+            FocusedPane::Labels => self.focused_pane = FocusedPane::Actions,
+            FocusedPane::Actions => self.focused_pane = FocusedPane::Title,
+        }
+    }
+
+    fn focus_prev(&mut self) {
+        match self.focused_pane {
+            FocusedPane::Title => self.focused_pane = FocusedPane::Actions,
+            FocusedPane::Description => self.focused_pane = FocusedPane::Title,
+            FocusedPane::Labels => self.focused_pane = FocusedPane::Description,
             FocusedPane::Actions => {
-                self.inputs
-                    .actions
-                    .focus_next_or(|| self.focused_pane = FocusedPane::Title);
+                if self.inputs.labels.is_empty() {
+                    self.focused_label_option = LabelOption::AddLabel;
+                }
+                self.focused_pane = FocusedPane::Labels;
             }
         }
     }
 
-    fn prev_focus(&mut self) {
-        match self.focused_pane {
-            FocusedPane::Title => {
-                self.focused_pane = FocusedPane::Actions;
-                self.inputs.actions.focus_last();
-            }
-            FocusedPane::Description => self.focused_pane = FocusedPane::Title,
-            FocusedPane::Labels => {
-                if self.focused_label_option == LabelOption::AddLabel
-                    && !self.inputs.labels.is_empty()
-                {
-                    self.focused_label_option = LabelOption::Labels;
-                } else {
-                    self.focused_pane = FocusedPane::Description;
-                }
-            }
-            FocusedPane::Actions => {
-                self.inputs.actions.focus_prev_or(|| {
-                    self.focused_pane = FocusedPane::Labels;
-                    self.focused_label_option = LabelOption::AddLabel
-                });
+    fn toggle_label_col(&mut self) {
+        if self.focused_pane == FocusedPane::Labels
+            && self.focused_label_option == LabelOption::Labels
+        {
+            self.label_col = match self.label_col {
+                LabelCol::Title => LabelCol::Color,
+                LabelCol::Color => LabelCol::Title,
             }
         }
     }
 
     fn next_label(&mut self) {
-        if self.focused_pane == FocusedPane::Labels
-            && self.focused_label_option == LabelOption::Labels
-        {
-            if self.label_col == LabelCol::Color {
-                if self.inputs.labels.len().saturating_sub(1) == self.selected_label {
-                    self.selected_label = 0;
-                } else {
-                    self.selected_label = self.selected_label.saturating_add(1);
-                }
-                self.label_col = LabelCol::Title;
+        if self.focused_label_option == LabelOption::Labels {
+            if self.inputs.labels.len().saturating_sub(1) == self.selected_label {
+                self.focused_label_option = LabelOption::AddLabel;
             } else {
-                self.label_col = LabelCol::Color;
+                self.selected_label = self.selected_label.saturating_add(1);
             }
+        } else {
+            self.focused_label_option = LabelOption::Labels;
+            self.selected_label = 0;
         }
     }
 
     fn prev_label(&mut self) {
-        if self.focused_pane == FocusedPane::Labels
-            && self.focused_label_option == LabelOption::Labels
-        {
-            if self.label_col == LabelCol::Title {
-                if self.selected_label == 0 {
-                    self.selected_label = self.inputs.labels.len().saturating_sub(1);
-                } else {
-                    self.selected_label = self.selected_label.saturating_sub(1);
-                }
-                self.label_col = LabelCol::Color;
+        if self.focused_label_option == LabelOption::Labels {
+            if self.selected_label == 0 {
+                self.focused_label_option = LabelOption::AddLabel;
             } else {
-                self.label_col = LabelCol::Title;
+                self.selected_label -= 1;
             }
+        } else {
+            self.focused_label_option = LabelOption::Labels;
+            self.selected_label = self.inputs.labels.len() - 1;
         }
     }
 
@@ -427,30 +398,29 @@ impl ProjectEditor {
         self.selected_label = self.inputs.labels.len().saturating_sub(1);
         self.focused_label_option = LabelOption::Labels;
         self.label_col = LabelCol::Title;
-        app.insert_mode();
     }
 
-    fn save_project(&mut self, db: &Database) -> bool {
+    fn save_project(&mut self, db: &Database) -> Result<bool> {
         if self.focused_pane == FocusedPane::Actions {
             if self.inputs.actions.is_focused(Action::Save) {
                 if self.new {
-                    self.db_new_project(db).unwrap_or_else(|e| panic!("{e}"));
+                    self.db_new_project(db)?;
                 } else {
-                    self.db_edit_project(db).unwrap_or_else(|e| panic!("{e}"));
+                    self.db_edit_project(db)?;
                 }
                 self.reset()
             } else if self.inputs.actions.is_focused(Action::Cancel) {
                 self.reset()
             }
-            return true;
+            return Ok(true);
         }
-        false
+        Ok(false)
     }
 }
 
 impl ProjectEditor {
     #[allow(clippy::type_complexity)]
-    fn render_labels(&self, frame: &mut Frame, app: &App, area: Rect, main_sp: bool) {
+    fn render_labels(&self, frame: &mut Frame, app: &App, area: Rect) {
         let colors = &app.config.colors;
 
         let [label_list_layout, add_label_layout] = Layout::default()
@@ -472,13 +442,13 @@ impl ProjectEditor {
             .padding(Padding::horizontal(1))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(
-                if self.focused_pane == FocusedPane::Labels && main_sp {
+            .border_style(
+                Style::default().fg(if self.focused_pane == FocusedPane::Labels {
                     colors.primary
                 } else {
                     colors.border
-                },
-            ));
+                }),
+            );
 
         frame.render_widget(block, area);
 
@@ -538,7 +508,7 @@ impl ProjectEditor {
         self
     }
 
-    pub fn set_project(&mut self, db: &Database, project_id: i32) -> rusqlite::Result<()> {
+    pub fn set_project(&mut self, db: &Database, project_id: i32) -> Result<()> {
         let conn = db.conn();
         let project_query = "SELECT id, title, description FROM project WHERE id = ?1";
         let mut project_stmt = conn.prepare(project_query)?;
@@ -569,11 +539,7 @@ impl ProjectEditor {
         Ok(())
     }
 
-    fn db_get_labels(
-        &mut self,
-        db: &Database,
-        project_id: i32,
-    ) -> rusqlite::Result<Vec<ProjectLabel>> {
+    fn db_get_labels(&mut self, db: &Database, project_id: i32) -> Result<Vec<ProjectLabel>> {
         let conn = db.conn();
         let query = "SELECT project_id, id, title, color FROM project_label WHERE project_id = ?1 \
                      ORDER BY position";
@@ -589,7 +555,7 @@ impl ProjectEditor {
 
         let mut labels = vec![];
         for l in labels_iter {
-            let label = l.unwrap();
+            let label = l?;
 
             let mut title_input = TextInput::new("Title")
                 .title_as_placeholder()

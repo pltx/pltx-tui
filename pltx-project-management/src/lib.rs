@@ -1,8 +1,8 @@
+use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Pane, App, Module, Screen};
+use pltx_app::{App, Module, Screen};
 use pltx_config::ColorsConfig;
 use pltx_database::Database;
-use projects::Projects;
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
@@ -18,127 +18,88 @@ mod open_project;
 mod project_editor;
 mod projects;
 
+use projects::Projects;
+
+/// Project management tab.
 #[derive(PartialEq, Clone)]
-enum Tab {
+pub enum Tab {
     Planned,
     Projects,
     Important,
 }
 
-#[derive(PartialEq, Clone)]
-pub enum ProjectManagementPane {
-    Tabs,
-    Main,
-    None,
-}
-
-struct Pages {
+struct Screens {
     projects: Projects,
 }
 
 pub struct ProjectManagement {
     tab: Tab,
-    last_pane: ProjectManagementPane,
-    pane: ProjectManagementPane,
-    pages: Pages,
+    screens: Screens,
 }
 
-impl Module for ProjectManagement {
-    fn init(app: &App) -> ProjectManagement {
-        ProjectManagement::init_data(&app.db).unwrap();
+impl Module<Result<()>> for ProjectManagement {
+    fn init(app: &App) -> Result<Self> {
+        ProjectManagement::init_data(&app.db)?;
 
-        ProjectManagement {
+        Ok(Self {
             tab: Tab::Projects,
-            last_pane: ProjectManagementPane::Main,
-            pane: ProjectManagementPane::None,
-            pages: Pages {
-                projects: Projects::init(app),
+            screens: Screens {
+                projects: Projects::init(app)?,
             },
-        }
+        })
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
-        if app.pane != Pane::Module {
-            return;
-        };
-
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<()> {
         // Should be run before the rest.
-        if self.pane == ProjectManagementPane::Main {
-            match self.tab {
-                Tab::Planned => {}
-                Tab::Projects => self.pages.projects.key_event_handler(app, key_event),
-                Tab::Important => {}
-            }
+        match self.tab {
+            Tab::Planned => {}
+            Tab::Projects => self.screens.projects.key_event_handler(app, key_event)?,
+            Tab::Important => {}
         }
 
         if app.display.is_default() {
             let tabs = self.get_tabs();
-            let tab_index = tabs.iter().position(|t| t.0 == self.tab).unwrap();
+            let tab_index = tabs
+                .iter()
+                .position(|t| t.0 == self.tab)
+                .expect("failed to get tab index");
             match key_event.code {
-                KeyCode::Char('l') => {
-                    if self.pane == ProjectManagementPane::Tabs
-                        && tab_index != tabs.len().saturating_sub(1)
-                    {
+                KeyCode::Char('}') => {
+                    if tab_index != tabs.len().saturating_sub(1) {
                         self.tab = tabs[tab_index + 1].0.clone();
-                    } else if self.pane == ProjectManagementPane::None {
-                        self.pane(self.last_pane.clone());
                     }
                 }
-                KeyCode::Char('h') => {
-                    if self.pane == ProjectManagementPane::Tabs && tab_index != 0 {
+                KeyCode::Char('{') => {
+                    if tab_index != 0 {
                         self.tab = tabs[tab_index.saturating_sub(1)].0.clone();
-                    }
-                }
-                KeyCode::Char('H') => {
-                    self.last_pane = self.pane.clone();
-                    self.pane(ProjectManagementPane::None);
-                    app.pane = Pane::Navigation;
-                }
-                KeyCode::Char('J') | KeyCode::Char('j') => {
-                    if self.pane == ProjectManagementPane::Tabs {
-                        self.pane(ProjectManagementPane::Main);
-                    }
-                }
-                KeyCode::Char('K') => {
-                    if self.pane == ProjectManagementPane::Main {
-                        self.pane(ProjectManagementPane::Tabs);
-                    }
-                }
-                KeyCode::Char('L') => {
-                    if self.pane == ProjectManagementPane::None {
-                        self.pane(self.last_pane.clone())
-                    }
-                }
-                KeyCode::Enter => {
-                    if self.pane == ProjectManagementPane::None {
-                        self.pane(self.last_pane.clone())
-                    } else if self.pane == ProjectManagementPane::Tabs {
-                        self.pane(ProjectManagementPane::Main)
                     }
                 }
                 _ => {}
             }
         }
+
+        Ok(())
     }
 
-    fn render(&mut self, app: &App, frame: &mut Frame, area: Rect) {
+    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
 
         let [navigation_layout, content_layout] = Layout::default()
-            .constraints([Constraint::Length(3), Constraint::Min(1)])
+            .constraints([Constraint::Length(3), Constraint::Fill(1)])
             .areas(area);
+
         frame.render_widget(self.navigation(colors), navigation_layout);
 
         match self.tab {
             Tab::Planned => {}
-            Tab::Projects => self.pages.projects.render(app, frame, content_layout),
+            Tab::Projects => self.screens.projects.render(app, frame, content_layout),
             Tab::Important => {}
         }
     }
 }
 
 impl ProjectManagement {
-    pub fn init_data(db: &Database) -> rusqlite::Result<()> {
+    pub fn init_data(db: &Database) -> Result<()> {
         db.conn().execute_batch(
             "BEGIN;
 
@@ -265,14 +226,7 @@ impl ProjectManagement {
 }
 
 impl ProjectManagement {
-    fn pane(&mut self, pane: ProjectManagementPane) {
-        self.pages.projects.projects_state(projects::ProjectsState {
-            module_pane: pane.clone(),
-        });
-        self.pane = pane;
-    }
-
-    fn navigation(&mut self, colors: &ColorsConfig) -> impl Widget {
+    fn navigation(&self, colors: &ColorsConfig) -> impl Widget {
         let navigation_line = vec![Line::from(
             self.get_tabs()
                 .iter()
@@ -282,7 +236,7 @@ impl ProjectManagement {
                     if t.0 == self.tab {
                         style = style.fg(colors.active_fg).bg(colors.active_bg).bold()
                     } else {
-                        style = style.fg(colors.secondary)
+                        style = style.fg(colors.secondary_fg)
                     };
                     let mut span = vec![Span::from(format!(" {} ", t.1)).style(style)];
                     if i != self.get_tabs().len().saturating_sub(1) {
@@ -297,13 +251,7 @@ impl ProjectManagement {
                 .padding(Padding::horizontal(1))
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(
-                    Style::new().fg(if self.pane == ProjectManagementPane::Tabs {
-                        colors.primary
-                    } else {
-                        colors.border
-                    }),
-                ),
+                .border_style(Style::new().fg(colors.border)),
         )
     }
 }

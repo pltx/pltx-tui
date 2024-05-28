@@ -8,6 +8,8 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
 };
 
+const WORD_SEPARATORS: [char; 1] = [' '];
+
 // pub enum TextInputEvent {
 //     OnChange,
 //     None,
@@ -25,17 +27,58 @@ struct TextInputSize {
     // height: u16,
 }
 
+#[derive(Clone, Default)]
+struct CursorPosition {
+    x: usize,
+    y: usize,
+}
+
+impl CursorPosition {
+    pub fn at_start(&self) -> bool {
+        self.x == 0 && self.y == 0
+    }
+
+    pub fn is(&self, x: usize, y: usize) -> bool {
+        x == self.x && y == self.y
+    }
+
+    pub fn reset(&mut self) {
+        self.x = 0;
+        self.y = 0;
+    }
+}
+
+#[derive(Clone, Default)]
+struct KeyManager {
+    command_keys: Vec<KeyCode>,
+    count: Option<usize>,
+}
+
+impl KeyManager {
+    pub fn add_key(&mut self, key_code: KeyCode) {
+        self.command_keys.push(key_code)
+    }
+
+    pub fn key_is(&self, key_code: KeyCode) -> bool {
+        !self.command_keys.is_empty() && self.command_keys[0] == key_code
+    }
+
+    pub fn clear(&mut self) {
+        self.command_keys.clear();
+        self.count = None;
+    }
+}
+
 /// TextInput widget
 #[derive(Clone)]
 pub struct TextInput {
-    pub input: Vec<String>,
-    pub cursor_position: (usize, usize),
+    input: Vec<String>,
+    cursor_position: CursorPosition,
     input_type: TextInputType,
     title: String,
     max_title_len: u16,
     placeholder: Option<String>,
     title_as_placeholder: bool,
-    // multiline: bool,
     required: bool,
     min: Option<usize>,
     max: Option<usize>,
@@ -44,6 +87,7 @@ pub struct TextInput {
     form_input: bool,
     use_size: bool,
     size: TextInputSize,
+    keys: KeyManager,
 }
 
 impl DefaultWidget for TextInput {
@@ -102,7 +146,7 @@ impl FormWidget for TextInput {
 
     fn reset(&mut self) {
         self.input = vec![String::new()];
-        self.cursor_position = (0, 0);
+        self.cursor_position.at_start();
     }
 }
 
@@ -112,10 +156,6 @@ impl KeyEventHandler for TextInput {
     // provide a way for users to deal with text input events like OnChange
     // j = move up (if multiline)
     // k = move down (if multiline)
-    // w = next word
-    // b = prev word
-    // x = delete char in navigation mode
-    // dd = delete line
     // u = undo
     // ctrl + r = redo
     // o = newline + insert mode
@@ -134,6 +174,7 @@ impl KeyEventHandler for TextInput {
                 }
                 KeyCode::Left => self.move_cursor_left(),
                 KeyCode::Right => self.move_cursor_right(),
+                KeyCode::Esc => app.normal_mode(),
                 _ => {}
             }
         }
@@ -143,10 +184,13 @@ impl KeyEventHandler for TextInput {
                 KeyCode::Char('h') => self.move_cursor_left(),
                 KeyCode::Char('l') => self.move_cursor_right(),
                 KeyCode::Char('w') => self.cursor_next_word(),
-                KeyCode::Char('b') => {}
+                KeyCode::Char('b') => self.cursor_prev_word(),
                 KeyCode::Char('0') => self.cursor_start_line(),
                 KeyCode::Char('$') => self.cursor_end_line(),
-                KeyCode::Char('i') => app.insert_mode(),
+                KeyCode::Char('i') => {
+                    app.insert_mode();
+                    self.keys.clear();
+                }
                 KeyCode::Char('I') => {
                     app.insert_mode();
                     self.cursor_start_line();
@@ -159,6 +203,9 @@ impl KeyEventHandler for TextInput {
                     app.insert_mode();
                     self.cursor_end_line();
                 }
+                KeyCode::Char('x') => self.delete_char_forward(),
+                KeyCode::Char('d') => self.delete_line(),
+                KeyCode::Esc => self.keys.clear(),
                 _ => {}
             }
         }
@@ -169,7 +216,7 @@ impl TextInput {
     pub fn new(title: &str) -> Self {
         Self {
             input: vec![String::new()],
-            cursor_position: (0, 0),
+            cursor_position: CursorPosition::default(),
             input_type: TextInputType::Text,
             title: String::from(title),
             max_title_len: title.chars().count() as u16,
@@ -183,6 +230,7 @@ impl TextInput {
             form_input: false,
             use_size: false,
             size: TextInputSize::default(),
+            keys: KeyManager::default(),
         }
     }
 
@@ -203,7 +251,7 @@ impl TextInput {
 
     pub fn reset(&mut self) {
         self.input = vec![String::new()];
-        self.cursor_position = (0, 0);
+        self.cursor_position.reset();
     }
 
     pub fn datetime_input(mut self) -> Self {
@@ -236,7 +284,7 @@ impl TextInput {
 
     pub fn is_min(&self) -> bool {
         if let Some(min) = self.min {
-            self.input[self.cursor_position.1].chars().count() >= min
+            self.input[self.cursor_position.y].chars().count() >= min
         } else {
             true
         }
@@ -280,80 +328,119 @@ impl TextInput {
     }
 
     fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.cursor_position.0.saturating_sub(1);
-        self.cursor_position.0 = self.clamp_cursor(cursor_moved_left);
+        let cursor_moved_left = self.cursor_position.x.saturating_sub(1);
+        self.cursor_position.x = self.clamp_cursor(cursor_moved_left);
+        self.keys.clear();
     }
 
     fn move_cursor_right(&mut self) {
-        if !(self.input[self.cursor_position.1].is_empty() && self.cursor_position.0 == 0) {
-            let cursor_moved_right = self.cursor_position.0.saturating_add(1);
-            self.cursor_position.0 = self.clamp_cursor(cursor_moved_right);
+        if !(self.input[self.cursor_position.y].is_empty() && self.cursor_position.x == 0) {
+            let cursor_moved_right = self.cursor_position.x.saturating_add(1);
+            self.cursor_position.x = self.clamp_cursor(cursor_moved_right);
         }
+        self.keys.clear();
     }
 
     fn enter_char(&mut self, new_char: char) {
         if let Some(max) = self.max {
-            if self.input[self.cursor_position.1].chars().count() == max {
+            if self.input[self.cursor_position.y].chars().count() == max {
                 return;
             }
         }
-        self.input[self.cursor_position.1].insert(self.cursor_position.0, new_char);
+        self.input[self.cursor_position.y].insert(self.cursor_position.x, new_char);
         self.move_cursor_right();
     }
 
     fn delete_char(&mut self) {
-        if self.cursor_position != (0, 0) {
-            let before_char_to_delete = self.input[self.cursor_position.1]
+        if !self.cursor_position.at_start() {
+            let before_char_to_delete = self.input[self.cursor_position.y]
                 .chars()
-                .take(self.cursor_position.0.saturating_sub(1));
-            let after_char_to_delete = self.input[self.cursor_position.1]
+                .take(self.cursor_position.x.saturating_sub(1));
+            let after_char_to_delete = self.input[self.cursor_position.y]
                 .chars()
-                .skip(self.cursor_position.0);
-            self.input[self.cursor_position.1] =
+                .skip(self.cursor_position.x);
+            self.input[self.cursor_position.y] =
                 before_char_to_delete.chain(after_char_to_delete).collect();
             self.move_cursor_left();
         }
     }
 
+    fn delete_char_forward(&mut self) {
+        let before_char_to_delete = self.input[self.cursor_position.y]
+            .chars()
+            .take(self.cursor_position.x);
+        let after_char_to_delete = self.input[self.cursor_position.y]
+            .chars()
+            .skip(self.cursor_position.x + 1);
+        self.input[self.cursor_position.y] =
+            before_char_to_delete.chain(after_char_to_delete).collect();
+    }
+
+    fn delete_line(&mut self) {
+        if self.keys.key_is(KeyCode::Char('d')) {
+            self.input[self.cursor_position.y].clear();
+            self.cursor_position.x = 0;
+            self.keys.clear();
+        } else {
+            self.keys.add_key(KeyCode::Char('d'));
+        }
+    }
+
     fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
-        new_cursor_pos.clamp(0, self.input[self.cursor_position.1].chars().count())
+        new_cursor_pos.clamp(0, self.input[self.cursor_position.y].chars().count())
     }
 
     fn cursor_next_word(&mut self) {
-        let next_word = self.input[self.cursor_position.1][..self.cursor_position.0]
+        let next_word = self.input[self.cursor_position.y]
             .chars()
             .enumerate()
-            .map(|(i, c)| {
-                if c.to_string() == " " {
-                    i
-                } else {
-                    self.cursor_position.0
-                }
+            .find(|(i, c)| *i > self.cursor_position.x && WORD_SEPARATORS.contains(c))
+            .unwrap_or((self.input[self.cursor_position.y].chars().count(), ' '));
+        self.cursor_position.x =
+            if self.input[self.cursor_position.y].chars().count() == next_word.0 {
+                next_word.0
+            } else {
+                next_word.0 + 1
+            };
+        self.keys.clear();
+    }
+
+    fn cursor_prev_word(&mut self) {
+        let line_len = self.input[self.cursor_position.y].chars().count();
+        let prev_word = self.input[self.cursor_position.y]
+            .chars()
+            .rev()
+            .enumerate()
+            .find(|(i, c)| {
+                line_len - *i - 1 < self.cursor_position.x && WORD_SEPARATORS.contains(c)
             })
-            .collect::<Vec<usize>>();
-        self.cursor_position.0 = next_word[0];
+            .unwrap_or((line_len, ' '));
+        self.cursor_position.x = (line_len - prev_word.0).saturating_sub(2);
+        self.keys.clear();
     }
 
     fn cursor_start_line(&mut self) {
-        self.cursor_position.0 = 0;
+        self.cursor_position.x = 0;
+        self.keys.clear();
     }
 
     pub fn cursor_end_line(&mut self) {
-        self.cursor_position.0 = self.input[self.cursor_position.1].chars().count()
+        self.cursor_position.x = self.input[self.cursor_position.y].chars().count();
+        self.keys.clear();
     }
 
     fn render_lines<'a>(&self, app: &App, area: Rect, focused: bool) -> Vec<Line<'a>> {
         let colors = &app.config.colors;
 
         let input = if !self.input.is_empty()
-            && self.input[self.cursor_position.1].is_empty()
-            && self.cursor_position == (0, 0)
+            && self.input[self.cursor_position.y].is_empty()
+            && self.cursor_position.at_start()
         {
             if !focused {
                 if let Some(placeholder) = &self.placeholder {
                     vec![Line::from(vec![
                         Span::from(if self.inline { " " } else { "" }),
-                        Span::from(placeholder.clone()).style(Style::new().fg(colors.secondary)),
+                        Span::from(placeholder.clone()).style(Style::new().fg(colors.secondary_fg)),
                     ])]
                 } else {
                     vec![]
@@ -364,7 +451,7 @@ impl TextInput {
                     Span::from(" ").style(if app.display == self.display.insert_equivalent() {
                         Style::new().fg(colors.bg).bg(colors.fg)
                     } else {
-                        Style::new().fg(colors.bg).bg(colors.secondary)
+                        Style::new().fg(colors.bg).bg(colors.secondary_fg)
                     }),
                 ])]
             }
@@ -400,7 +487,7 @@ impl TextInput {
                     let prev_chunks_total = prev_chunks.iter().sum::<usize>();
                     let real_line_x_value = prev_chunks_total + index;
 
-                    let cursor_on_char = (real_line_x_value, line_index) == self.cursor_position;
+                    let cursor_on_char = self.cursor_position.is(real_line_x_value, line_index);
                     if focused && cursor_on_char {
                         if app.display == self.display.insert_equivalent() {
                             style = style
@@ -413,16 +500,19 @@ impl TextInput {
                     let mut span = vec![Span::from(character.to_string()).style(style)];
 
                     let is_last_char = real_line_x_value
-                        == self.input[self.cursor_position.1]
+                        == self.input[self.cursor_position.y]
                             .chars()
                             .count()
                             .saturating_sub(1);
-                    let cursor_not_at_start = self.cursor_position != (0, 0);
                     let char_is_before_cursor =
-                        (real_line_x_value + 1, line_index) == self.cursor_position;
+                        self.cursor_position.is(real_line_x_value + 1, line_index);
 
                     // Render the cursor (only if last character)
-                    if focused && is_last_char && cursor_not_at_start && char_is_before_cursor {
+                    if focused
+                        && is_last_char
+                        && !self.cursor_position.at_start()
+                        && char_is_before_cursor
+                    {
                         span.push(Span::from(" ").style(
                             if app.display == self.display.insert_equivalent() {
                                 Style::new()
@@ -489,7 +579,11 @@ impl TextInput {
             Block::new()
                 .padding(Padding::horizontal(1))
                 .title(format!(" {} ", self.title))
-                .title_style(Style::new().fg(if focused { colors.fg } else { colors.secondary }))
+                .title_style(Style::new().fg(if focused {
+                    colors.fg
+                } else {
+                    colors.secondary_fg
+                }))
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::new().fg(if focused {

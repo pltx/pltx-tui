@@ -1,15 +1,19 @@
+use std::str::FromStr;
+
+use color_eyre::Result;
 use pltx_app::{
-    state::{Display, GlobalPopup, ModuleState, Pane},
-    App, Module, Popup,
+    state::{AppModule, AppPopup},
+    App, DebugPosition, Module, Popup,
 };
 use pltx_config::ColorsConfig;
-use pltx_dashboard::Dashboard;
+use pltx_home::Home;
 use pltx_project_management::ProjectManagement;
+use pltx_utils::DateTime;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Style, Stylize},
+    style::{Color, Style, Stylize},
     text::{Line, Span},
-    widgets::{block::*, Block, BorderType, Borders, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph},
     Frame,
 };
 
@@ -17,7 +21,7 @@ use crate::{command_handler::CommandHandler, popups};
 
 /// States for each module.
 pub struct InterfaceModule {
-    pub dashboard: Dashboard,
+    pub home: Home,
     pub project_management: ProjectManagement,
 }
 
@@ -34,16 +38,16 @@ pub struct Interface {
 }
 
 impl Interface {
-    pub fn init(app: &mut App) -> Interface {
-        Interface {
+    pub fn init(app: &mut App) -> Result<Self> {
+        Ok(Self {
             modules: InterfaceModule {
-                dashboard: Dashboard::init(app),
-                project_management: ProjectManagement::init(app),
+                home: Home::init(app)?,
+                project_management: ProjectManagement::init(app)?,
             },
             popups: PopupState {
                 help: popups::Help::init(app),
             },
-        }
+        })
     }
 
     pub fn render(
@@ -53,80 +57,97 @@ impl Interface {
         command_handler: &mut CommandHandler,
     ) {
         let colors = &app.config.colors.clone();
+        let area = if app.debug.enabled && app.debug.show && app.debug.min_preview {
+            // Minimum support size.
+            let width = 100;
+            let height = 30;
+            Rect::new(
+                frame.size().width / 2 - width / 2,
+                frame.size().height / 2 - height / 2,
+                width,
+                height,
+            )
+        } else {
+            frame.size()
+        };
 
-        // Root layout
-        let [title_bar_layout, main_layout, status_bar_layout] = Layout::default()
+        let [title_bar_layout, module_layout, status_bar_layout] = Layout::default()
             .constraints([
                 Constraint::Length(1),
                 Constraint::Min(1),
                 Constraint::Length(1),
             ])
-            .areas(frame.size());
+            .areas(area);
 
         frame.render_widget(self.title_bar(colors), title_bar_layout);
-
-        // Navigation and editor layout
-        let [navigation_layout, module_layout] = Layout::default()
-            .constraints([Constraint::Length(30), Constraint::Min(1)])
-            .direction(Direction::Horizontal)
-            .areas(main_layout);
-
-        frame.render_widget(
-            self.navigation_pane(app, navigation_layout),
-            navigation_layout,
-        );
+        frame.render_widget(Block::new().bg(colors.bg).fg(colors.fg), module_layout);
 
         self.status_bar(app, frame, status_bar_layout);
 
-        let module_pane = Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(
-                if app.display.is_default() && app.pane == Pane::Module {
-                    let primary_border = match &app.module {
-                        // `true` to have the border primary color by default
-                        // Otherwise the color will be the border color
-                        ModuleState::Dashboard => false,
-                        ModuleState::ProjectManagement => false,
-                        _ => true,
-                    };
-                    if primary_border {
-                        colors.primary
-                    } else {
-                        colors.border
-                    }
-                } else {
-                    colors.border
-                },
-            ))
-            .padding(Padding::horizontal(1))
-            .bg(colors.bg);
-        frame.render_widget(module_pane, module_layout);
-
-        let [module_layout] = Layout::default()
-            .vertical_margin(1)
-            .horizontal_margin(2)
-            .constraints([Constraint::Min(1)])
-            .areas(module_layout);
         match app.module {
-            ModuleState::Dashboard => self.modules.dashboard.render(app, frame, module_layout),
-            ModuleState::ProjectManagement => {
+            AppModule::Dashboard => self.modules.home.render(app, frame, module_layout),
+            AppModule::ProjectManagement => {
                 self.modules
                     .project_management
                     .render(app, frame, module_layout)
             }
-            ModuleState::None => {}
+            AppModule::None => {}
         };
 
         if app.display.is_popup() {
             match app.popup {
-                GlobalPopup::Help => self.popups.help.render(app, frame, frame.size()),
-                GlobalPopup::None => {}
+                AppPopup::Help => self.popups.help.render(app, frame, area),
+                AppPopup::None => {}
             }
         }
 
         if app.display.is_command() {
-            command_handler.render(app, frame, frame.size());
+            command_handler.render(app, frame, area);
+        }
+
+        if app.debug.enabled && app.debug.show {
+            let debug_lines = vec![
+                Line::from("~ = rotate position, ! = toggle min preview"),
+                Line::from(format!("Version: {}", env!("CARGO_PKG_VERSION"))),
+                Line::from(format!("Frame Size: {}x{}", area.width, area.height)),
+                Line::from(format!("RUST_BACKTRACE: {}", env!("RUST_BACKTRACE"))),
+                Line::from(format!("Min Preview: {}", app.debug.min_preview)),
+                Line::from(format!("Profile: {}", app.profile.name)),
+                Line::from(format!("Config File: {}", app.profile.config_file)),
+                Line::from(format!("DB File: {}", app.profile.db_file)),
+                Line::from(format!("Log File: {}", app.profile.log_file)),
+            ];
+
+            let area = frame.size();
+            let height = debug_lines.len() as u16 + 2;
+            let width = 50;
+            let x = match app.debug.position {
+                DebugPosition::Top | DebugPosition::Bottom => area.width / 2 - width / 2,
+                DebugPosition::TopRight | DebugPosition::Right | DebugPosition::BottomRight => {
+                    area.width - width
+                }
+                DebugPosition::BottomLeft | DebugPosition::Left | DebugPosition::TopLeft => 0,
+            };
+            let y = match app.debug.position {
+                DebugPosition::Top | DebugPosition::TopRight | DebugPosition::TopLeft => 0,
+                DebugPosition::Right | DebugPosition::Left => area.height / 2 - height / 2,
+                DebugPosition::BottomRight | DebugPosition::Bottom | DebugPosition::BottomLeft => {
+                    area.height - height
+                }
+            };
+
+            let debug_block = Paragraph::new(debug_lines).block(
+                Block::new()
+                    .padding(Padding::horizontal(1))
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Double)
+                    .border_style(Style::new().fg(Color::from_str("#ff0000").unwrap()))
+                    .fg(Color::from_str("#ff0000").unwrap())
+                    .bg(Color::from_str("#000000").unwrap()),
+            );
+            let debug_area = Rect::new(x, y, width, height);
+            frame.render_widget(Clear, debug_area);
+            frame.render_widget(debug_block, debug_area)
         }
     }
 
@@ -137,44 +158,6 @@ impl Interface {
         Paragraph::new(title_bar_content)
             .alignment(Alignment::Center)
             .style(Style::new().fg(colors.title_bar_fg).bg(colors.title_bar_bg))
-    }
-
-    fn navigation_pane(&self, app: &App, rect: Rect) -> Paragraph {
-        let module_list = app.module_list();
-        let colors = &app.config.colors;
-
-        let navigation_options = module_list
-            .iter()
-            .map(|s| {
-                if s.0 == app.module {
-                    Line::from(format!(
-                        " {} {}",
-                        s.1,
-                        " ".repeat(rect.as_size().width as usize - s.1.len() - 4)
-                    ))
-                    .style(
-                        Style::new()
-                            .fg(colors.active_fg)
-                            .bg(colors.active_bg)
-                            .bold(),
-                    )
-                } else {
-                    Line::from(format!(" {} ", s.1)).style(Style::new().fg(colors.secondary))
-                }
-            })
-            .collect::<Vec<Line>>();
-
-        Paragraph::new(navigation_options.clone()).block(
-            Block::new()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Style::new().fg(match (&app.display, &app.pane) {
-                    (Display::Default(_), Pane::Navigation) => colors.primary,
-                    _ => colors.border,
-                }))
-                // .padding(Padding::symmetric(1, 0))
-                .bg(colors.bg),
-        )
     }
 
     fn status_bar(&self, app: &App, frame: &mut Frame, area: Rect) {
@@ -217,7 +200,14 @@ impl Interface {
             .style(Style::new().fg(status_bar_fg).bg(status_bar_bg));
         frame.render_widget(left_content, left_layout);
 
-        let center_text = vec![Line::from(vec![Span::from("")])];
+        let center_text = vec![Line::from(vec![Span::from(format!(
+            "Session duration: {}",
+            if let Some(started) = &app.db.started {
+                DateTime::new().duration_since(started).to_string()
+            } else {
+                "<pending>".to_string()
+            }
+        ))])];
         let center_content = Paragraph::new(center_text)
             .alignment(Alignment::Center)
             .style(Style::new().fg(status_bar_fg).bg(status_bar_bg));

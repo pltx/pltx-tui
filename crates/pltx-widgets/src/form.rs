@@ -100,24 +100,14 @@ impl<I> CompositeWidget for Form<I> {
         self.focused_input = self.input_widgets.len() - 1;
     }
 
-    fn focus_next_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_last() {
-            cb()
-        } else {
+    fn focus_next(&mut self) {
+        if !self.is_focus_last() {
             self.focused_input += 1;
         }
     }
 
-    fn focus_prev_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce(),
-    {
-        if self.is_focus_first() {
-            cb()
-        } else {
+    fn focus_prev(&mut self) {
+        if !self.is_focus_first() {
             self.focused_input -= 1;
         }
     }

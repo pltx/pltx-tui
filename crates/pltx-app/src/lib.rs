@@ -1,7 +1,7 @@
-use pltx_config::Config;
+use pltx_config::{Config, ProfileConfig};
 use pltx_database::Database;
 use ratatui::style::Color;
-use state::{Display, GlobalPopup, Mode, ModuleState, Pane};
+use state::{AppModule, AppPopup, Display, Mode};
 
 mod module;
 pub mod state;
@@ -16,25 +16,70 @@ pub struct ModeColor<'a> {
     pub bg: Color,
 }
 
+pub enum DebugPosition {
+    Top,
+    TopRight,
+    Right,
+    BottomRight,
+    Bottom,
+    BottomLeft,
+    Left,
+    TopLeft,
+}
+
+impl DebugPosition {
+    pub fn next(&self) -> Self {
+        match self {
+            DebugPosition::Top => DebugPosition::TopRight,
+            DebugPosition::TopRight => DebugPosition::Right,
+            DebugPosition::Right => DebugPosition::BottomRight,
+            DebugPosition::BottomRight => DebugPosition::Bottom,
+            DebugPosition::Bottom => DebugPosition::BottomLeft,
+            DebugPosition::BottomLeft => DebugPosition::Left,
+            DebugPosition::Left => DebugPosition::TopLeft,
+            DebugPosition::TopLeft => DebugPosition::Top,
+        }
+    }
+}
+
+pub struct DebugMode {
+    pub enabled: bool,
+    pub show: bool,
+    pub min_preview: bool,
+    pub position: DebugPosition,
+}
+
 pub struct App {
     pub config: Config,
+    pub profile: ProfileConfig,
     pub display: Display,
-    pub module: ModuleState,
-    pub pane: Pane,
-    pub popup: GlobalPopup,
+    pub module: AppModule,
+    pub popup: AppPopup,
+    pub breadcrumbs: Vec<String>,
     pub db: Database,
+    pub debug: DebugMode,
     pub exit: bool,
 }
 
 impl App {
-    pub fn new(config: Config) -> App {
+    pub fn new(config: Config, profile: ProfileConfig) -> App {
+        let debug_enabled = &config.log_level == "debug";
+        let db_file = profile.db_file.to_owned();
+
         App {
             config,
+            profile,
             display: Display::Default(Mode::Normal),
-            module: ModuleState::Dashboard,
-            pane: Pane::Navigation,
-            popup: GlobalPopup::None,
-            db: Database::init("data.db"),
+            module: AppModule::Dashboard,
+            popup: AppPopup::None,
+            breadcrumbs: vec![],
+            db: Database::init(db_file),
+            debug: DebugMode {
+                enabled: debug_enabled,
+                show: false,
+                min_preview: true,
+                position: DebugPosition::TopRight,
+            },
             exit: false,
         }
     }
@@ -42,6 +87,26 @@ impl App {
     pub fn exit(&mut self) {
         self.exit = true
     }
+
+    pub fn toggle_debug(&mut self) {
+        if self.debug.enabled {
+            self.debug.show = !self.debug.show;
+        }
+    }
+
+    pub fn toggle_min_preview(&mut self) {
+        if self.debug.enabled {
+            self.debug.min_preview = !self.debug.min_preview;
+        }
+    }
+
+    pub fn next_debug_position(&mut self) {
+        if self.debug.enabled && self.debug.show {
+            self.debug.position = self.debug.position.next();
+        }
+    }
+
+    pub fn tick(&self) {}
 
     /// Reset the display to
     /// [`Display::Default(Mode::Normal)`](Display).
@@ -155,13 +220,5 @@ impl App {
     /// Returns the current mode in string form with its colors.
     pub fn current_mode_data(&self) -> ModeColor {
         self.mode_data(self.mode())
-    }
-
-    // TODO: Provide a more usable return type.
-    pub fn module_list<'a>(&self) -> Vec<(ModuleState, &'a str)> {
-        vec![
-            (ModuleState::Dashboard, "Dashboard"),
-            (ModuleState::ProjectManagement, "Project Management"),
-        ]
     }
 }

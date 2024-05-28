@@ -1,12 +1,11 @@
+use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, Screen};
-use pltx_tracing::trace_panic;
 use ratatui::{layout::Rect, Frame};
 
 use super::{
     list_projects::ListProjects, open_project::OpenProject, project_editor::ProjectEditor,
 };
-use crate::ProjectManagementPane;
 
 #[derive(PartialEq)]
 enum Page {
@@ -28,25 +27,20 @@ pub struct Projects {
     pages: Pages,
 }
 
-#[derive(Clone)]
-pub struct ProjectsState {
-    pub module_pane: ProjectManagementPane,
-}
-
-impl Screen for Projects {
-    fn init(app: &App) -> Projects {
-        Projects {
+impl Screen<Result<()>> for Projects {
+    fn init(app: &App) -> Result<Projects> {
+        Ok(Projects {
             page: Page::ListProjects,
             pages: Pages {
-                list_projects: ListProjects::init(app),
-                new_project: ProjectEditor::init(app).set_new(),
-                edit_project: ProjectEditor::init(app),
-                open_project: OpenProject::init(app),
+                list_projects: ListProjects::init(app)?,
+                new_project: ProjectEditor::init(app)?.set_new(),
+                edit_project: ProjectEditor::init(app)?,
+                open_project: OpenProject::init(app)?,
             },
-        }
+        })
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<()> {
         if app.is_normal_mode() && self.page == Page::ListProjects {
             match key_event.code {
                 KeyCode::Char('n') => self.page = Page::NewProject,
@@ -63,10 +57,7 @@ impl Screen for Projects {
                     if let Some(selected_id) = self.pages.list_projects.selected_id {
                         self.pages.open_project.reset(app);
                         self.pages.open_project.set_project_id(selected_id);
-                        self.pages
-                            .open_project
-                            .db_get_project(app)
-                            .unwrap_or_else(|e| trace_panic!("{e}"));
+                        self.pages.open_project.db_get_project(app)?;
                         self.page = Page::OpenProject;
                     }
                 }
@@ -75,19 +66,18 @@ impl Screen for Projects {
         }
 
         let result: bool = match self.page {
-            Page::ListProjects => self.pages.list_projects.key_event_handler(app, key_event),
-            Page::NewProject => self.pages.new_project.key_event_handler(app, key_event),
-            Page::EditProject => self.pages.edit_project.key_event_handler(app, key_event),
-            Page::OpenProject => self.pages.open_project.key_event_handler(app, key_event),
+            Page::ListProjects => self.pages.list_projects.key_event_handler(app, key_event)?,
+            Page::NewProject => self.pages.new_project.key_event_handler(app, key_event)?,
+            Page::EditProject => self.pages.edit_project.key_event_handler(app, key_event)?,
+            Page::OpenProject => self.pages.open_project.key_event_handler(app, key_event)?,
         };
 
         if result {
             self.page = Page::ListProjects;
-            self.pages
-                .list_projects
-                .db_get_projects(app)
-                .unwrap_or_else(|e| panic!("{e}"));
+            self.pages.list_projects.db_get_projects(app)?;
         }
+
+        Ok(())
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
@@ -97,22 +87,5 @@ impl Screen for Projects {
             Page::EditProject => self.pages.edit_project.render(app, frame, area),
             Page::OpenProject => self.pages.open_project.render(app, frame, area),
         }
-    }
-}
-
-impl Projects {
-    pub fn projects_state(&mut self, projects_state: ProjectsState) {
-        self.pages
-            .list_projects
-            .projects_state(projects_state.clone());
-        self.pages
-            .new_project
-            .projects_state(projects_state.clone());
-        self.pages
-            .edit_project
-            .projects_state(projects_state.clone());
-        self.pages
-            .open_project
-            .projects_state(projects_state.clone());
     }
 }

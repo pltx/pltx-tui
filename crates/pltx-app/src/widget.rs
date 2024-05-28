@@ -6,6 +6,10 @@ pub trait DefaultWidget {
     fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused: bool);
 }
 
+pub trait MutableWidget {
+    fn render(&mut self, frame: &mut Frame, app: &App, area: Rect, focused: bool);
+}
+
 pub trait FormWidget: DefaultWidget + KeyEventHandler {
     fn form_compatible(&mut self);
     fn display(&mut self, display: Display);
@@ -17,12 +21,8 @@ pub trait FormWidget: DefaultWidget + KeyEventHandler {
 pub trait CompositeWidget {
     fn focus_first(&mut self);
     fn focus_last(&mut self);
-    fn focus_next_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce();
-    fn focus_prev_or<F>(&mut self, cb: F)
-    where
-        F: FnOnce();
+    fn focus_next(&mut self);
+    fn focus_prev(&mut self);
     fn is_focus_first(&self) -> bool;
     fn is_focus_last(&self) -> bool;
 }

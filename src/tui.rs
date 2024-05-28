@@ -1,28 +1,35 @@
 use std::io::{self, stdout, Stdout};
 
-use crossterm::{execute, terminal::*};
-use pltx_tracing::trace_info;
-use ratatui::prelude::*;
+use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::{backend::CrosstermBackend, Terminal};
 
-/// A type alias for the terminal type used in this application.
-pub type Tui = Terminal<CrosstermBackend<Stdout>>;
+use crate::keybinds::EventHandler;
 
-/// Initialize the terminal.
-pub fn init() -> io::Result<Tui> {
-    trace_info!("entering alternate screen");
-    execute!(stdout(), EnterAlternateScreen)?;
-    trace_info!("enabling raw mode");
-    enable_raw_mode()?;
-    trace_info!("create new crossterm instance");
-    let backend = CrosstermBackend::new(stdout());
-    Terminal::new(backend)
+type TuiType = Terminal<CrosstermBackend<Stdout>>;
+
+pub struct Tui {
+    pub terminal: TuiType,
+    pub events: EventHandler,
 }
 
-/// Restore the terminal to its original state.
-pub fn restore() -> io::Result<()> {
-    trace_info!("leaving alternate screen");
-    execute!(stdout(), LeaveAlternateScreen)?;
-    trace_info!("disabling raw mode");
-    disable_raw_mode()?;
-    Ok(())
+impl Tui {
+    pub fn new() -> io::Result<Self> {
+        let backend = CrosstermBackend::new(io::stdout());
+        let mut terminal = Terminal::new(backend)?;
+
+        terminal::enable_raw_mode()?;
+        crossterm::execute!(stdout(), EnterAlternateScreen)?;
+        terminal.clear()?;
+
+        Ok(Self {
+            terminal,
+            events: EventHandler::init(),
+        })
+    }
+
+    pub fn restore() -> io::Result<()> {
+        terminal::disable_raw_mode()?;
+        crossterm::execute!(stdout(), LeaveAlternateScreen)?;
+        Ok(())
+    }
 }

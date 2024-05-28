@@ -71,22 +71,20 @@ impl Display {
 
 /// Represents the current section.
 #[derive(PartialEq, Clone)]
-pub enum ModuleState {
+pub enum AppModule {
     Dashboard,
     ProjectManagement,
     None,
 }
 
-/// The currently focused pane.
-#[derive(PartialEq, Clone)]
-pub enum Pane {
-    Navigation,
-    Module,
+pub struct ModuleText<'a> {
+    pub module: AppModule,
+    pub text: &'a str,
 }
 
 /// The current popup that is showing or none.
 #[derive(PartialEq, Clone)]
-pub enum GlobalPopup {
+pub enum AppPopup {
     Help,
     None,
 }

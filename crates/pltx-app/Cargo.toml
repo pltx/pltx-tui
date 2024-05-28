@@ -14,5 +14,6 @@ workspace = true
 [dependencies]
 pltx_config = { workspace = true }
 pltx_database = { workspace = true }
+color-eyre = { workspace = true }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
