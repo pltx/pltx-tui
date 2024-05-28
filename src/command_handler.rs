@@ -4,7 +4,7 @@ use nucleo::{
     Matcher,
 };
 use pltx_app::{
-    state::{AppModule, AppPopup, Display},
+    state::{AppModule, Display},
     App, DefaultWidget, KeyEventHandler, Popup,
 };
 use pltx_widgets::{PopupSize, PopupWidget, TextInput};
@@ -77,7 +77,7 @@ fn command_strings<'a>() -> Vec<&'a str> {
 }
 
 impl Popup for CommandHandler {
-    fn init(_: &App) -> CommandHandler {
+    fn init() -> CommandHandler {
         let size = PopupSize::default().width(60).height(20);
 
         CommandHandler {
@@ -223,11 +223,11 @@ impl CommandHandler {
         match command {
             Command::Dashboard => {
                 app.reset_display();
-                app.module = AppModule::Dashboard;
+                app.module = AppModule::Home;
             }
             Command::Help => {
-                app.popup_display();
-                app.popup = AppPopup::Help;
+                app.reset_display();
+                app.module = AppModule::Home;
             }
             Command::ProjectManagement => {
                 app.reset_display();

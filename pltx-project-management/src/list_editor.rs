@@ -27,7 +27,7 @@ pub struct ListEditor {
 }
 
 impl Popup<Result<Option<i32>>> for ListEditor {
-    fn init(_: &App) -> ListEditor {
+    fn init() -> ListEditor {
         let size = PopupSize::default().width(60).height(5);
 
         ListEditor {

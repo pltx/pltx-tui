@@ -11,6 +11,9 @@ authors.workspace = true
 [lints]
 workspace = true
 
+# [lints.rust]
+# missing_docs = "deny"
+
 [dependencies]
 pltx_config = { workspace = true }
 pltx_database = { workspace = true }

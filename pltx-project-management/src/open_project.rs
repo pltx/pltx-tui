@@ -114,7 +114,7 @@ pub struct OpenProject {
 }
 
 impl Screen<Result<bool>> for OpenProject {
-    fn init(app: &App) -> Result<OpenProject> {
+    fn init(_: &App) -> Result<OpenProject> {
         Ok(OpenProject {
             project_id: None,
             selected_list_id: None,
@@ -122,10 +122,10 @@ impl Screen<Result<bool>> for OpenProject {
             data: ProjectData::default(),
             popup: OpenProjectPopup::None,
             popups: Popups {
-                new_list: ListEditor::init(app).set_new(),
-                edit_list: ListEditor::init(app),
-                new_card: CardEditor::init(app).set_new(),
-                edit_card: CardEditor::init(app),
+                new_list: ListEditor::init().set_new(),
+                edit_list: ListEditor::init(),
+                new_card: CardEditor::init().set_new(),
+                edit_card: CardEditor::init(),
             },
             delete_selection: DeleteSelection::None,
         })

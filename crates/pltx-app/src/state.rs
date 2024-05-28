@@ -1,21 +1,29 @@
-/// Application mode.
+/// The mode the application is in. The mode status is shown at the bottom left
+/// of the status bar.
 #[derive(PartialEq, Clone, Copy)]
 pub enum Mode {
-    /// Default mode for navigation.
+    /// Default mode mainly for navigation.
     Normal,
-    /// For editing inputs.
+    /// For editing text inputs.
     Insert,
     /// For editing the layout and moving things around.
     Interactive,
-    /// To prompt the user to delete something.
+    /// For prompting the user to delete the selected item.
     Delete,
 }
 
-/// Application display
+/// Represents what's being being rendered at the highest level.
 #[derive(PartialEq, Clone, Copy)]
 pub enum Display {
+    /// Render only the main content.
     Default(Mode),
+
+    /// Renders a popup over the main content. Keypresses are directed only to
+    /// the popup.
     Popup(Mode),
+
+    /// Renders a popup with the command prompt over the main content.
+    /// Keypressed are directed only to the command prompt.
     Command(Mode),
 }
 
@@ -51,6 +59,7 @@ impl Display {
         matches!(self, Display::Command(_))
     }
 
+    /// Extract the mode from the display.
     pub fn mode(&self) -> Mode {
         match self {
             Display::Default(mode) => *mode,
@@ -59,7 +68,7 @@ impl Display {
         }
     }
 
-    // Returns the insert mode equivalent of whatever the current display is.
+    /// Returns the insert mode equivalent of the current display is.
     pub fn insert_equivalent(&self) -> Display {
         match self {
             Display::Default(_) => Display::Default(Mode::Insert),
@@ -69,22 +78,27 @@ impl Display {
     }
 }
 
-/// Represents the current section.
+/// Represents the current module.
+#[allow(missing_docs)]
 #[derive(PartialEq, Clone)]
 pub enum AppModule {
-    Dashboard,
+    Home,
     ProjectManagement,
     None,
 }
 
+/// Used to get the string representation of a app module.
 pub struct ModuleText<'a> {
+    /// Reference to the modules enum field.
     pub module: AppModule,
+    /// The string representation of the module.
     pub text: &'a str,
 }
 
 /// The current popup that is showing or none.
-#[derive(PartialEq, Clone)]
+#[allow(missing_docs)]
+#[derive(PartialEq, Clone, Default)]
 pub enum AppPopup {
-    Help,
+    #[default]
     None,
 }

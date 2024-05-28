@@ -84,7 +84,7 @@ pub struct CardEditor {
 }
 
 impl Popup<Result<Option<i32>>> for CardEditor {
-    fn init(_: &App) -> Self {
+    fn init() -> Self {
         let size = PopupSize::default().percentage_based().width(80).height(80);
 
         let important_input = Rc::new(RefCell::new(Switch::from("Important")));

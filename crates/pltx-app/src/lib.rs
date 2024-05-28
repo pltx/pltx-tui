@@ -7,18 +7,25 @@ use ratatui::style::Color;
 use state::{AppModule, AppPopup, Display, Mode};
 
 mod module;
+/// Application state that affects what is rendered on the screen.
 pub mod state;
 mod widget;
 
 pub use module::*;
 pub use widget::*;
 
-pub struct ModeColor<'a> {
+/// Used to get the mode properties based on the mode.
+pub struct ModeData<'a> {
+    /// Text string representation of the mode.
     pub text: &'a str,
+    /// The foreground color of the mode displayed in the status bar.
     pub fg: Color,
+    /// The background color of the mode display in the status bar.
     pub bg: Color,
 }
 
+/// The position of the debug pane on the screen.
+#[allow(missing_docs)]
 pub enum DebugPosition {
     Top,
     TopRight,
@@ -31,6 +38,7 @@ pub enum DebugPosition {
 }
 
 impl DebugPosition {
+    /// Get the next position of the debug pane.
     pub fn next(&self) -> Self {
         match self {
             DebugPosition::Top => DebugPosition::TopRight,
@@ -45,26 +53,47 @@ impl DebugPosition {
     }
 }
 
+/// Debug mode state.
 pub struct DebugMode {
+    /// Whether debug mode is enabled. This is based on the log_level
+    /// configuration. If it is set to "debug", then debug mode will be
+    /// enabled.
     pub enabled: bool,
+    /// Whether to show the debug pane.
     pub show: bool,
+    /// Whether to render the application in the minimum supported screen size.
     pub min_preview: bool,
+    /// The position of the debug pane when it's showing.
     pub position: DebugPosition,
 }
 
+/// The application state.
 pub struct App {
+    /// The user configuration after it has been merged with the base
+    /// configuration.
     pub config: Config,
+    /// The merged profile config values to determine which files should be used
+    /// for handling data.
     pub profile: ProfileConfig,
+    /// The current display mode.
     pub display: Display,
+    /// Which module is currently being displayed.
     pub module: AppModule,
+    /// The selected popup. Will only show if the display is set to
+    /// [`Display::Popup`].
     pub popup: AppPopup,
+    /// The breadcrumbs shown in the titlebar.
     pub breadcrumbs: Vec<String>,
+    /// The database state and utility methods.
     pub db: Database,
+    /// The debug state.
     pub debug: DebugMode,
+    /// When set to true, the application will quit on the next frame render.
     pub exit: bool,
 }
 
 impl App {
+    /// New a new instance of the application.
     pub fn new(config: Config, profile: ProfileConfig) -> App {
         let debug_enabled = &config.log_level == "debug";
         let db_file = profile.db_file.to_owned();
@@ -73,7 +102,7 @@ impl App {
             config,
             profile,
             display: Display::Default(Mode::Normal),
-            module: AppModule::Dashboard,
+            module: AppModule::Home,
             popup: AppPopup::None,
             breadcrumbs: vec![],
             db: Database::init(db_file),
@@ -87,28 +116,34 @@ impl App {
         }
     }
 
+    /// Exit the application on next frame render.
     pub fn exit(&mut self) {
         self.exit = true
     }
 
+    /// Toggle whether the debug pane is showing.
     pub fn toggle_debug(&mut self) {
         if self.debug.enabled {
             self.debug.show = !self.debug.show;
         }
     }
 
+    /// Toggle whether to show the application in the minimum supported screeen
+    /// size.
     pub fn toggle_min_preview(&mut self) {
         if self.debug.enabled {
             self.debug.min_preview = !self.debug.min_preview;
         }
     }
 
+    /// Move the debug pane to the next position if it's showing.
     pub fn next_debug_position(&mut self) {
         if self.debug.enabled && self.debug.show {
             self.debug.position = self.debug.position.next();
         }
     }
 
+    /// Handle the tick event.
     pub fn tick(&self) {}
 
     /// Reset the display to
@@ -195,10 +230,10 @@ impl App {
     }
 
     /// Returns a mode in string form with its colors.
-    pub fn mode_data(&self, mode: Mode) -> ModeColor {
+    pub fn mode_data(&self, mode: Mode) -> ModeData {
         let colors = &self.config.colors;
 
-        ModeColor {
+        ModeData {
             text: match mode {
                 Mode::Normal => "Normal",
                 Mode::Insert => "Insert",
@@ -221,7 +256,7 @@ impl App {
     }
 
     /// Returns the current mode in string form with its colors.
-    pub fn current_mode_data(&self) -> ModeColor {
+    pub fn current_mode_data(&self) -> ModeData {
         self.mode_data(self.mode())
     }
 }

@@ -23,7 +23,7 @@ pub fn run_tui(app: &mut App) -> Result<()> {
     let mut tui = Tui::new()?;
     app.db.start_session()?;
     let mut interface = Interface::init(app)?;
-    let mut command_handler = CommandHandler::init(app);
+    let mut command_handler = CommandHandler::init();
 
     while !app.exit {
         tui.terminal.draw(|frame| {

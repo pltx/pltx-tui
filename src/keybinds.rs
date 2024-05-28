@@ -7,7 +7,7 @@ use std::{
 use color_eyre::{eyre::Context, Result};
 use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind};
 use pltx_app::{
-    state::{AppModule, AppPopup, Display},
+    state::{AppModule, Display},
     App, Module, Popup,
 };
 
@@ -122,26 +122,12 @@ impl EventHandler {
 
         match app.display {
             Display::Default(_) => {
-                if app.is_normal_mode() {
-                    match key_event.code {
-                        KeyCode::Char(':') => {
-                            app.insert_mode();
-                            app.command_display();
-                        }
-                        KeyCode::Char('?') => {
-                            app.popup_display();
-                            app.popup = AppPopup::Help;
-                        }
-                        _ => {}
-                    }
+                if app.is_normal_mode() && key_event.code == KeyCode::Char(':') {
+                    app.insert_mode();
+                    app.command_display();
                 }
             }
-            Display::Popup(_) => {
-                if app.popup == AppPopup::Help {
-                    interface.popups.help.key_event_handler(app, key_event);
-                    return Ok(());
-                }
-            }
+            Display::Popup(_) => {}
             Display::Command(_) => {
                 command_handler.key_event_handler(app, key_event);
                 return Ok(());
@@ -149,7 +135,7 @@ impl EventHandler {
         }
 
         match app.module {
-            AppModule::Dashboard => interface.modules.home.key_event_handler(app, key_event),
+            AppModule::Home => interface.modules.home.key_event_handler(app, key_event),
             AppModule::ProjectManagement => interface
                 .modules
                 .project_management

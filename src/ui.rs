@@ -17,7 +17,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::{command_handler::CommandHandler, popups};
+use crate::command_handler::CommandHandler;
 
 /// States for each module.
 pub struct InterfaceModule {
@@ -26,15 +26,14 @@ pub struct InterfaceModule {
 }
 
 /// States for each popup.
-pub struct PopupState {
-    pub help: popups::Help,
-}
+pub struct PopupState {}
 
 pub struct Interface {
     pub modules: InterfaceModule,
     /// Global popups. Module popups are located within the modules own
     /// directories.
-    pub popups: PopupState,
+    // TODO: Remove underscore when popups are added.
+    pub _popups: PopupState,
 }
 
 impl Interface {
@@ -44,9 +43,7 @@ impl Interface {
                 home: Home::init(app)?,
                 project_management: ProjectManagement::init(app)?,
             },
-            popups: PopupState {
-                help: popups::Help::init(app),
-            },
+            _popups: PopupState {},
         })
     }
 
@@ -85,7 +82,7 @@ impl Interface {
         self.status_bar(app, frame, status_bar_layout);
 
         match app.module {
-            AppModule::Dashboard => self.modules.home.render(app, frame, module_layout),
+            AppModule::Home => self.modules.home.render(app, frame, module_layout),
             AppModule::ProjectManagement => {
                 self.modules
                     .project_management
@@ -96,7 +93,6 @@ impl Interface {
 
         if app.display.is_popup() {
             match app.popup {
-                AppPopup::Help => self.popups.help.render(app, frame, area),
                 AppPopup::None => {}
             }
         }
