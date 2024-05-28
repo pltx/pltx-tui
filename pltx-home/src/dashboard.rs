@@ -44,7 +44,7 @@ impl Screen for Dashboard {
         Ok(Self {
             pane: Pane::Sessions,
             sessions,
-            scrollable_sessions: Scrollable::new([5, 10, 21, 21]),
+            scrollable_sessions: Scrollable::default().cols([5, 10, 21, 21]),
         })
     }
 
@@ -323,7 +323,8 @@ impl Dashboard {
             })
             .collect::<Vec<[Paragraph; 4]>>();
 
-        self.scrollable_sessions.render(frame, area, header, table);
+        self.scrollable_sessions
+            .render_with_cols(frame, area, header, table);
     }
 
     fn render_tasks(&self, app: &App) -> impl Widget {

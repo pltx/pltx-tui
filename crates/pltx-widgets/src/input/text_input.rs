@@ -181,8 +181,8 @@ impl KeyEventHandler for TextInput {
 
         if app.display == self.display {
             match key_event.code {
-                KeyCode::Char('h') => self.move_cursor_left(),
-                KeyCode::Char('l') => self.move_cursor_right(),
+                KeyCode::Char('h') | KeyCode::Left => self.move_cursor_left(),
+                KeyCode::Char('l') | KeyCode::Right => self.move_cursor_right(),
                 KeyCode::Char('w') => self.cursor_next_word(),
                 KeyCode::Char('b') => self.cursor_prev_word(),
                 KeyCode::Char('0') => self.cursor_start_line(),

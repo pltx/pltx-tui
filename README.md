@@ -39,11 +39,14 @@ pltx can also be uninstalled with `cargo uninstall pltx-tui`.
 
 ## Usage
 
-Run `pltx` to start the application.
+1. Run `pltx` to start the application.
+2. You will see the dashboard. Press `}` twice to go two tabs to the right.
+3. These are the help pages. Move up with **`j`** and down with **`k`**. Select "navigation" and press **`<enter>`**.
+4. Here you'll find all the information you need to navigate pltx.
 
-<!-- TODO: Add links to docs when docs are available -->
+These pages are generated from the README files in the `/docs` directory, so you can also [view them on GitHub](https://github.com/pltx/tui/blob/main/docs).
 
-~~Pressing **`?`** will take you to the help pages with all the information on how to use pltx-tui (coming soon).~~
+Press **`[`** to go back and **`:`** to open the command prompt where you can type **`q`** + **`<enter>`** to quit (quit should auto-complete).
 
 ## Modules
 

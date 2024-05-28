@@ -8,8 +8,11 @@ use ratatui::{
 };
 
 mod dashboard;
+mod generated_docs;
+mod help;
 
 use dashboard::Dashboard;
+use help::Help;
 
 #[derive(Clone, PartialEq)]
 enum Tab {
@@ -20,6 +23,7 @@ enum Tab {
 
 pub struct Screens {
     dashboard: Dashboard,
+    help: Help,
 }
 
 pub struct Home {
@@ -40,6 +44,7 @@ impl Module for Home {
             ]),
             screens: Screens {
                 dashboard: Dashboard::init(app)?,
+                help: Help::init(app)?,
             },
         })
     }
@@ -50,7 +55,7 @@ impl Module for Home {
         match self.tabs.active {
             Tab::Dashboard => self.screens.dashboard.key_event_handler(app, key_event),
             Tab::Settings => {}
-            Tab::Help => {}
+            Tab::Help => self.screens.help.key_event_handler(app, key_event),
         }
     }
 
@@ -64,7 +69,7 @@ impl Module for Home {
         match self.tabs.active {
             Tab::Dashboard => self.screens.dashboard.render(app, frame, screen_layout),
             Tab::Settings => {}
-            Tab::Help => {}
+            Tab::Help => self.screens.help.render(app, frame, screen_layout),
         }
     }
 }

@@ -20,4 +20,13 @@ pltx_widgets = { workspace = true }
 color-eyre = { workspace = true }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
+serde = { workspace = true }
+serde_derive = { workspace = true }
 tracing = { workspace = true }
+syntect = "5.2.0"
+ansi-to-tui = "4.0.1"
+
+[build-dependencies]
+serde = { workspace = true }
+serde_derive = { workspace = true }
+serde_yaml = "0.9.34"
