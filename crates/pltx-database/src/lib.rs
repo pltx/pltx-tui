@@ -1,3 +1,6 @@
+//! Initializes a new connection pool to the database and provides utility
+//! methods for convenience.
+
 use std::{fs, thread, time::Duration};
 
 use color_eyre::Result;

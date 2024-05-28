@@ -1,3 +1,6 @@
+//! Provides general purpose utilities for the application.
+//! This crate should not depend on any of the other workspace crates.
+
 use ratatui::layout::Rect;
 
 mod datetime;
@@ -8,10 +11,7 @@ mod widget;
 pub use datetime::DateTime;
 pub use widget::*;
 
-pub fn get_version<'a>() -> &'a str {
-    env!("CARGO_PKG_VERSION")
-}
-
+/// Center a rect by all sides within an area
 pub fn centered_rect(
     (width, percentage_based_width): (u16, bool),
     (height, percentage_based_height): (u16, bool),

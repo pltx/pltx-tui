@@ -6,10 +6,6 @@ pub trait DefaultWidget {
     fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused: bool);
 }
 
-pub trait MutableWidget {
-    fn render(&mut self, frame: &mut Frame, app: &App, area: Rect, focused: bool);
-}
-
 pub trait FormWidget: DefaultWidget + KeyEventHandler {
     fn form_compatible(&mut self);
     fn display(&mut self, display: Display);

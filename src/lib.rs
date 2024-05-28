@@ -1,3 +1,6 @@
+//! The main src crate contains code that isn't a dependency of any workspace
+//! crates.
+
 use color_eyre::Result;
 use keybinds::Event;
 use pltx_app::App;
@@ -15,6 +18,7 @@ use pltx_app::Popup;
 use tui::Tui;
 use ui::Interface;
 
+/// Initialize and run the terminal user interface
 pub fn run_tui(app: &mut App) -> Result<()> {
     let mut tui = Tui::new()?;
     app.db.start_session()?;

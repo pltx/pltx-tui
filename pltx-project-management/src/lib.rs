@@ -1,3 +1,5 @@
+//! The Project Management Modules - Similar to Trello or GitHub Projects.
+
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, Module, Screen};

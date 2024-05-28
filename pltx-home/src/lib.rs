@@ -1,3 +1,4 @@
+//! The Home Module - Contains the dashboard, settings, and help pages.
 use color_eyre::Result;
 use crossterm::event::KeyEvent;
 use pltx_app::{App, DefaultWidget, KeyEventHandler, Module, Screen};

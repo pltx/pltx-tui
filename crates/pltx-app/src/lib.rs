@@ -1,3 +1,6 @@
+//! Contains the application state. The [`App`] is passed to all functions
+//! that require state throughout the application.
+
 use pltx_config::{Config, ProfileConfig};
 use pltx_database::Database;
 use ratatui::style::Color;
