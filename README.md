@@ -52,40 +52,59 @@ Edit the configuration in `~/.config/pltx/config.toml`.
 # Controls the log level that outputs to `~/.cache/pltx/debug.log`.
 # Available options: debug, info, warn, error
 log_level = "info"
+# This should be set to the name of a profile. There is no default profile by default.
+# default_profile = ""
 
 [colors]
-primary = "#AF5FFF"
-secondary = "#AAAAAA"
-fg = "#FFFFFF"
-bg = "#000000"
-input_fg = "#FFFFFF"
-input_bg = "#333333"
-input_focus_fg = "#FFFFFF"
-input_focus_bg = "#666666"
+# The default color preset. Defined colors will still override the preset colors.
+preset = "default"
+fg = "#c0caf5"
+secondary_fg = "#7f87ac"
+tertiary_fg = "#2c344d"
+highlight_fg = "#61a4ff"
+bg = "#11121D"
+primary = "#9556f7"
+success = "#85f67a"
+warning = "#ff9382"
+danger = "#ff4d66"
+date_fg = "#9293b8"
+time_fg = "#717299"
+input_fg = "#c0caf5"
+input_bg = "#232b44"
+input_focus_fg = "#c0caf5"
+input_focus_bg = "#2c344d"
 input_cursor_fg = "#000000"
-input_cursor_bg = "#BBBBBB"
+input_cursor_bg = "#7f87ac"
 input_cursor_insert_fg = "#000000"
-input_cursor_insert_bg = "#FFFFFF"
-active_fg = "#000000"
+input_cursor_insert_bg = "#c0caf5"
+active_fg = "#373f58"
 active_bg = "#00FFFF"
-border = "#777777"
+border = "#373f58"
+border_active = "#4d556e"
 border_insert = "#00FFFF"
 popup_bg = "#111111"
-popup_border = "#AF5FFF"
-keybind_key = "#AF5FFF"
+popup_border = "#A485DD"
+keybind_key = "#A485DD"
 keybind_fg = "#6698FF"
-title_bar_bg = "#AF5FFF"
-title_bar_fg = "#FFFFFF"
-status_bar_bg = "#333333"
-status_bar_fg = "#CCCCCC"
+title_bar_bg = "#373f58"
+title_bar_fg = "#CCCCCC"
+tab_fg = "#7f87ac"
+tab_active_fg = "#c0caf5"
+tab_border = "#373f58"
+status_bar_bg = "#232b44"
+status_bar_fg = "#7f87ac"
 status_bar_normal_mode_bg = "#9bff46"
-status_bar_normal_mode_fg = "#000000"
+status_bar_normal_mode_fg = "#232b44"
 status_bar_insert_mode_bg = "#00ffff"
-status_bar_insert_mode_fg = "#000000"
+status_bar_insert_mode_fg = "#232b44"
 status_bar_interactive_mode_bg = "#ffff32"
-status_bar_interactive_mode_fg = "#000000"
+status_bar_interactive_mode_fg = "#232b44"
 status_bar_delete_mode_bg = "#ff6069"
-status_bar_delete_mode_fg = "#000000"
+status_bar_delete_mode_fg = "#232b44"
+
+[modules.home]
+dashboard_title = "Privacy Life Tracker X"
+dashboard_message = "Manage your personal life privately and securely."
 
 [modules.project_management]
 # The maximum number of lists allowed in a project.
@@ -98,6 +117,19 @@ due_soon_char = "⏰"
 in_progress_char = "🌐"
 important_char = "⭐"
 default_char = " "
+
+# Create a separate profile. The profiles shown below are included by default. You can override it by changing the values or create new ones entirely.
+[[profiles]]
+name = "default"
+config_file = "config.toml"
+db_file = "data.db"
+log_file = "debug.log"
+
+[[profiles]]
+name = "dev"
+config_file = "dev.toml"
+db_file = "dev.db"
+log_file = "dev.log"
 ```
 
 ## Contributing
