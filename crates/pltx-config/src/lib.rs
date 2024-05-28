@@ -117,18 +117,18 @@ struct ConfigFile {
 #[derive(Clone)]
 pub struct Config {
     pub log_level: String,
-    pub default_profile: Option<String>,
+    pub default_profile: String,
     pub colors: ColorsConfig,
     pub modules: ModulesConfig,
     pub profiles: Vec<ProfileConfig<String>>,
 }
 
 /// Default config values. Overridden if user config values are provided.
-fn base_config() -> Config {
+fn base_config(default_profile: ProfileConfig) -> Config {
     // NOTE: Remember to update `README.md` with the default configuration values.
     Config {
         log_level: String::from("info"),
-        default_profile: None,
+        default_profile: String::from("default"),
         colors: {
             let fg = "#c0caf5";
             let secondary_fg = "#7f87ac";
@@ -202,12 +202,15 @@ fn base_config() -> Config {
                 default_char: String::from(" "),
             },
         },
-        profiles: vec![ProfileConfig {
-            name: String::from("dev"),
-            config_file: String::from("dev.toml"),
-            db_file: String::from("dev.db"),
-            log_file: String::from("dev.log"),
-        }],
+        profiles: vec![
+            default_profile,
+            ProfileConfig {
+                name: String::from("dev"),
+                config_file: String::from("dev.toml"),
+                db_file: String::from("dev.db"),
+                log_file: String::from("dev.log"),
+            },
+        ],
     }
 }
 
@@ -381,7 +384,9 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
             .log_level
             .clone()
             .unwrap_or(base_config.log_level),
-        default_profile: user_config.log_level.clone(),
+        default_profile: user_config
+            .default_profile
+            .unwrap_or(base_config.default_profile),
         colors: colors.unwrap_or(base_config.colors),
         modules: modules.unwrap_or(base_config.modules),
         profiles: profiles.unwrap_or(base_config.profiles),
@@ -390,15 +395,15 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
 
 /// Read, parse, and marge the configuration.
 pub fn init_config(profile: Option<String>) -> Result<(Config, ProfileConfig)> {
-    let base_config = base_config();
     let default_profile = ProfileConfig {
         name: String::from("default"),
         config_file: String::from("config.toml"),
         db_file: String::from("data.db"),
         log_file: String::from("debug.log"),
     };
-
+    let base_config = base_config(default_profile.clone());
     let default_config_file = read_config_file(&default_profile.config_file);
+
     let default_config = match default_config_file? {
         Some(user_config) => merge_config(user_config, base_config.clone()),
         None => base_config.clone(),
