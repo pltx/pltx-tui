@@ -43,7 +43,8 @@ fn main() -> io::Result<()> {
         if path.is_file() {
             let filename = path.file_name().unwrap().to_str().unwrap();
 
-            if IGNORE_FILES.contains(&&(*filename.replace(".md", ""))) {
+            if IGNORE_FILES.contains(&&(*filename.replace(".md", ""))) || !filename.contains(".md")
+            {
                 continue;
             }
 
