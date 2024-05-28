@@ -29,7 +29,7 @@ fn main() -> io::Result<()> {
 
     write!(
         dest_file,
-        "
+        "#[rustfmt::skip]
 pub fn base_config() -> DefaultConfig {{
 {:?}
 }}

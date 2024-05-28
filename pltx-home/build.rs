@@ -29,9 +29,9 @@ fn main() -> io::Result<()> {
 
     write!(
         dest_file,
-        "
-use crate::help::{{Document,Frontmatter}};
+        "use crate::help::{{Document, Frontmatter}};
 #[allow(private_interfaces)]
+#[rustfmt::skip]
 "
     )?;
 
