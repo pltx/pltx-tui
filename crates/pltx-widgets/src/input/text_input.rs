@@ -590,7 +590,7 @@ impl TextInput {
                     if app.display == self.display.insert_equivalent() {
                         colors.status_bar_insert_mode_bg
                     } else {
-                        colors.primary
+                        colors.border_active
                     }
                 } else {
                     colors.border

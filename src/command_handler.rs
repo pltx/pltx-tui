@@ -109,17 +109,23 @@ impl Popup for CommandHandler {
                     self.reset();
                 }
                 KeyCode::Char('j') => {
-                    if self.content == Content::CommandInput
-                        && self.focused_pane == FocusedPane::Input
-                    {
-                        self.focused_pane = FocusedPane::Options;
+                    if self.content == Content::CommandInput {
+                        if self.focused_pane == FocusedPane::Input {
+                            self.focused_pane = FocusedPane::Options;
+                        } else if self.selected_option + 1 != self.command_options.len() {
+                            self.selected_option += 1;
+                        }
                     }
                 }
                 KeyCode::Char('k') => {
                     if self.content == Content::CommandInput
                         && self.focused_pane == FocusedPane::Options
                     {
-                        self.focused_pane = FocusedPane::Input;
+                        if self.selected_option != 0 {
+                            self.selected_option -= 1;
+                        } else {
+                            self.focused_pane = FocusedPane::Input;
+                        }
                     }
                 }
                 _ => {}
@@ -181,7 +187,7 @@ impl Popup for CommandHandler {
                 .border_type(BorderType::Rounded)
                 .border_style(
                     Style::new().fg(if self.focused_pane == FocusedPane::Options {
-                        colors.primary
+                        colors.border_active
                     } else {
                         colors.border
                     }),
@@ -194,9 +200,9 @@ impl Popup for CommandHandler {
 
 impl CommandHandler {
     fn reset(&mut self) {
+        self.focused_pane = FocusedPane::Input;
         self.command.reset();
         self.update_options();
-        self.focused_pane = FocusedPane::Input;
     }
 
     fn parse_command(&self) -> Command {
@@ -236,6 +242,7 @@ impl CommandHandler {
     }
 
     fn update_options(&mut self) {
+        self.selected_option = 0;
         let is_longer_than_longest_option = self.command.input_string().chars().count()
             > command_data()
                 .iter()
@@ -261,6 +268,5 @@ impl CommandHandler {
                 .map(|s| s.0.to_string())
                 .collect::<Vec<String>>();
         }
-        self.selected_option = 0;
     }
 }

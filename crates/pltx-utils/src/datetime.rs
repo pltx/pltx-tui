@@ -150,7 +150,8 @@ impl DateTime {
 
     /// Checks if the current datetime is past a datetime minus a specified
     /// number of days, which means the number of days *before* the
-    /// datetime. ```
+    /// datetime.
+    /// ```
     /// # use pltx_utils::DateTime;
     /// let datetime = DateTime::from("2000-01-01T00:00:00+00:00");
     /// assert!(datetime.is_past_days(100));
