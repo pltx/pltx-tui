@@ -198,10 +198,7 @@ impl Screen<Result<bool>> for OpenProject {
                 KeyCode::Char('E') => {
                     if let Some(list_id) = self.selected_list_id {
                         self.popup = OpenProjectPopup::EditList;
-                        self.popups
-                            .edit_list
-                            .set(&app.db, list_id)
-                            .unwrap_or_else(|e| panic! {"{e}"});
+                        self.popups.edit_list.set(&app.db, list_id)?;
                         app.popup_display();
                         app.insert_mode();
                     }
@@ -212,10 +209,7 @@ impl Screen<Result<bool>> for OpenProject {
                             if let Some(card_id) = self.selected_card_id() {
                                 self.popups.edit_card.ids(project_id, list_id);
                                 self.popup = OpenProjectPopup::EditCard;
-                                self.popups
-                                    .edit_card
-                                    .set_data(&app.db, card_id)
-                                    .unwrap_or_else(|e| panic!("{e}"));
+                                self.popups.edit_card.set_data(&app.db, card_id)?;
                                 app.popup_display();
                             }
                         }
