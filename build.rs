@@ -16,7 +16,7 @@ fn main() -> io::Result<()> {
     let mut dest_file = File::create(dest_path).expect("failed to create readme file");
 
     let file_path = PathBuf::from(README_FILE);
-    let mut file_contents = fs::read_to_string(file_path).expect("no repo readme file round");
+    let mut file_contents = fs::read_to_string(file_path).expect("no repo readme file found");
 
     let default_config_path = PathBuf::from(DEFAULT_CONFIG_FILE);
     let default_config =
