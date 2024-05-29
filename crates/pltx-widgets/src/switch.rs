@@ -59,14 +59,6 @@ impl FormWidget for Switch {
     fn form_compatible(&mut self) {}
     fn display(&mut self, _: Display) {}
 
-    fn title_len(&self) -> u16 {
-        self.title.chars().count() as u16
-    }
-
-    fn max_title_len(&mut self, max_title: u16) {
-        self.max_title_len = max_title;
-    }
-
     fn reset(&mut self) {
         self.state = self.original_state;
     }

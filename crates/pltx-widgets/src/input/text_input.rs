@@ -1,9 +1,9 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::Display, App, DefaultWidget, FormWidget, KeyEventHandler};
-use pltx_utils::DateTime;
+use pltx_utils::{symbols, DateTime};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::Style,
+    style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
 };
@@ -19,6 +19,14 @@ const WORD_SEPARATORS: [char; 1] = [' '];
 enum TextInputType {
     Text,
     Date,
+}
+
+// TODO: Rename to something more accurate that "style"
+#[derive(Clone, PartialEq)]
+enum InputStyle {
+    Default,
+    Prompt,
+    // Multiline,
 }
 
 #[derive(Clone, Default)]
@@ -76,7 +84,6 @@ pub struct TextInput {
     cursor_position: CursorPosition,
     input_type: TextInputType,
     title: String,
-    max_title_len: u16,
     placeholder: Option<String>,
     title_as_placeholder: bool,
     required: bool,
@@ -87,6 +94,8 @@ pub struct TextInput {
     form_input: bool,
     use_size: bool,
     size: TextInputSize,
+    style: InputStyle,
+    prompt_lines: u16,
     keys: KeyManager,
 }
 
@@ -98,19 +107,35 @@ impl DefaultWidget for TextInput {
         area: ratatui::prelude::Rect,
         focused: bool,
     ) {
-        if self.inline {
-            let [title_layout, input_layout] = Layout::default()
+        if self.style == InputStyle::Prompt {
+            let [side_line_layout, content_layout] = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Length(self.max_title_len + 2),
-                    Constraint::Min(0),
-                ])
+                .constraints([Constraint::Length(2), Constraint::Fill(1)])
                 .areas(area);
 
-            if !self.title_as_placeholder {
-                frame.render_widget(Paragraph::new(format!("{}: ", self.title)), title_layout);
-            }
+            frame.render_widget(
+                Paragraph::new(
+                    (0..self.prompt_lines + 1)
+                        .map(|_| Line::from(symbols::border::VERTICAL))
+                        .collect::<Vec<Line>>(),
+                )
+                .fg(app.config.colors.border),
+                side_line_layout,
+            );
+
+            let [title_layout, input_layout] = Layout::default()
+                .constraints([Constraint::Length(1), Constraint::Length(self.prompt_lines)])
+                .areas(content_layout);
+
+            frame.render_widget(
+                Paragraph::new(self.title.to_owned())
+                    .bold()
+                    .fg(app.config.colors.primary),
+                title_layout,
+            );
+
             let widget = self.render_text(app, input_layout, focused);
+
             frame.render_widget(
                 widget,
                 if self.title_as_placeholder {
@@ -134,14 +159,6 @@ impl FormWidget for TextInput {
 
     fn display(&mut self, display: Display) {
         self.display = display;
-    }
-
-    fn title_len(&self) -> u16 {
-        self.title.chars().count() as u16
-    }
-
-    fn max_title_len(&mut self, max_title: u16) {
-        self.max_title_len = max_title;
     }
 
     fn reset(&mut self) {
@@ -219,7 +236,6 @@ impl TextInput {
             cursor_position: CursorPosition::default(),
             input_type: TextInputType::Text,
             title: String::from(title),
-            max_title_len: title.chars().count() as u16,
             placeholder: None,
             title_as_placeholder: false,
             required: false,
@@ -230,6 +246,8 @@ impl TextInput {
             form_input: false,
             use_size: false,
             size: TextInputSize::default(),
+            style: InputStyle::Default,
+            prompt_lines: 1,
             keys: KeyManager::default(),
         }
     }
@@ -240,11 +258,13 @@ impl TextInput {
         self
     }
 
+    /// Set the input
     pub fn input(&mut self, input: String) {
         self.input = input.split('\n').map(|s| s.to_string()).collect();
         self.cursor_end_line();
     }
 
+    /// TODO: rename to get_value
     pub fn input_string(&self) -> String {
         self.input.join("\n")
     }
@@ -317,6 +337,16 @@ impl TextInput {
 
     pub fn inline(mut self) -> Self {
         self.inline = true;
+        self
+    }
+
+    pub fn prompt(mut self) -> Self {
+        self.style = InputStyle::Prompt;
+        self
+    }
+
+    pub fn prompt_lines(mut self, lines: u16) -> Self {
+        self.prompt_lines = lines;
         self
     }
 

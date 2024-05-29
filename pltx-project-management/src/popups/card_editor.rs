@@ -16,7 +16,7 @@ use ratatui::{
     Frame,
 };
 
-use super::open_project::ProjectLabel;
+use crate::open_project::ProjectLabel;
 
 #[derive(PartialEq, Clone, Copy)]
 enum Action {
@@ -123,7 +123,7 @@ impl Popup<Result<Option<i32>>> for CardEditor {
                     .max(4000),
                 labels: Selection::default(),
                 properties: Form::new(
-                    vec![important_input, start_date_input, due_date_input],
+                    [important_input, start_date_input, due_date_input],
                     properties,
                     Display::popup(),
                 )
@@ -170,7 +170,7 @@ impl Popup<Result<Option<i32>>> for CardEditor {
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let popup = PopupWidget::new(app, area)
             .title_top(if self.is_new { "New Card" } else { "Edit Card" })
-            .size(self.size.clone())
+            .size(self.size)
             .render(frame);
 
         let label_len = self.inputs.labels.options.len() as u16;

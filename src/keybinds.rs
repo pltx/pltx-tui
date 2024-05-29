@@ -127,7 +127,12 @@ impl EventHandler {
                     app.command_display();
                 }
             }
-            Display::Popup(_) => {}
+            Display::Popup(_) => {
+                if app.is_normal_mode() && key_event.code == KeyCode::Char(':') {
+                    app.insert_mode();
+                    app.command_display();
+                }
+            }
             Display::Command(_) => {
                 command_handler.key_event_handler(app, key_event);
                 return Ok(());

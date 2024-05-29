@@ -16,11 +16,6 @@ pub trait FormWidget: DefaultWidget + KeyEventHandler {
     /// Set the display that the widget should be interactable in. Keys will not
     /// be processed if the app is in any other display.
     fn display(&mut self, display: Display);
-    /// Get the length of the title of the widget.
-    fn title_len(&self) -> u16;
-    /// Set the max_title_len field of the [`FormWidget`] to the length of the
-    /// widget with the longest title in the form.
-    fn max_title_len(&mut self, max_title_len: u16);
     /// Reset the state values of the widget.
     fn reset(&mut self);
 }

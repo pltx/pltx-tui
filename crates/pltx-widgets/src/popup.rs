@@ -8,7 +8,7 @@ use ratatui::{
     Frame,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct PopupSize {
     pub width: u16,
     pub height: u16,
@@ -116,7 +116,7 @@ impl<'a> PopupWidget<'a> {
     }
 
     pub fn size(mut self, size: PopupSize) -> Self {
-        self.size = size.clone();
+        self.size = size;
         self.popup_area = centered_rect(
             (size.width, size.percentage_based_width),
             (size.height, size.percentage_based_height),

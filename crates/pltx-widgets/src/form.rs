@@ -18,27 +18,20 @@ pub struct Form<I> {
 }
 
 impl<I> Form<I> {
-    pub fn new(
-        input_widgets: Vec<Rc<RefCell<dyn FormWidget>>>,
+    pub fn new<const N: usize>(
+        input_widgets: [Rc<RefCell<dyn FormWidget>>; N],
         inputs: I,
         display: Display,
     ) -> Self {
-        let max_title_len = input_widgets
-            .iter()
-            .map(|i| (**i).borrow().title_len())
-            .max()
-            .unwrap_or(0);
-
         for input in input_widgets.iter() {
             let mut access_input = (**input).borrow_mut();
             access_input.form_compatible();
             access_input.display(display);
-            access_input.max_title_len(max_title_len);
         }
 
         Self {
             focused_input: 0,
-            input_widgets,
+            input_widgets: input_widgets.into(),
             inputs,
             fixed_width: None,
         }

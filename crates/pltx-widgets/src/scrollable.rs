@@ -38,7 +38,7 @@ impl Scrollable {
 }
 
 impl KeyEventHandler for Scrollable {
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
+    fn key_event_handler(&mut self, _: &mut App, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('j') => {
                 if self.focused != self.row_count.borrow().saturating_sub(1) {
@@ -73,13 +73,6 @@ impl KeyEventHandler for Scrollable {
                 self.focused_prev = 0;
                 self.focused = self.row_count.borrow().saturating_sub(1);
             }
-            KeyCode::Char('d') => {
-                if self.focused != 0 {
-                    app.delete_mode()
-                }
-            }
-            KeyCode::Char('y') => app.normal_mode(),
-            KeyCode::Char('n') => app.normal_mode(),
             _ => {}
         }
     }
@@ -88,15 +81,13 @@ impl KeyEventHandler for Scrollable {
 // TODO: Allow a Row widget or something similar to be passed as rows, so the
 // user doesn't have to specify a row style for each cell.
 impl Scrollable {
-    pub fn render<T>(&self, frame: &mut Frame, area: Rect, header: T, table: Vec<T>)
+    pub fn render<T>(&self, frame: &mut Frame, area: Rect, table: Vec<T>)
     where
         T: Widget,
     {
         *self.area_height.borrow_mut() = area.height;
         *self.row_count.borrow_mut() = table.len();
         let row_layouts = self.row_layouts(area);
-
-        frame.render_widget(header, row_layouts[0]);
 
         for (i, row) in table.into_iter().enumerate().filter(|(ri, _)| {
             (self.from_top..self.from_top + area.height as usize - 1).contains(ri)

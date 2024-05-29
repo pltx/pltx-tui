@@ -16,7 +16,7 @@ use ratatui::{
     Frame,
 };
 
-use super::{card_editor::CardEditor, list_editor::ListEditor};
+use crate::popups::{card_editor::CardEditor, list_editor::ListEditor};
 
 #[derive(Clone)]
 pub struct ProjectLabel {

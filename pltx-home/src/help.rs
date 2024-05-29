@@ -85,16 +85,6 @@ impl Screen for Help {
                     self.focused_prev = self.focused;
                     self.focused += 1;
                 }
-
-                tracing::debug!(
-                    "focused = {}, focused_prev = {}, from_top = {}, line_count = {}, area_height \
-                     = {}",
-                    self.focused,
-                    self.focused_prev,
-                    self.from_top,
-                    self.line_count,
-                    *(self.area_height.borrow())
-                );
             }
             KeyCode::Char('k') => {
                 if self.page == Page::Selection {
@@ -303,8 +293,6 @@ impl Help {
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(colors.border));
 
-        let header = Paragraph::new(" Help Pages ").fg(colors.secondary_fg);
-
         let layout = centered_rect((100, false), (20, false), area);
 
         frame.render_widget(block, layout);
@@ -315,7 +303,6 @@ impl Help {
             .constraints([Constraint::Fill(1)])
             .areas(layout);
 
-        self.scrollable
-            .render(frame, scrollabe_layout, header, table);
+        self.scrollable.render(frame, scrollabe_layout, table);
     }
 }

@@ -9,13 +9,16 @@ use ratatui::{
     Frame,
 };
 
+/// Module tabs for navigating the main screens in a module.
 pub struct Tabs<T: Clone + PartialEq> {
     tabs: Vec<(T, String)>,
+    /// The currently active tab. The screen should be rendered based on this
+    /// value.
     pub active: T,
 }
 
-impl<T: Clone + PartialEq> Tabs<T> {
-    pub fn from(tabs: Vec<(T, &str)>) -> Self {
+impl<T: Clone + PartialEq, const N: usize> From<[(T, &str); N]> for Tabs<T> {
+    fn from(tabs: [(T, &str); N]) -> Self {
         Self {
             active: tabs[0].0.clone(),
             tabs: tabs

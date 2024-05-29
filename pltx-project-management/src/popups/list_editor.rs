@@ -66,7 +66,7 @@ impl Popup<Result<Option<i32>>> for ListEditor {
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let popup = PopupWidget::new(app, area)
             .title_top(if self.is_new { "New List" } else { "Edit List" })
-            .size(self.size.clone())
+            .size(self.size)
             .render(frame);
 
         let [title_layout] = Layout::default()

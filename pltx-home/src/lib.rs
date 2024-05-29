@@ -38,7 +38,7 @@ impl Module for Home {
         Self: Sized,
     {
         Ok(Self {
-            tabs: Tabs::from(vec![
+            tabs: Tabs::from([
                 (Tab::Dashboard, "Dashboard"),
                 (Tab::Settings, "Settings"),
                 (Tab::Help, "Help"),

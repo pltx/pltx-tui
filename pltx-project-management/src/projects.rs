@@ -1,10 +1,10 @@
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{App, Screen};
+use pltx_app::{App, Popup, Screen};
 use ratatui::{layout::Rect, Frame};
 
-use super::{
-    list_projects::ListProjects, open_project::OpenProject, project_editor::ProjectEditor,
+use crate::{
+    list_projects::ListProjects, open_project::OpenProject, popups::project_editor::ProjectEditor,
 };
 
 #[derive(PartialEq)]
@@ -33,8 +33,8 @@ impl Screen<Result<()>> for Projects {
             page: Page::ListProjects,
             pages: Pages {
                 list_projects: ListProjects::init(app)?,
-                new_project: ProjectEditor::init(app)?.set_new(),
-                edit_project: ProjectEditor::init(app)?,
+                new_project: ProjectEditor::init(),
+                edit_project: ProjectEditor::init(),
                 open_project: OpenProject::init(app)?,
             },
         })
@@ -43,14 +43,15 @@ impl Screen<Result<()>> for Projects {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<()> {
         if app.is_normal_mode() && self.page == Page::ListProjects {
             match key_event.code {
-                KeyCode::Char('n') => self.page = Page::NewProject,
+                KeyCode::Char('n') => {
+                    self.page = Page::NewProject;
+                    app.popup_display();
+                }
                 KeyCode::Char('e') => {
                     if let Some(selected_id) = self.pages.list_projects.selected_id {
-                        self.pages
-                            .edit_project
-                            .set_project(&app.db, selected_id)
-                            .unwrap_or_else(|e| panic!("{e}"));
+                        self.pages.edit_project.set_project(&app.db, selected_id)?;
                         self.page = Page::EditProject;
+                        app.popup_display();
                     }
                 }
                 KeyCode::Enter | KeyCode::Char('l') => {
