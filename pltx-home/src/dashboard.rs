@@ -243,7 +243,7 @@ impl Dashboard {
             .iter()
             .enumerate()
             .map(|(i, s)| {
-                [
+                vec![
                     Paragraph::new(s.id.to_string()).fg(colors.fg).bg(
                         if self.pane == Pane::Sessions && self.scrollable_sessions.focused == i {
                             colors.input_focus_bg
@@ -321,10 +321,10 @@ impl Dashboard {
                     ),
                 ]
             })
-            .collect::<Vec<[Paragraph; 4]>>();
+            .collect::<Vec<Vec<Paragraph>>>();
 
         self.scrollable_sessions
-            .render_with_cols(frame, area, header, table);
+            .render_with_cols(frame, area, header.into(), table);
     }
 
     fn render_tasks(&self, app: &App) -> impl Widget {

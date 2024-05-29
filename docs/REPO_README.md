@@ -64,7 +64,7 @@ Edit the configuration in `~/.config/pltx/config.toml`.
 
 ## Contributing
 
-All contributions to the project are welcome! Please read the [Contributing Guidelines](./CONTRIBUTING.md) for more details.
+All contributions to the project are welcome! Please read the [Contributing Guidelines](/CONTRIBUTING.md) for more details.
 
 ## License
 

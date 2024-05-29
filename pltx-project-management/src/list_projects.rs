@@ -1,18 +1,19 @@
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Mode, App, Screen};
+use pltx_app::{state::Mode, App, KeyEventHandler, Screen};
 use pltx_database::Database;
-use pltx_utils::DateTime;
+use pltx_utils::{centered_rect, DateTime};
+use pltx_widgets::Scrollable;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table},
+    widgets::{Block, BorderType, Borders, Padding, Paragraph},
     Frame,
 };
 
 #[derive(Clone)]
-struct Project {
+pub struct Project {
     id: i32,
     title: String,
     description: Option<String>,
@@ -29,15 +30,15 @@ struct Project {
 }
 
 pub struct ListProjects {
-    projects: Vec<Project>,
-    pub selected_id: Option<i32>,
+    pub selection: Scrollable,
+    pub projects: Vec<Project>,
 }
 
 impl Screen<Result<bool>> for ListProjects {
     fn init(app: &App) -> Result<ListProjects> {
         let mut list_projects = ListProjects {
             projects: vec![],
-            selected_id: None,
+            selection: Scrollable::default().cols([5, 50, 7, 13, 10, 9, 9, 8]),
         };
 
         list_projects.db_get_projects(app)?;
@@ -46,120 +47,156 @@ impl Screen<Result<bool>> for ListProjects {
     }
 
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
-        if let Some(selected_id) = self.selected_id {
-            if app.is_normal_mode() {
-                let selected_index = self
-                    .projects
-                    .iter()
-                    .position(|p| p.id == selected_id)
-                    .unwrap_or(0);
+        self.selection.key_event_handler(app, key_event);
 
-                match key_event.code {
-                    KeyCode::Char('d') => {
-                        app.delete_mode();
-                    }
-                    KeyCode::Char('j') => {
-                        if selected_index != self.projects.len().saturating_sub(1) {
-                            self.selected_id = Some(self.projects[selected_index + 1].id);
-                        } else {
-                            self.selected_id = Some(self.projects[0].id);
-                        }
-                    }
-                    KeyCode::Char('k') => {
-                        if selected_index != 0 {
-                            self.selected_id =
-                                Some(self.projects[selected_index.saturating_sub(1)].id);
-                        } else {
-                            self.selected_id =
-                                Some(self.projects[self.projects.len().saturating_sub(1)].id);
-                        }
-                    }
-                    _ => {}
-                }
-            }
+        if app.is_normal_mode() && key_event.code == KeyCode::Char('d') {
+            app.delete_mode();
+        }
 
-            if app.mode() == Mode::Delete {
-                match key_event.code {
-                    KeyCode::Char('y') => {
-                        self.db_delete_project(&app.db)?;
-                        self.db_get_projects(app)?;
-                        app.reset_display();
-                    }
-                    KeyCode::Char('n') => app.reset_display(),
-                    _ => {}
+        if app.mode() == Mode::Delete {
+            match key_event.code {
+                KeyCode::Char('y') => {
+                    self.db_delete_project(&app.db)?;
+                    self.db_get_projects(app)?;
+                    app.reset_display();
                 }
+                KeyCode::Char('n') => app.reset_display(),
+                _ => {}
             }
         }
         Ok(false)
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
-        let [list_layout, info_layout] = Layout::default()
+        let colors = &app.config.colors.clone();
+
+        let [list_side_layout, info_layout] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Fill(1), Constraint::Length(40)])
             .areas(area);
 
-        let colors = &app.config.colors.clone();
-        let block = Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(colors.border));
+        let centered_list_layout = centered_rect(
+            (
+                self.selection
+                    .col_lengths
+                    .to_owned()
+                    .expect("failed to get col lengths for list projects")
+                    .iter()
+                    .sum(),
+                false,
+            ),
+            (list_side_layout.height, false),
+            list_side_layout,
+        );
 
-        if let Some(selected_id) = self.selected_id {
-            let rows = self
+        let [list_layout] = Layout::default()
+            .vertical_margin(1)
+            .constraints([Constraint::Fill(1)])
+            .areas(centered_list_layout);
+
+        if self.projects.is_empty() {
+            let content = Paragraph::new(Text::from(vec![Line::from(vec![
+                Span::from("You have no projects. Press "),
+                Span::styled("n", Style::new().bold().fg(colors.keybind_key)),
+                Span::from(" to create a new project."),
+            ])]));
+
+            frame.render_widget(content, list_layout);
+            frame.render_widget(Block::new(), info_layout);
+        } else {
+            let header = [
+                Paragraph::new(" "),
+                Paragraph::new("Title"),
+                Paragraph::new("Cards"),
+                Paragraph::new("In Progress"),
+                Paragraph::new("Due Soon"),
+                Paragraph::new("Overdue"),
+                Paragraph::new("Important"),
+            ]
+            .into_iter()
+            .map(|p| p.fg(colors.secondary_fg))
+            .collect::<Vec<Paragraph>>();
+
+            let table = self
                 .projects
                 .iter()
-                .map(|p| {
-                    Row::new(vec![
-                        Cell::new(format!(" {}", p.position)),
-                        Cell::new(p.title.clone()),
-                        Cell::new(p.total_cards.to_string()),
-                        Cell::new(p.cards_due_soon.to_string()),
-                        Cell::new(p.cards_in_progress.to_string()),
-                        Cell::new(p.cards_overdue.to_string()),
-                        Cell::new(p.important_cards.to_string()),
-                    ])
-                    .style(if self.selected_id.is_some_and(|id| id == p.id) {
-                        Style::new()
-                            .bold()
-                            .fg(colors.active_fg)
-                            .bg(colors.active_bg)
-                    } else {
-                        Style::new().fg(colors.fg).bg(colors.bg)
+                .enumerate()
+                .map(|(i, p)| {
+                    vec![
+                        Paragraph::new(format!(" {}", p.position)).fg(colors.secondary_fg),
+                        Paragraph::new(p.title.clone()),
+                        Paragraph::new(if p.total_cards > 0 {
+                            p.total_cards.to_string()
+                        } else {
+                            String::from("-")
+                        })
+                        .fg(if p.total_cards > 0 {
+                            colors.secondary_fg
+                        } else {
+                            colors.tertiary_fg
+                        }),
+                        Paragraph::new(if p.cards_due_soon > 0 {
+                            p.cards_due_soon.to_string()
+                        } else {
+                            String::from("-")
+                        })
+                        .fg(if p.cards_due_soon > 0 {
+                            colors.warning
+                        } else {
+                            colors.tertiary_fg
+                        }),
+                        Paragraph::new(if p.cards_in_progress > 0 {
+                            p.cards_in_progress.to_string()
+                        } else {
+                            String::from("-")
+                        })
+                        .fg(if p.cards_in_progress > 0 {
+                            colors.success
+                        } else {
+                            colors.tertiary_fg
+                        }),
+                        Paragraph::new(if p.cards_overdue > 0 {
+                            p.cards_overdue.to_string()
+                        } else {
+                            String::from("-")
+                        })
+                        .fg(if p.cards_overdue > 0 {
+                            colors.danger
+                        } else {
+                            colors.tertiary_fg
+                        }),
+                        Paragraph::new(if p.important_cards > 0 {
+                            p.important_cards.to_string()
+                        } else {
+                            String::from("-")
+                        })
+                        .fg(if p.important_cards > 0 {
+                            colors.primary
+                        } else {
+                            colors.tertiary_fg
+                        }),
+                    ]
+                    .into_iter()
+                    .map(|widget| {
+                        if self.selection.focused == i {
+                            widget.style(
+                                Style::new()
+                                    .bold()
+                                    .fg(colors.active_fg)
+                                    .bg(colors.active_bg),
+                            )
+                        } else {
+                            widget
+                        }
                     })
+                    .collect::<Vec<Paragraph>>()
                 })
-                .collect::<Vec<Row>>();
+                .collect::<Vec<Vec<Paragraph>>>();
 
-            let widths = vec![
-                Constraint::Length(5),
-                Constraint::Max(50),
-                Constraint::Length(7),
-                Constraint::Length(13),
-                Constraint::Length(10),
-                Constraint::Length(9),
-                Constraint::Length(9),
-                Constraint::Length(8),
-            ];
-            let table = Table::new(rows, widths).block(block).header(
-                Row::new(vec![
-                    Cell::new(" "),
-                    Cell::new("Title"),
-                    Cell::new("Cards"),
-                    Cell::new("In Progress"),
-                    Cell::new("Due Soon"),
-                    Cell::new("Overdue"),
-                    Cell::new("Important"),
-                ])
-                .style(Style::new().bold().fg(colors.primary)),
-            );
-            frame.render_widget(table, list_layout);
+            self.selection
+                .render_with_cols(frame, list_layout, header, table);
 
-            let project_index = self
-                .projects
-                .iter()
-                .position(|p| p.id == selected_id)
-                .expect("failed to project index");
-            let project = &self.projects[project_index];
+            let project = &self.projects[self.selection.focused];
 
             let info_1 = vec![
                 Line::from(vec![
@@ -255,16 +292,6 @@ impl Screen<Result<bool>> for ListProjects {
                     .border_style(colors.border),
             );
             frame.render_widget(info_content, info_layout);
-        } else {
-            let content = Paragraph::new(Text::from(vec![Line::from(vec![
-                Span::from("You have no projects. Press "),
-                Span::styled("n", Style::new().bold().fg(colors.keybind_key)),
-                Span::from(" to create a new project."),
-            ])]))
-            .block(block);
-
-            frame.render_widget(content, list_layout);
-            frame.render_widget(Block::new(), info_layout);
         }
     }
 }
@@ -300,10 +327,6 @@ impl ListProjects {
         projects = self.db_get_labels(&app.db, &mut projects)?;
         projects = self.db_get_lists(&app.db, &mut projects)?;
         projects = self.db_get_cards(app, &mut projects)?;
-
-        if !projects.is_empty() && self.selected_id.is_none() {
-            self.selected_id = Some(projects[0].id);
-        }
 
         self.projects = projects;
 
@@ -399,43 +422,39 @@ impl ListProjects {
 }
 
 impl ListProjects {
-    fn db_delete_project(&mut self, db: &Database) -> Result<()> {
-        struct Select {
-            position: i32,
+    pub fn get_id(&self) -> Option<i32> {
+        if self.projects.is_empty() {
+            return None;
         }
-        let conn = db.conn();
-        let select_query = "SELECT position FROM project WHERE id = ?1";
-        let mut select_stmt = conn.prepare(select_query)?;
-        let select = select_stmt.query_row([self.selected_id], |r| {
-            Ok(Select {
-                position: r.get(0)?,
-            })
-        })?;
 
-        let query = "DELETE FROM project WHERE id = ?1";
-        let mut stmt = conn.prepare(query)?;
-        stmt.execute([self.selected_id])?;
+        Some(self.projects[self.selection.focused].id)
+    }
 
-        let update_position_query =
-            "UPDATE project SET position = position - 1, updated_at = ?1 WHERE position > ?2";
-        let mut update_position_stmt = conn.prepare(update_position_query)?;
-        update_position_stmt.execute((DateTime::now(), select.position))?;
+    fn db_delete_project(&mut self, db: &Database) -> Result<()> {
+        if let Some(id) = self.get_id() {
+            struct Select {
+                position: i32,
+            }
+            let conn = db.conn();
+            let select_query = "SELECT position FROM project WHERE id = ?1";
+            let mut select_stmt = conn.prepare(select_query)?;
+            let select = select_stmt.query_row([id], |r| {
+                Ok(Select {
+                    position: r.get(0)?,
+                })
+            })?;
 
-        if let Some(selected_id) = self.selected_id {
-            let selected_index = self
-                .projects
-                .iter()
-                .position(|p| p.id == selected_id)
-                .unwrap_or(0);
+            let query = "DELETE FROM project WHERE id = ?1";
+            let mut stmt = conn.prepare(query)?;
+            stmt.execute([id])?;
 
-            if self.projects.len() == 1 {
-                self.selected_id = None;
-            } else if selected_index != self.projects.len().saturating_sub(1) {
-                self.selected_id = Some(self.projects[selected_index + 1].id);
-            } else if selected_index != 0 {
-                self.selected_id = Some(self.projects[selected_index.saturating_sub(1)].id);
-            } else {
-                self.selected_id = Some(self.projects[0].id);
+            let update_position_query =
+                "UPDATE project SET position = position - 1, updated_at = ?1 WHERE position > ?2";
+            let mut update_position_stmt = conn.prepare(update_position_query)?;
+            update_position_stmt.execute((DateTime::now(), select.position))?;
+
+            if self.selection.focused != 1 {
+                self.selection.focused -= 1;
             }
         }
 

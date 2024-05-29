@@ -142,9 +142,7 @@ impl Popup for CommandHandler {
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
 
-        let popup = PopupWidget::new(app, area)
-            .size(self.size.clone())
-            .render(frame);
+        let popup = PopupWidget::new(app, area).size(self.size).render(frame);
 
         let [input_layout, command_list_layout] = Layout::default()
             .vertical_margin(1)

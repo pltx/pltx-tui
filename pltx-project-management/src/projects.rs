@@ -48,16 +48,16 @@ impl Screen<Result<()>> for Projects {
                     app.popup_display();
                 }
                 KeyCode::Char('e') => {
-                    if let Some(selected_id) = self.pages.list_projects.selected_id {
-                        self.pages.edit_project.set_project(&app.db, selected_id)?;
+                    if let Some(id) = self.pages.list_projects.get_id() {
+                        self.pages.edit_project.set_project(&app.db, id)?;
                         self.page = Page::EditProject;
                         app.popup_display();
                     }
                 }
                 KeyCode::Enter | KeyCode::Char('l') => {
-                    if let Some(selected_id) = self.pages.list_projects.selected_id {
+                    if let Some(id) = self.pages.list_projects.get_id() {
                         self.pages.open_project.reset(app);
-                        self.pages.open_project.set_project_id(selected_id);
+                        self.pages.open_project.set_project_id(id);
                         self.pages.open_project.db_get_project(app)?;
                         self.page = Page::OpenProject;
                     }

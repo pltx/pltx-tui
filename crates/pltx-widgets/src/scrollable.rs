@@ -13,7 +13,7 @@ pub struct Scrollable {
     focused_prev: usize,
     from_top: usize,
     row_count: RefCell<usize>,
-    col_lengths: Option<Vec<u16>>,
+    pub col_lengths: Option<Vec<u16>>,
     area_height: RefCell<u16>,
 }
 
@@ -96,12 +96,12 @@ impl Scrollable {
         }
     }
 
-    pub fn render_with_cols<T, const N: usize>(
+    pub fn render_with_cols<T>(
         &self,
         frame: &mut Frame,
         area: Rect,
-        header: [T; N],
-        table: Vec<[T; N]>,
+        header: Vec<T>,
+        table: Vec<Vec<T>>,
     ) where
         T: Widget,
     {

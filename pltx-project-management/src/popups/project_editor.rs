@@ -267,12 +267,6 @@ enum Input {
     None,
 }
 
-struct ProjectLabel {
-    id: i32,
-    title: String,
-    color: String,
-}
-
 pub struct ProjectEditor {
     /// If original data is Some(), then the project data will be updated in the
     /// database, otherwise, a new entry will be created.
@@ -513,8 +507,12 @@ impl ProjectEditor {
                 .position(|p| p.id.is_some_and(|id| id == label.id));
 
             if let Some(pos) = label_position {
-                self.input_widgets.label_editor.labels[pos].title = label.title.to_owned();
-                self.input_widgets.label_editor.labels[pos].color = label.color.to_owned();
+                self.input_widgets.label_editor.labels[pos]
+                    .title
+                    .clone_from(&label.title);
+                self.input_widgets.label_editor.labels[pos]
+                    .color
+                    .clone_from(&label.color);
             } else {
                 self.input_widgets.label_editor.labels.push(Label {
                     id: Some(label.id),
