@@ -22,3 +22,6 @@ crossterm = { workspace = true }
 ratatui = { workspace = true }
 rusqlite = { workspace = true }
 tracing = { workspace = true }
+
+[build-dependencies]
+pltx_database = { workspace = true }

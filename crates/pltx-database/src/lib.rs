@@ -9,6 +9,10 @@ use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::ToSql;
 
+mod init_sql;
+
+pub use init_sql::*;
+
 pub struct Database {
     pool: Pool<SqliteConnectionManager>,
     filename: String,
