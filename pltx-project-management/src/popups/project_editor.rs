@@ -110,6 +110,16 @@ impl KeyEventHandler for LabelEditor {
                     app.delete_mode();
                 }
             }
+            KeyCode::Char('.') => {
+                if self.view == LabelView::Selection && !self.labels.is_empty() {
+                    let label = &self.labels[self.selection.focused];
+                    self.labels.push(Label {
+                        id: None,
+                        title: label.title.to_owned(),
+                        color: label.color.to_owned(),
+                    });
+                }
+            }
             KeyCode::Char('y') => {
                 if self.view == LabelView::Selection && app.is_delete_mode() {
                     self.labels.remove(self.selection.focused);
@@ -144,7 +154,8 @@ impl KeyEventHandler for LabelEditor {
                                 color: self.inputs.color.input_string(),
                             });
                         };
-                        self.reset()
+                        self.reset();
+                        app.normal_mode();
                     }
                 }
             }
@@ -361,7 +372,7 @@ impl Popup<Result<bool>> for ProjectEditor {
                         }
                     }
                     KeyCode::Enter => {
-                        if self.current_input == Input::Labels {
+                        if self.current_input != Input::Labels {
                             self.view = View::Selection;
                             app.normal_mode();
                             self.size = self.default_size;
