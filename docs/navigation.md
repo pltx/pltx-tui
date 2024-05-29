@@ -29,6 +29,7 @@ Some keybinds, such as **`d`** (to delete) are only available when a selected op
 | n       | Create new                 |
 | e       | Edit                       |
 | d       | Delete                     |
+| .       | Duplicate                  |
 
 ## Text Inputs
 
