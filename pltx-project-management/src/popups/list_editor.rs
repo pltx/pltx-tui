@@ -26,7 +26,7 @@ pub struct ListEditor {
     size: PopupSize,
 }
 
-impl Popup<Result<Option<i32>>> for ListEditor {
+impl Popup<Result<bool>> for ListEditor {
     fn init() -> ListEditor {
         let size = PopupSize::default().width(60).height(5);
 
@@ -44,23 +44,24 @@ impl Popup<Result<Option<i32>>> for ListEditor {
         }
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<Option<i32>> {
+    /// Returns whether the data is the database was modified.
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         self.inputs.title.key_event_handler(app, key_event);
 
         if let Some(project_id) = self.project_id {
             if key_event.code == KeyCode::Enter {
-                let list_id = if self.is_new {
-                    self.db_new_list(app, project_id)?
+                if self.is_new {
+                    self.db_new_list(app, project_id)?;
                 } else {
-                    self.db_edit_list(&app.db)?
-                };
+                    self.db_edit_list(&app.db)?;
+                }
                 app.reset_display();
                 self.inputs.title.reset();
-                return Ok(Some(list_id));
+                return Ok(true);
             }
         }
 
-        Ok(None)
+        Ok(false)
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {

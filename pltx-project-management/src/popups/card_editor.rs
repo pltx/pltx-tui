@@ -83,7 +83,7 @@ pub struct CardEditor {
     focused_pane: FocusedPane,
 }
 
-impl Popup<Result<Option<i32>>> for CardEditor {
+impl Popup<Result<bool>> for CardEditor {
     fn init() -> Self {
         let size = PopupSize::default().percentage_based().width(80).height(80);
 
@@ -136,7 +136,7 @@ impl Popup<Result<Option<i32>>> for CardEditor {
         }
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<Option<i32>> {
+    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         match self.focused_pane {
             FocusedPane::Title => {
                 self.inputs.title.key_event_handler(app, key_event);
@@ -164,7 +164,7 @@ impl Popup<Result<Option<i32>>> for CardEditor {
             }
         }
 
-        Ok(None)
+        Ok(false)
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
@@ -361,24 +361,24 @@ impl CardEditor {
         }
     }
 
-    fn submit(&mut self, app: &mut App) -> Result<Option<i32>> {
+    fn submit(&mut self, app: &mut App) -> Result<bool> {
         if self.focused_pane == FocusedPane::Actions {
             if self.inputs.actions.is_focused(Action::Save) {
-                let id = if self.is_new {
-                    self.db_new_card(&app.db)?
+                if self.is_new {
+                    self.db_new_card(&app.db)?;
                 } else {
-                    self.db_edit_card(&app.db)?
-                };
+                    self.db_edit_card(&app.db)?;
+                }
                 self.reset();
                 app.reset_display();
-                return Ok(Some(id));
+                return Ok(true);
             } else if self.inputs.actions.is_focused(Action::Cancel) {
                 self.reset();
                 app.reset_display();
             }
         }
 
-        Ok(None)
+        Ok(false)
     }
 }
 

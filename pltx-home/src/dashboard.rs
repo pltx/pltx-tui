@@ -232,7 +232,7 @@ impl Dashboard {
         let colors = &app.config.colors;
 
         let header = [
-            Paragraph::new("ID").bold(),
+            Paragraph::new(" ID").bold(),
             Paragraph::new("Duration").bold(),
             Paragraph::new("Started").bold(),
             Paragraph::new("Ended").bold(),
@@ -244,7 +244,7 @@ impl Dashboard {
             .enumerate()
             .map(|(i, s)| {
                 vec![
-                    Paragraph::new(s.id.to_string()).fg(colors.fg).bg(
+                    Paragraph::new(format!(" {}", s.id)).fg(colors.fg).bg(
                         if self.pane == Pane::Sessions && self.scrollable_sessions.focused == i {
                             colors.input_focus_bg
                         } else {

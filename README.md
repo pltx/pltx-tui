@@ -134,7 +134,7 @@ overdue_char = "🚫"
 due_soon_char = "⏰"
 in_progress_char = "🌐"
 important_char = "⭐"
-default_char = " "
+default_char = "  "
 
 # Create a separate profile. The profiles shown below are included by default. You can override it by changing the values or create new ones entirely.
 [[profiles]]

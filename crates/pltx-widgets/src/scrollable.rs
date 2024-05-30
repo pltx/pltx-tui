@@ -13,6 +13,7 @@ pub struct Scrollable {
     focused_prev: usize,
     from_top: usize,
     row_count: RefCell<usize>,
+    row_height: u16,
     pub col_lengths: Option<Vec<u16>>,
     area_height: RefCell<u16>,
 }
@@ -24,6 +25,7 @@ impl Default for Scrollable {
             focused: 0,
             focused_prev: 0,
             row_count: RefCell::new(0),
+            row_height: 1,
             col_lengths: None,
             area_height: RefCell::new(0),
         }
@@ -35,16 +37,24 @@ impl Scrollable {
         self.col_lengths = Some(col_lengths.into());
         self
     }
+
+    pub fn row_height(mut self, height: u16) -> Self {
+        self.row_height = height;
+        self
+    }
 }
 
 impl KeyEventHandler for Scrollable {
     fn key_event_handler(&mut self, _: &mut App, key_event: KeyEvent) {
+        let header_height = if self.col_lengths.is_some() { 1 } else { 0 };
+        let area_height = *self.area_height.borrow() as usize / self.row_height as usize;
+
         match key_event.code {
             KeyCode::Char('j') => {
                 if self.focused != self.row_count.borrow().saturating_sub(1) {
-                    if self.focused + 1
-                        == self.from_top + (*self.area_height.borrow() as usize).saturating_sub(1)
-                    {
+                    let is_focus_row_end = self.focused
+                        == self.from_top + area_height.saturating_sub(1 + header_height);
+                    if is_focus_row_end {
                         self.from_top += 1;
                     }
                     self.focused_prev = self.focused;
@@ -69,7 +79,7 @@ impl KeyEventHandler for Scrollable {
                 self.from_top = self
                     .row_count
                     .borrow()
-                    .saturating_sub(*self.area_height.borrow() as usize - 1);
+                    .saturating_sub(area_height - header_height);
                 self.focused_prev = 0;
                 self.focused = self.row_count.borrow().saturating_sub(1);
             }
@@ -90,9 +100,10 @@ impl Scrollable {
         let row_layouts = self.row_layouts(area);
 
         for (i, row) in table.into_iter().enumerate().filter(|(ri, _)| {
-            (self.from_top..self.from_top + area.height as usize - 1).contains(ri)
+            (self.from_top..self.from_top + (area.height as usize / self.row_height as usize))
+                .contains(ri)
         }) {
-            frame.render_widget(row, row_layouts[i + 1 - self.from_top]);
+            frame.render_widget(row, row_layouts[i - self.from_top]);
         }
     }
 
@@ -124,7 +135,11 @@ impl Scrollable {
             }
 
             for (ri, rows) in table.into_iter().enumerate().filter(|(ri, _)| {
-                (self.from_top..self.from_top + area.height as usize - 1).contains(ri)
+                let header_height = 1;
+                (self.from_top
+                    ..self.from_top + (area.height as usize / self.row_height as usize)
+                        - header_height)
+                    .contains(ri)
             }) {
                 let col_layouts = Layout::default()
                     .direction(Direction::Horizontal)
@@ -143,8 +158,8 @@ impl Scrollable {
     fn row_layouts(&self, area: Rect) -> Rc<[Rect]> {
         Layout::default()
             .constraints(
-                (0..area.height)
-                    .map(|_| Constraint::Length(1))
+                (0..area.height / self.row_height)
+                    .map(|_| Constraint::Length(self.row_height))
                     .collect::<Vec<Constraint>>(),
             )
             .split(area)

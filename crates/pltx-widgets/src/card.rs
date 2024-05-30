@@ -10,11 +10,21 @@ use ratatui::{
     Frame,
 };
 
+#[derive(PartialEq)]
+pub enum CardBorderType {
+    Plain,
+    Bold,
+    Rounded,
+}
+
 /// Card widget
 pub struct Card {
     title: String,
     area: Rect,
     margin: WidgetMargin,
+    child_margin: WidgetMargin,
+    /// TODO: Use ratatui's BorderType instead after updating symbols.
+    border_type: CardBorderType,
 }
 
 impl Card {
@@ -23,6 +33,8 @@ impl Card {
             title: title.to_string(),
             area,
             margin: WidgetMargin::default(),
+            child_margin: WidgetMargin::default(),
+            border_type: CardBorderType::Rounded,
         }
     }
 
@@ -31,24 +43,37 @@ impl Card {
         self
     }
 
+    pub fn child_margin(mut self, margin: WidgetMargin) -> Self {
+        self.child_margin = margin;
+        self
+    }
+
+    pub fn border_type(mut self, border_type: CardBorderType) -> Self {
+        self.border_type = border_type;
+        self
+    }
+
     pub fn child_layout(&self) -> Rect {
         let [_, block_bottom_layout] = Layout::default()
-            .constraints([Constraint::Length(3), Constraint::Fill(1)])
+            .constraints([
+                Constraint::Length(3 + self.child_margin.top),
+                Constraint::Fill(1),
+            ])
             .areas(self.margin.apply(self.area));
 
         let [center_layout, _] = Layout::default()
             .constraints([
-                Constraint::Length(block_bottom_layout.height.saturating_sub(1)),
-                Constraint::Length(1),
+                Constraint::Fill(1),
+                Constraint::Length(1 + self.child_margin.bottom),
             ])
             .areas(block_bottom_layout);
 
         let [_, child_layout, _] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(2),
-                Constraint::Length(center_layout.width.saturating_sub(4)),
-                Constraint::Length(2),
+                Constraint::Length(1 + self.child_margin.left),
+                Constraint::Fill(1),
+                Constraint::Length(1 + self.child_margin.right),
             ])
             .areas(center_layout);
 
@@ -66,20 +91,43 @@ impl DefaultWidget for Card {
         };
 
         let [title_layout, block_bottom_layout] = Layout::default()
-            .constraints([Constraint::Length(3), Constraint::Fill(1)])
+            .constraints([
+                Constraint::Length(3 + self.child_margin.top),
+                Constraint::Fill(1),
+            ])
             .areas(self.margin.apply(area));
 
         let title_paragraph = Paragraph::new(vec![
             Line::from(vec![
-                Span::from(symbols::border::TOP_LEFT),
+                Span::from(if self.border_type == CardBorderType::Bold {
+                    symbols::bold::border::TOP_LEFT
+                } else if self.border_type == CardBorderType::Rounded {
+                    symbols::border::TOP_LEFT_ROUNDED
+                } else {
+                    symbols::border::TOP_LEFT
+                }),
                 Span::from(
-                    symbols::border::HORIZONTAL
-                        .repeat((title_layout.width as usize).saturating_sub(2)),
+                    (if self.border_type == CardBorderType::Bold {
+                        symbols::bold::border::HORIZONTAL
+                    } else {
+                        symbols::border::HORIZONTAL
+                    })
+                    .repeat((title_layout.width as usize).saturating_sub(2)),
                 ),
-                Span::from(symbols::border::TOP_RIGHT),
+                Span::from(if self.border_type == CardBorderType::Bold {
+                    symbols::bold::border::TOP_RIGHT
+                } else if self.border_type == CardBorderType::Rounded {
+                    symbols::border::TOP_RIGHT_ROUNDED
+                } else {
+                    symbols::border::TOP_RIGHT
+                }),
             ]),
             Line::from(vec![
-                Span::from(symbols::border::VERTICAL),
+                Span::from(if self.border_type == CardBorderType::Bold {
+                    symbols::bold::border::VERTICAL
+                } else {
+                    symbols::border::VERTICAL
+                }),
                 Span::from(format!(
                     " {}{} ",
                     self.title,
@@ -89,15 +137,31 @@ impl DefaultWidget for Card {
                     )
                 ))
                 .fg(colors.fg),
-                Span::from(symbols::border::VERTICAL),
+                Span::from(if self.border_type == CardBorderType::Bold {
+                    symbols::bold::border::VERTICAL
+                } else {
+                    symbols::border::VERTICAL
+                }),
             ]),
             Line::from(vec![
-                Span::from(symbols::border::LEFT_T),
+                Span::from(if self.border_type == CardBorderType::Bold {
+                    symbols::bold::border::LEFT_T
+                } else {
+                    symbols::border::LEFT_T
+                }),
                 Span::from(
-                    symbols::border::HORIZONTAL
-                        .repeat((title_layout.width as usize).saturating_sub(2)),
+                    if self.border_type == CardBorderType::Bold {
+                        symbols::bold::border::HORIZONTAL
+                    } else {
+                        symbols::border::HORIZONTAL
+                    }
+                    .repeat((title_layout.width as usize).saturating_sub(2)),
                 ),
-                Span::from(symbols::border::RIGHT_T),
+                Span::from(if self.border_type == CardBorderType::Bold {
+                    symbols::bold::border::RIGHT_T
+                } else {
+                    symbols::border::RIGHT_T
+                }),
             ]),
         ])
         .fg(border_color);
@@ -106,30 +170,50 @@ impl DefaultWidget for Card {
 
         let [center_layout, bottom_line_layout] = Layout::default()
             .constraints([
-                Constraint::Length(block_bottom_layout.height.saturating_sub(1)),
-                Constraint::Length(1),
+                Constraint::Fill(1),
+                Constraint::Length(1 + self.child_margin.bottom),
             ])
             .areas(block_bottom_layout);
 
         let [left_border_layout, _, right_border_layout] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(2),
-                Constraint::Length(center_layout.width.saturating_sub(4)),
-                Constraint::Length(2),
+                Constraint::Length(1 + self.child_margin.left),
+                Constraint::Fill(1),
+                Constraint::Length(1 + self.child_margin.right),
             ])
             .areas(center_layout);
 
         let left_border = Paragraph::new(
             (0..center_layout.height as usize)
-                .map(|_| Line::from(format!("{} ", symbols::border::VERTICAL)))
+                .map(|_| {
+                    Line::from(format!(
+                        "{}{}",
+                        (if self.border_type == CardBorderType::Bold {
+                            symbols::bold::border::VERTICAL
+                        } else {
+                            symbols::border::VERTICAL
+                        }),
+                        " ".repeat(self.child_margin.left as usize)
+                    ))
+                })
                 .collect::<Vec<Line>>(),
         )
         .fg(border_color);
 
         let right_border = Paragraph::new(
             (0..center_layout.height as usize)
-                .map(|_| Line::from(format!(" {}", symbols::border::VERTICAL)))
+                .map(|_| {
+                    Line::from(format!(
+                        "{}{}",
+                        " ".repeat(self.child_margin.right as usize),
+                        (if self.border_type == CardBorderType::Bold {
+                            symbols::bold::border::VERTICAL
+                        } else {
+                            symbols::border::VERTICAL
+                        })
+                    ))
+                })
                 .collect::<Vec<Line>>(),
         )
         .fg(border_color);
@@ -138,12 +222,28 @@ impl DefaultWidget for Card {
         frame.render_widget(right_border, right_border_layout);
 
         let bottom_line = Paragraph::new(Line::from(vec![
-            Span::from(symbols::border::BOTTOM_LEFT),
+            Span::from(if self.border_type == CardBorderType::Bold {
+                symbols::bold::border::BOTTOM_LEFT
+            } else if self.border_type == CardBorderType::Rounded {
+                symbols::border::BOTTOM_LEFT_ROUNDED
+            } else {
+                symbols::border::BOTTOM_LEFT
+            }),
             Span::from(
-                symbols::border::HORIZONTAL
-                    .repeat((bottom_line_layout.width as usize).saturating_sub(2)),
+                (if self.border_type == CardBorderType::Bold {
+                    symbols::bold::border::HORIZONTAL
+                } else {
+                    symbols::border::HORIZONTAL
+                })
+                .repeat((bottom_line_layout.width as usize).saturating_sub(2)),
             ),
-            Span::from(symbols::border::BOTTOM_RIGHT),
+            Span::from(if self.border_type == CardBorderType::Bold {
+                symbols::bold::border::BOTTOM_RIGHT
+            } else if self.border_type == CardBorderType::Rounded {
+                symbols::border::BOTTOM_RIGHT_ROUNDED
+            } else {
+                symbols::border::BOTTOM_RIGHT
+            }),
         ]))
         .fg(border_color);
 

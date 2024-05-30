@@ -3,11 +3,11 @@ use std::cell::RefCell;
 use ansi_to_tui::IntoText;
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{App, Screen};
+use pltx_app::{App, DefaultWidget, Screen};
 use pltx_utils::{centered_rect, symbols};
-use pltx_widgets::Scrollable;
+use pltx_widgets::{Card, Scrollable};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
@@ -284,25 +284,10 @@ impl Help {
             })
             .collect::<Vec<Paragraph>>();
 
-        let block = Block::new()
-            .title(" Select a Help Page ")
-            .title_alignment(Alignment::Center)
-            .title_style(Style::new().fg(colors.secondary_fg))
-            .padding(Padding::horizontal(1))
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(colors.border));
+        let area = centered_rect((100, false), (20, false), area);
+        let card = Card::new("Select a Help Page", area);
+        card.render(frame, app, area, false);
 
-        let layout = centered_rect((100, false), (20, false), area);
-
-        frame.render_widget(block, layout);
-
-        let [scrollabe_layout] = Layout::default()
-            .horizontal_margin(1)
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Fill(1)])
-            .areas(layout);
-
-        self.scrollable.render(frame, scrollabe_layout, table);
+        self.scrollable.render(frame, card.child_layout(), table);
     }
 }

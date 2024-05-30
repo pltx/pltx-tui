@@ -31,5 +31,11 @@ pub mod bold {
         pub const TOP_RIGHT: &str = "┓";
         pub const BOTTOM_RIGHT: &str = "┛";
         pub const BOTTOM_LEFT: &str = "┗";
+
+        pub const CENTER_T: &str = "╋";
+        pub const TOP_T: &str = "┳";
+        pub const RIGHT_T: &str = "┫";
+        pub const BOTTOM_T: &str = "┻";
+        pub const LEFT_T: &str = "┣";
     }
 }
