@@ -477,13 +477,15 @@ impl OpenProject {
             project = self.db_get_card_labels(&app.db, &mut project, project_id)?;
             project = self.db_get_card_subtasks(&app.db, &mut project, project_id)?;
 
-            let list_id = project.lists[self.selected_list_index].id;
+            if !project.lists.is_empty() {
+                let list_id = project.lists[self.selected_list_index].id;
 
-            self.popups.edit_list.set(&app.db, list_id)?;
+                self.popups.edit_list.set(&app.db, list_id)?;
 
-            if let Some(project_id) = self.project_id {
-                self.popups.new_card.ids(project_id, list_id);
-                self.popups.edit_card.ids(project_id, list_id);
+                if let Some(project_id) = self.project_id {
+                    self.popups.new_card.ids(project_id, list_id);
+                    self.popups.edit_card.ids(project_id, list_id);
+                }
             }
 
             self.data = project;
@@ -665,13 +667,8 @@ impl OpenProject {
 
         db.update_positions("project_list", original_position)?;
 
-        // Update the position of `selected_list_id` before `data` is updated.
-        if self.data.lists.len() == 1 {
-            self.selected_list_index = 0;
-        } else if self.selected_list_index != self.data.lists.len().saturating_sub(1) {
-            self.selected_list_index = self.data.lists.len() - 2;
-        } else if self.selected_list_index != 0 {
-            self.selected_list_index = self.data.lists.len() - 1;
+        if self.selected_list_index != 0 {
+            self.selected_list_index -= 1;
         }
 
         Ok(())

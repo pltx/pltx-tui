@@ -453,7 +453,7 @@ impl ListProjects {
             let mut update_position_stmt = conn.prepare(update_position_query)?;
             update_position_stmt.execute((DateTime::now(), select.position))?;
 
-            if self.selection.focused != 1 {
+            if self.selection.focused != 0 {
                 self.selection.focused -= 1;
             }
         }
