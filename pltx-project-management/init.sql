@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS project (
     updated_at DATETIME NOT NULL
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project (position);
+
 CREATE TABLE IF NOT EXISTS project_label (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
@@ -25,6 +27,8 @@ CREATE TABLE IF NOT EXISTS project_label (
             ON UPDATE CASCADE
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_label (position);
+
 CREATE TABLE IF NOT EXISTS project_list (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
@@ -38,6 +42,8 @@ CREATE TABLE IF NOT EXISTS project_list (
             ON DELETE CASCADE
             ON UPDATE CASCADE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_list (position);
 
 CREATE TABLE IF NOT EXISTS project_card (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,11 +70,14 @@ CREATE TABLE IF NOT EXISTS project_card (
             ON UPDATE CASCADE
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_card (position);
+
 CREATE TABLE IF NOT EXISTS card_label (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
     card_id INTEGER NOT NULL,
     label_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
     archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
@@ -86,12 +95,15 @@ CREATE TABLE IF NOT EXISTS card_label (
             ON UPDATE CASCADE
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON card_label (position);
+
 CREATE TABLE IF NOT EXISTS card_subtask (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
     card_id INTEGER NOT NULL,
     value TEXT NOT NULL,
     completed BOOLEAN NOT NULL CHECK (completed IN (0, 1)),
+    position INTEGER NOT NULL,
     archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
@@ -104,5 +116,7 @@ CREATE TABLE IF NOT EXISTS card_subtask (
             ON DELETE CASCADE
             ON UPDATE CASCADE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON card_subtask (position);
 
 COMMIT;
