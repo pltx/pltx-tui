@@ -218,7 +218,7 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
 
 /// Read, parse, and marge the configuration.
 pub fn init_config(profile: Option<String>) -> Result<(Config, ProfileConfig)> {
-    let base_config = base_config();
+    let mut base_config = base_config();
     let default_profile_name = base_config.default_profile;
     let default_profile = base_config
         .profiles
@@ -227,6 +227,12 @@ pub fn init_config(profile: Option<String>) -> Result<(Config, ProfileConfig)> {
         .find(|p| p.name == default_profile_name)
         .expect("failed to get default profile")
         .clone();
+
+    if profile.as_ref().is_some_and(|p| p.as_str() == "dev") {
+        base_config.log_level = "debug";
+        base_config.modules.home.dashboard_title = "DEVELOPER PROFILE ENABLED";
+        base_config.modules.home.dashboard_message = "All data is separate from the main profile.";
+    }
 
     if let Some(profile_name) = profile {
         let profile = base_config
