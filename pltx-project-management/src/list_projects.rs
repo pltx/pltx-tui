@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::Mode, App, KeyEventHandler, Screen};
@@ -298,6 +300,15 @@ impl Screen<Result<bool>> for ListProjects {
 
 impl ListProjects {
     pub fn db_get_projects(&mut self, app: &App) -> Result<()> {
+        let _guard = tracing::span!(
+            tracing::Level::INFO,
+            "project management",
+            query = "get projects"
+        )
+        .entered();
+
+        let start = Instant::now();
+
         let conn = app.db.conn();
         let project_query = "SELECT id, title, description, position, created_at, updated_at FROM \
                              project ORDER BY position";
@@ -323,6 +334,7 @@ impl ListProjects {
         for p in project_iter {
             projects.push(p?)
         }
+        tracing::info!("get projects query executed in {:?}", start.elapsed());
 
         projects = self.db_get_labels(&app.db, &mut projects)?;
         projects = self.db_get_lists(&app.db, &mut projects)?;
@@ -330,10 +342,16 @@ impl ListProjects {
 
         self.projects = projects;
 
+        tracing::info!(
+            "get projects query durations totaled at {:?}",
+            start.elapsed()
+        );
+
         Ok(())
     }
 
     fn db_get_labels(&self, db: &Database, projects: &mut [Project]) -> Result<Vec<Project>> {
+        let start = Instant::now();
         let conn = db.conn();
         let query = "SELECT project_id FROM project_label ORDER BY position";
         let mut stmt = conn.prepare(query)?;
@@ -346,10 +364,12 @@ impl ListProjects {
                 .expect("failed to get project index");
             projects[index].labels += 1;
         }
+        tracing::info!("get project labels query executed in {:?}", start.elapsed());
         Ok(projects.to_vec())
     }
 
     fn db_get_lists(&self, db: &Database, projects: &mut [Project]) -> Result<Vec<Project>> {
+        let start = Instant::now();
         let conn = db.conn();
         let query = "SELECT project_id FROM project_list";
         let mut stmt = conn.prepare(query)?;
@@ -362,10 +382,12 @@ impl ListProjects {
                 .expect("failed to get project index");
             projects[index].lists += 1;
         }
+        tracing::info!("get project lists query executed in {:?}", start.elapsed());
         Ok(projects.to_vec())
     }
 
     fn db_get_cards(&self, app: &App, projects: &mut [Project]) -> Result<Vec<Project>> {
+        let start = Instant::now();
         struct ListProjectCard {
             project_id: i32,
             start_date: Option<DateTime>,
@@ -417,6 +439,8 @@ impl ListProjects {
             }
         }
 
+        tracing::info!("get project cards query executed in {:?}", start.elapsed());
+
         Ok(projects.to_vec())
     }
 }
@@ -432,6 +456,7 @@ impl ListProjects {
 
     fn db_delete_project(&mut self, db: &Database) -> Result<()> {
         if let Some(id) = self.get_id() {
+            let start = Instant::now();
             struct Select {
                 position: i32,
             }
@@ -456,6 +481,8 @@ impl ListProjects {
             if self.selection.focused != 0 {
                 self.selection.focused -= 1;
             }
+
+            tracing::info!("delete project query executed in {:?}", start.elapsed());
         }
 
         Ok(())

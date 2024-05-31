@@ -1,12 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, KeyEventHandler};
-use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
-    widgets::Widget,
-    Frame,
-};
+use ratatui::{layout::Rect, widgets::Widget, Frame};
 
 pub struct Scrollable {
     pub focused: usize,
@@ -97,7 +93,7 @@ impl Scrollable {
     {
         *self.area_height.borrow_mut() = area.height;
         *self.row_count.borrow_mut() = table.len();
-        let row_layouts = self.row_layouts(area);
+        let row_layouts = self.row_rects(area);
 
         for (i, row) in table.into_iter().enumerate().filter(|(ri, _)| {
             (self.from_top..self.from_top + (area.height as usize / self.row_height as usize))
@@ -118,20 +114,18 @@ impl Scrollable {
     {
         *self.area_height.borrow_mut() = area.height;
         *self.row_count.borrow_mut() = table.len();
-        let row_layouts = self.row_layouts(area);
+        let row_layouts = self.row_rects(area);
 
         if let Some(col_lengths) = &self.col_lengths {
-            let header_layout = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(
-                    (0..header.len())
-                        .map(|i| Constraint::Length(col_lengths[i]))
-                        .collect::<Vec<Constraint>>(),
-                )
-                .split(row_layouts[0]);
-
+            let row_area = row_layouts[0];
             for (i, widget) in header.into_iter().enumerate() {
-                frame.render_widget(widget, header_layout[i]);
+                let col_area = Rect::new(
+                    row_area.x + col_lengths[0..i].iter().fold(0, |sum, l| sum + *l),
+                    row_area.y,
+                    col_lengths[i],
+                    row_area.height,
+                );
+                frame.render_widget(widget, col_area);
             }
 
             for (ri, rows) in table.into_iter().enumerate().filter(|(ri, _)| {
@@ -141,13 +135,16 @@ impl Scrollable {
                         - header_height)
                     .contains(ri)
             }) {
-                let col_layouts = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints((0..rows.len()).map(|i| Constraint::Length(col_lengths[i])))
-                    .split(row_layouts[ri + 1 - self.from_top]);
+                let row_layout = row_layouts[ri + 1 - self.from_top];
 
                 for (ci, widget) in rows.into_iter().enumerate() {
-                    frame.render_widget(widget, col_layouts[ci]);
+                    let col_layout = Rect::new(
+                        row_layout.x + col_lengths[0..ci].iter().fold(0, |sum, l| sum + *l),
+                        row_layout.y,
+                        col_lengths[ci],
+                        row_layout.height,
+                    );
+                    frame.render_widget(widget, col_layout);
                 }
             }
         } else {
@@ -155,14 +152,17 @@ impl Scrollable {
         }
     }
 
-    fn row_layouts(&self, area: Rect) -> Rc<[Rect]> {
-        Layout::default()
-            .constraints(
-                (0..area.height / self.row_height)
-                    .map(|_| Constraint::Length(self.row_height))
-                    .collect::<Vec<Constraint>>(),
-            )
-            .split(area)
+    fn row_rects(&self, area: Rect) -> Vec<Rect> {
+        (0..area.height / self.row_height)
+            .map(|i| {
+                Rect::new(
+                    area.x,
+                    area.y + (i * self.row_height),
+                    area.width,
+                    self.row_height,
+                )
+            })
+            .collect::<Vec<Rect>>()
     }
 
     pub fn reset(&mut self) {
