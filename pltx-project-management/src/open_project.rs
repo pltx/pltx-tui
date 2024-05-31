@@ -120,9 +120,9 @@ impl Screen<Result<bool>> for OpenProject {
             data: ProjectData::default(),
             popup: OpenProjectPopup::None,
             popups: Popups {
-                new_list: ListEditor::init().set_new(),
+                new_list: ListEditor::init(),
                 edit_list: ListEditor::init(),
-                new_card: CardEditor::init().set_new(),
+                new_card: CardEditor::init(),
                 edit_card: CardEditor::init(),
             },
             delete_selection: DeleteSelection::None,

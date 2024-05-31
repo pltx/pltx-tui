@@ -54,7 +54,6 @@ impl Module<Result<()>> for ProjectManagement {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<()> {
         self.tabs.key_event_handler(app, key_event);
 
-        // Should be run before the rest.
         match self.tabs.active {
             Tab::Planned => {}
             Tab::Projects => self.screens.projects.key_event_handler(app, key_event)?,

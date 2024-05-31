@@ -9,54 +9,51 @@ use ratatui::{
     Frame,
 };
 
-struct Inputs {
-    title: TextInput,
-}
-
 #[derive(Clone)]
 struct ListData {
     id: i32,
     title: String,
 }
+
 pub struct ListEditor {
-    is_new: bool,
-    data: Option<ListData>,
     project_id: Option<i32>,
-    inputs: Inputs,
+    /// If original data is Some(), then the list data will be updated in the
+    /// database, otherwise, a new entry will be created.
+    original_data: Option<ListData>,
+    title_input: TextInput,
     size: PopupSize,
 }
 
 impl Popup<Result<bool>> for ListEditor {
     fn init() -> ListEditor {
-        let size = PopupSize::default().width(60).height(5);
+        let size = PopupSize::default().width(60).height(6);
 
         ListEditor {
-            is_new: false,
-            data: None,
             project_id: None,
-            inputs: Inputs {
-                title: TextInput::new("Title")
-                    .view(View::Popup)
-                    .max(50)
-                    .size((size.width - 2, size.height - 2)),
-            },
+            original_data: None,
+            title_input: TextInput::new("Title")
+                .view(View::Popup)
+                .max(50)
+                .size((size.width - 2, size.height - 2))
+                .prompt(),
             size,
         }
     }
 
     /// Returns whether the data is the database was modified.
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
-        self.inputs.title.key_event_handler(app, key_event);
+        self.title_input.key_event_handler(app, key_event);
 
         if let Some(project_id) = self.project_id {
             if key_event.code == KeyCode::Enter {
-                if self.is_new {
-                    self.db_new_list(app, project_id)?;
-                } else {
+                if self.original_data.is_some() {
                     self.db_edit_list(&app.db)?;
+                } else {
+                    self.db_new_list(app, project_id)?;
                 }
                 app.view.default();
-                self.inputs.title.reset();
+                app.mode.normal();
+                self.title_input.reset();
                 return Ok(true);
             }
         }
@@ -66,17 +63,20 @@ impl Popup<Result<bool>> for ListEditor {
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let popup = PopupWidget::new(app, area)
-            .title_top(if self.is_new { "New List" } else { "Edit List" })
+            .title_top(if self.original_data.is_some() {
+                "Edit List"
+            } else {
+                "New List"
+            })
             .size(self.size)
             .render(frame);
 
         let [title_layout] = Layout::default()
-            .vertical_margin(1)
-            .horizontal_margin(2)
+            .margin(2)
             .constraints([Constraint::Length(3)])
             .areas(popup.popup_area);
 
-        self.inputs.title.render(frame, app, title_layout, true);
+        self.title_input.render(frame, app, title_layout, true);
     }
 }
 
@@ -96,7 +96,7 @@ impl ListEditor {
                      updated_at) VALUES (?1, ?2, ?3, ?4, ?5)";
         let params = (
             project_id,
-            self.inputs.title.input_string(),
+            self.title_input.input_string(),
             highest_position + 1,
             DateTime::now(),
             DateTime::now(),
@@ -109,22 +109,17 @@ impl ListEditor {
     }
 
     fn db_edit_list(&self, db: &Database) -> Result<i32> {
-        let data = self.data.as_ref().expect("list data was not set");
+        let data = self.original_data.as_ref().expect("list data was not set");
 
         let conn = db.conn();
         let query = "UPDATE project_list SET title = ?1, updated_at = ?2 WHERE id = ?3";
         let mut stmt = conn.prepare(query)?;
-        stmt.execute((&self.inputs.title.input_string(), DateTime::now(), data.id))?;
+        stmt.execute((&self.title_input.input_string(), DateTime::now(), data.id))?;
         Ok(data.id)
     }
 }
 
 impl ListEditor {
-    pub fn set_new(mut self) -> Self {
-        self.is_new = true;
-        self
-    }
-
     pub fn project_id(&mut self, project_id: i32) {
         self.project_id = Some(project_id)
     }
@@ -140,16 +135,16 @@ impl ListEditor {
             })
         })?;
 
-        self.data = Some(list.clone());
-        self.inputs.title.input(list.title);
+        self.original_data = Some(list.clone());
+        self.title_input.input(list.title);
 
         Ok(())
     }
 
     pub fn reset(&mut self, app: &mut App) {
         app.view.default();
-        self.data = None;
+        self.original_data = None;
         self.project_id = None;
-        self.inputs.title.reset();
+        self.title_input.reset();
     }
 }

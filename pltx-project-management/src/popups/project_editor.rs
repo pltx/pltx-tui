@@ -366,9 +366,11 @@ impl Popup<Result<bool>> for ProjectEditor {
                         }
                     }
                     KeyCode::Enter => {
-                        self.view = EditorView::Selection;
-                        app.mode.normal();
-                        self.size = self.default_size;
+                        {
+                            self.view = EditorView::Selection;
+                            app.mode.normal();
+                            self.size = self.default_size;
+                        }
                     }
                     _ => {}
                 }
