@@ -10,7 +10,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Padding, Paragraph, Widget},
+    widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
     Frame,
 };
 use tracing::{info, info_span};
@@ -280,6 +280,7 @@ impl Screen<Result<bool>> for OpenProject {
             Block::new()
                 .padding(Padding::horizontal(1))
                 .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
                 .border_style(Style::new().fg(colors.border)),
         );
 

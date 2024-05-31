@@ -68,9 +68,9 @@ fn command_data<'a>() -> [(Command, &'a str); 6] {
 
 impl<'a> CommandHandler<'a> {
     pub fn init() -> CommandHandler<'a> {
+        let start = Instant::now();
         let size = PopupSize::default().width(60).height(20);
-
-        CommandHandler {
+        let command_handler = CommandHandler {
             command: TextInput::new("Command")
                 .view(View::Command)
                 .size((size.width - 2, size.height - 2))
@@ -82,7 +82,9 @@ impl<'a> CommandHandler<'a> {
             command_options: command_data().iter().map(|s| s.1).collect(),
             selected_option: 0,
             matcher: Matcher::default(),
-        }
+        };
+        tracing::info!("initialized command handler in {:?}", start.elapsed());
+        command_handler
     }
 
     pub fn key_event_handler(

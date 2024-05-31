@@ -1,7 +1,10 @@
 //! Initializes a new connection pool to the database and provides utility
 //! methods for convenience.
 
-use std::{fs, thread, time::Duration};
+use std::{
+    fs, thread,
+    time::{Duration, Instant},
+};
 
 use color_eyre::Result;
 use pltx_utils::{dirs, DateTime};
@@ -42,6 +45,7 @@ impl Database {
     }
 
     pub fn start_session(&mut self) -> Result<()> {
+        let start = Instant::now();
         self.ensure_tables()?;
         let started = DateTime::new();
         self.conn().execute(
@@ -52,6 +56,7 @@ impl Database {
         self.started = Some(started);
         self.session_started = true;
         self.create_sync_session_thread()?;
+        tracing::info!("started session in {:?}", start.elapsed());
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::Instant};
 
 use color_eyre::Result;
 use pltx_app::{
@@ -38,13 +38,16 @@ pub struct Interface {
 
 impl Interface {
     pub fn init(app: &mut App) -> Result<Self> {
-        Ok(Self {
+        let start = Instant::now();
+        let interface = Self {
             modules: InterfaceModule {
                 home: Home::init(app)?,
                 project_management: ProjectManagement::init(app)?,
             },
             _popups: PopupState {},
-        })
+        };
+        tracing::info!("initialized interface in {:?}", start.elapsed());
+        Ok(interface)
     }
 
     pub fn render(
