@@ -15,7 +15,6 @@ mod tui;
 mod ui;
 
 use command_handler::CommandHandler;
-use pltx_app::Popup;
 use tui::Tui;
 use ui::Interface;
 

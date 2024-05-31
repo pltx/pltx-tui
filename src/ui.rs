@@ -3,7 +3,7 @@ use std::str::FromStr;
 use color_eyre::Result;
 use pltx_app::{
     state::{AppModule, AppPopup},
-    App, DebugPosition, Module, Popup,
+    App, DebugPosition, Module,
 };
 use pltx_config::ColorsConfig;
 use pltx_home::Home;

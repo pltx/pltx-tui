@@ -8,7 +8,7 @@ use color_eyre::{eyre::Context, Result};
 use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind};
 use pltx_app::{
     state::{AppModule, View},
-    App, Module, Popup,
+    App, Module,
 };
 
 use crate::{command_handler::CommandHandler, ui::Interface};
@@ -134,7 +134,7 @@ impl EventHandler {
                 }
             }
             View::Command => {
-                command_handler.key_event_handler(app, key_event);
+                command_handler.key_event_handler(app, interface, key_event);
                 return Ok(());
             }
         }

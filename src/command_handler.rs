@@ -7,7 +7,7 @@ use nucleo::{
 };
 use pltx_app::{
     state::{AppModule, View},
-    App, DefaultWidget, KeyEventHandler, Popup,
+    App, DefaultWidget, KeyEventHandler,
 };
 use pltx_widgets::{PopupSize, PopupWidget, TextInput};
 use ratatui::{
@@ -18,6 +18,8 @@ use ratatui::{
     Frame,
 };
 
+use crate::ui::Interface;
+
 #[derive(PartialEq, Clone)]
 /// The list of available commands. Each must be added to the [`command_data`]
 /// function.
@@ -27,6 +29,7 @@ enum Command {
     Home,
     ProjectManagement,
     Quit,
+    Settings,
     None,
 }
 
@@ -52,18 +55,19 @@ pub struct CommandHandler<'a> {
 }
 
 // NOTE: Add commands here.
-fn command_data<'a>() -> [(Command, &'a str); 5] {
+fn command_data<'a>() -> [(Command, &'a str); 6] {
     [
         (Command::Dashboard, "dashboard"),
         (Command::Help, "help"),
         (Command::Home, "home"),
         (Command::ProjectManagement, "project management"),
+        (Command::Settings, "settings"),
         (Command::Quit, "quit"),
     ]
 }
 
-impl<'a> Popup for CommandHandler<'a> {
-    fn init() -> CommandHandler<'a> {
+impl<'a> CommandHandler<'a> {
+    pub fn init() -> CommandHandler<'a> {
         let size = PopupSize::default().width(60).height(20);
 
         CommandHandler {
@@ -81,7 +85,12 @@ impl<'a> Popup for CommandHandler<'a> {
         }
     }
 
-    fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
+    pub fn key_event_handler(
+        &mut self,
+        app: &mut App,
+        interface: &mut Interface,
+        key_event: KeyEvent,
+    ) {
         if self.focused_pane == FocusedPane::Input {
             self.command.key_event_handler(app, key_event);
             self.update_options();
@@ -89,7 +98,7 @@ impl<'a> Popup for CommandHandler<'a> {
 
         if app.mode.is_normal() {
             match key_event.code {
-                KeyCode::Enter => self.execute_command(app),
+                KeyCode::Enter => self.execute_command(app, interface),
                 KeyCode::Char('q') => {
                     app.view.default();
                     self.reset();
@@ -118,14 +127,14 @@ impl<'a> Popup for CommandHandler<'a> {
             }
         } else if app.mode.is_insert() {
             match key_event.code {
-                KeyCode::Enter => self.execute_command(app),
+                KeyCode::Enter => self.execute_command(app, interface),
                 KeyCode::Esc => app.view.command(),
                 _ => {}
             }
         }
     }
 
-    fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
+    pub fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
 
         let popup = PopupWidget::new(app, area).size(self.size).render(frame);
@@ -202,7 +211,7 @@ impl<'a> CommandHandler<'a> {
         (Command::None, "none")
     }
 
-    fn execute_command(&mut self, app: &mut App) {
+    fn execute_command(&mut self, app: &mut App, interface: &mut Interface) {
         let start = Instant::now();
 
         let (command, command_str) = self.parse_command();
@@ -214,16 +223,25 @@ impl<'a> CommandHandler<'a> {
                 app.view.default();
                 app.mode.normal();
                 app.module = AppModule::Home;
+                interface.modules.home.dashboard();
+            }
+            Command::Settings => {
+                app.view.default();
+                app.mode.normal();
+                app.module = AppModule::Home;
+                interface.modules.home.settings();
             }
             Command::Help => {
                 app.view.default();
                 app.mode.normal();
                 app.module = AppModule::Home;
+                interface.modules.home.help();
             }
             Command::Home => {
                 app.view.default();
                 app.mode.normal();
                 app.module = AppModule::Home;
+                interface.modules.home.dashboard();
             }
             Command::ProjectManagement => {
                 app.view.default();

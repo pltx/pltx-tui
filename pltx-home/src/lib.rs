@@ -32,6 +32,20 @@ pub struct Home {
     screens: Screens,
 }
 
+impl Home {
+    pub fn dashboard(&mut self) {
+        self.tabs.active = Tab::Dashboard;
+    }
+
+    pub fn settings(&mut self) {
+        self.tabs.active = Tab::Settings;
+    }
+
+    pub fn help(&mut self) {
+        self.tabs.active = Tab::Help;
+    }
+}
+
 impl Module for Home {
     fn init(app: &App) -> Result<Self>
     where
