@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS project (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project (position);
 
+
 CREATE TABLE IF NOT EXISTS project_label (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
@@ -28,6 +29,8 @@ CREATE TABLE IF NOT EXISTS project_label (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_label (position);
+CREATE INDEX IF NOT EXISTS idx_project_id ON project_label (project_id);
+
 
 CREATE TABLE IF NOT EXISTS project_list (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +47,8 @@ CREATE TABLE IF NOT EXISTS project_list (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_list (position);
+CREATE INDEX IF NOT EXISTS idx_project_id ON project_list (project_id);
+
 
 CREATE TABLE IF NOT EXISTS project_card (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,6 +76,7 @@ CREATE TABLE IF NOT EXISTS project_card (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_card (position);
+CREATE INDEX IF NOT EXISTS idx_project_id ON project_card (project_id);
 
 CREATE TABLE IF NOT EXISTS card_label (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,6 +102,8 @@ CREATE TABLE IF NOT EXISTS card_label (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON card_label (position);
+CREATE INDEX IF NOT EXISTS idx_project_id ON card_label (project_id);
+CREATE INDEX IF NOT EXISTS idx_card_id ON card_label (card_id);
 
 CREATE TABLE IF NOT EXISTS card_subtask (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,5 +126,7 @@ CREATE TABLE IF NOT EXISTS card_subtask (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON card_subtask (position);
+CREATE INDEX IF NOT EXISTS idx_project_id ON card_subtask (project_id);
+CREATE INDEX IF NOT EXISTS idx_card_id ON card_subtask (card_id);
 
 COMMIT;
