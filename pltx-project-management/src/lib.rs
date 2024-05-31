@@ -21,8 +21,8 @@ include!("generated_sql.rs");
 /// Project management tab.
 #[derive(PartialEq, Clone)]
 pub enum Tab {
-    Planned,
     Projects,
+    Planned,
     Important,
 }
 
@@ -41,8 +41,8 @@ impl Module<Result<()>> for ProjectManagement {
 
         Ok(Self {
             tabs: Tabs::from([
-                (Tab::Planned, "Planned"),
                 (Tab::Projects, "Projects"),
+                (Tab::Planned, "Planned"),
                 (Tab::Important, "Important"),
             ]),
             screens: Screens {
