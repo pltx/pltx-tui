@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Display, App, DefaultWidget, KeyEventHandler, Popup};
+use pltx_app::{state::View, App, DefaultWidget, KeyEventHandler, Popup};
 use pltx_database::Database;
 use pltx_utils::DateTime;
 use pltx_widgets::{PopupSize, PopupWidget, Scrollable, TextInput};
@@ -59,11 +59,11 @@ impl LabelEditor {
             selection: Scrollable::default(),
             inputs: LabelInputs {
                 title: TextInput::new("Label Title")
-                    .display(Display::popup())
+                    .view(View::Popup)
                     .max(LABEL_TITLE_MAX_LENTH)
                     .prompt(),
                 color: TextInput::new("Label Color")
-                    .display(Display::popup())
+                    .view(View::Popup)
                     .max(LABEL_COLOR_REQUIRED_LENTH)
                     .prompt(),
             },
@@ -87,11 +87,11 @@ impl KeyEventHandler for LabelEditor {
         match key_event.code {
             KeyCode::Char('n') => {
                 if self.view == LabelView::Selection {
-                    if app.is_delete_mode() {
-                        app.normal_mode();
+                    if app.mode.is_delete() {
+                        app.mode.normal();
                     } else {
                         self.view = LabelView::Input;
-                        app.insert_mode();
+                        app.mode.insert();
                     }
                 }
             }
@@ -102,12 +102,12 @@ impl KeyEventHandler for LabelEditor {
                     self.inputs.title.input(label.title.to_owned());
                     self.inputs.color.input(label.color.to_owned());
                     self.view = LabelView::Input;
-                    app.insert_mode();
+                    app.mode.insert();
                 }
             }
             KeyCode::Char('d') => {
                 if self.view == LabelView::Selection && !self.labels.is_empty() {
-                    app.delete_mode();
+                    app.mode.delete();
                 }
             }
             KeyCode::Char('.') => {
@@ -121,13 +121,13 @@ impl KeyEventHandler for LabelEditor {
                 }
             }
             KeyCode::Char('y') => {
-                if self.view == LabelView::Selection && app.is_delete_mode() {
+                if self.view == LabelView::Selection && app.mode.is_delete() {
                     self.labels.remove(self.selection.focused);
-                    app.normal_mode();
+                    app.mode.normal();
                 }
             }
             KeyCode::Char('[') => {
-                if app.is_normal_mode() && self.view == LabelView::Input {
+                if app.mode.is_normal() && self.view == LabelView::Input {
                     self.reset()
                 }
             }
@@ -155,7 +155,7 @@ impl KeyEventHandler for LabelEditor {
                             });
                         };
                         self.reset();
-                        app.normal_mode();
+                        app.mode.normal();
                     }
                 }
             }
@@ -241,7 +241,7 @@ impl LabelEditor {
 }
 
 #[derive(PartialEq)]
-enum View {
+enum EditorView {
     Selection,
     Input,
 }
@@ -273,7 +273,7 @@ pub struct ProjectEditor {
     original_data: Option<ProjectData>,
     inputs: Vec<(Input, String)>,
     input_widgets: Inputs,
-    view: View,
+    view: EditorView,
     selection: Scrollable,
     current_input: Input,
     default_size: PopupSize,
@@ -293,17 +293,17 @@ impl Popup<Result<bool>> for ProjectEditor {
             ],
             input_widgets: Inputs {
                 title: TextInput::new("Title")
-                    .display(Display::popup())
+                    .view(View::Popup)
                     .max(PROJECT_TITLE_MAX_LENGTH)
                     .prompt(),
                 description: TextInput::new("Description")
-                    .display(Display::popup())
+                    .view(View::Popup)
                     .max(PROJECT_DESCRIPTION_MAX_LENGTH)
                     .prompt()
                     .prompt_lines(3),
                 label_editor: LabelEditor::init(),
             },
-            view: View::Selection,
+            view: EditorView::Selection,
             selection: Scrollable::default(),
             current_input: Input::None,
             default_size: size,
@@ -316,16 +316,16 @@ impl Popup<Result<bool>> for ProjectEditor {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         self.selection.key_event_handler(app, key_event);
 
-        if app.is_normal_mode() && key_event.code == KeyCode::Char('q') {
+        if app.mode.is_normal() && key_event.code == KeyCode::Char('q') {
             self.reset();
-            app.default_display();
+            app.view.default();
             return Ok(true);
         }
 
-        if self.view == View::Selection {
+        if self.view == EditorView::Selection {
             match key_event.code {
                 KeyCode::Enter | KeyCode::Char('l') => {
-                    self.view = View::Input;
+                    self.view = EditorView::Input;
                     self.current_input = self.inputs[self.selection.focused].0.clone();
                     let height = match self.current_input {
                         Input::Title => 6,
@@ -339,11 +339,11 @@ impl Popup<Result<bool>> for ProjectEditor {
                             .height(height);
                     }
                     if [Input::Title, Input::Description].contains(&self.current_input) {
-                        app.insert_mode();
+                        app.mode.insert();
                     }
                 }
                 KeyCode::Char('s') => {
-                    if self.view == View::Selection {
+                    if self.view == EditorView::Selection {
                         if self.original_data.is_some() {
                             self.db_edit_project(&app.db)?;
                         } else {
@@ -356,21 +356,19 @@ impl Popup<Result<bool>> for ProjectEditor {
                 }
                 _ => {}
             }
-        } else if self.view == View::Input {
+        } else if self.view == EditorView::Input {
             if self.input_widgets.label_editor.view != LabelView::Input {
                 match key_event.code {
                     KeyCode::Char('[') => {
-                        if app.is_normal_mode() {
-                            self.view = View::Selection;
+                        if app.mode.is_normal() {
+                            self.view = EditorView::Selection;
                             self.size = self.default_size;
                         }
                     }
                     KeyCode::Enter => {
-                        if self.current_input != Input::Labels {
-                            self.view = View::Selection;
-                            app.normal_mode();
-                            self.size = self.default_size;
-                        }
+                        self.view = EditorView::Selection;
+                        app.mode.normal();
+                        self.size = self.default_size;
                     }
                     _ => {}
                 }
@@ -407,7 +405,7 @@ impl Popup<Result<bool>> for ProjectEditor {
 
         let area = popup.sub_area;
 
-        if self.view == View::Selection {
+        if self.view == EditorView::Selection {
             let table = self
                 .inputs
                 .iter()
@@ -637,7 +635,7 @@ impl ProjectEditor {
 
     pub fn reset(&mut self) {
         self.original_data = None;
-        self.view = View::Selection;
+        self.view = EditorView::Selection;
         self.current_input = Input::None;
         self.size = self.default_size;
         self.input_widgets.title.reset();

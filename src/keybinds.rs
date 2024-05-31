@@ -7,7 +7,7 @@ use std::{
 use color_eyre::{eyre::Context, Result};
 use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind};
 use pltx_app::{
-    state::{AppModule, Display},
+    state::{AppModule, View},
     App, Module, Popup,
 };
 
@@ -111,29 +111,29 @@ impl EventHandler {
         command_handler: &mut CommandHandler,
         key_event: KeyEvent,
     ) -> Result<()> {
-        if app.is_normal_mode() {
+        if app.mode.is_normal() {
             match key_event.code {
-                KeyCode::Char('`') => app.toggle_debug(),
-                KeyCode::Char('!') => app.toggle_min_preview(),
-                KeyCode::Char('~') => app.next_debug_position(),
+                KeyCode::Char('`') => app.debug.toggle(),
+                KeyCode::Char('!') => app.debug.toggle_min_preview(),
+                KeyCode::Char('~') => app.debug.next_position(),
                 _ => {}
             }
         }
 
-        match app.display {
-            Display::Default(_) => {
-                if app.is_normal_mode() && key_event.code == KeyCode::Char(':') {
-                    app.insert_mode();
-                    app.command_display();
+        match app.view {
+            View::Default => {
+                if app.mode.is_normal() && key_event.code == KeyCode::Char(':') {
+                    app.mode.insert();
+                    app.view.command();
                 }
             }
-            Display::Popup(_) => {
-                if app.is_normal_mode() && key_event.code == KeyCode::Char(':') {
-                    app.insert_mode();
-                    app.command_display();
+            View::Popup => {
+                if app.mode.is_normal() && key_event.code == KeyCode::Char(':') {
+                    app.mode.insert();
+                    app.view.command();
                 }
             }
-            Display::Command(_) => {
+            View::Command => {
                 command_handler.key_event_handler(app, key_event);
                 return Ok(());
             }

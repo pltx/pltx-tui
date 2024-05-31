@@ -41,17 +41,17 @@ impl Screen<Result<()>> for Projects {
     }
 
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<()> {
-        if app.is_normal_mode() && self.page == Page::ListProjects {
+        if app.mode.is_normal() && self.page == Page::ListProjects {
             match key_event.code {
                 KeyCode::Char('n') => {
                     self.page = Page::NewProject;
-                    app.popup_display();
+                    app.view.popup();
                 }
                 KeyCode::Char('e') => {
                     if let Some(id) = self.pages.list_projects.get_id() {
                         self.pages.edit_project.set_project(&app.db, id)?;
                         self.page = Page::EditProject;
-                        app.popup_display();
+                        app.view.popup();
                     }
                 }
                 KeyCode::Enter | KeyCode::Char('l') => {

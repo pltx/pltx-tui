@@ -1,6 +1,6 @@
 use ratatui::{layout::Rect, Frame};
 
-use crate::{state::Display, App, KeyEventHandler};
+use crate::{state::View, App, KeyEventHandler};
 
 /// Create a default widget, which only required the `render()` method.
 pub trait DefaultWidget {
@@ -13,9 +13,9 @@ pub trait DefaultWidget {
 pub trait FormWidget: DefaultWidget + KeyEventHandler {
     /// Modify the widget values to ensure it is form form compatible.
     fn form_compatible(&mut self);
-    /// Set the display that the widget should be interactable in. Keys will not
-    /// be processed if the app is in any other display.
-    fn display(&mut self, display: Display);
+    /// Set the view that the widget should be interactable in. Keys will not
+    /// be processed if the app is in any other view.
+    fn view(&mut self, view: View);
     /// Reset the state values of the widget.
     fn reset(&mut self);
 }

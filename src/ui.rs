@@ -91,13 +91,13 @@ impl Interface {
             AppModule::None => {}
         };
 
-        if app.display.is_popup() {
+        if app.view.is_popup() {
             match app.popup {
                 AppPopup::None => {}
             }
         }
 
-        if app.display.is_command() {
+        if app.view.is_command() {
             command_handler.render(app, frame, area);
         }
 
@@ -112,6 +112,8 @@ impl Interface {
                 Line::from(format!("Config File: {}", app.profile.config_file)),
                 Line::from(format!("DB File: {}", app.profile.db_file)),
                 Line::from(format!("Log File: {}", app.profile.log_file)),
+                Line::from(format!("View: {}", app.view)),
+                Line::from(format!("View iscmd: {}", app.view.is_command())),
             ];
 
             let area = frame.size();
@@ -158,7 +160,7 @@ impl Interface {
 
     fn status_bar(&self, app: &App, frame: &mut Frame, area: Rect) {
         let colors = &app.config.colors;
-        let mode = app.current_mode_data();
+        let mode_colors = app.mode_colors();
 
         let [left_layout, center_layout, right_layout] = Layout::default()
             .direction(Direction::Horizontal)
@@ -169,23 +171,23 @@ impl Interface {
             ])
             .areas(area);
 
-        let mut mode_fg = mode.fg;
-        let mut mode_bg = mode.bg;
+        let mut mode_fg = mode_colors.fg;
+        let mut mode_bg = mode_colors.bg;
         let mut status_bar_fg = colors.status_bar_fg;
         let mut status_bar_bg = colors.status_bar_bg;
-        if app.is_delete_mode() {
+        if app.mode.is_delete() {
             mode_fg = colors.status_bar_fg;
             mode_bg = colors.status_bar_bg;
-            status_bar_fg = mode.fg;
-            status_bar_bg = mode.bg;
+            status_bar_fg = mode_colors.fg;
+            status_bar_bg = mode_colors.bg;
         }
         let left_text = vec![Line::from(vec![
-            Span::from(format!(" {} ", mode.text.to_uppercase()))
+            Span::from(format!(" {} ", app.mode.to_string().to_uppercase()))
                 .bold()
                 .fg(mode_fg)
                 .bg(mode_bg),
             Span::from("").fg(mode_bg),
-            if app.is_delete_mode() {
+            if app.mode.is_delete() {
                 Span::from(" Confirm Deletion (y/n)").bold()
             } else {
                 Span::from("")
@@ -210,7 +212,7 @@ impl Interface {
         frame.render_widget(center_content, center_layout);
 
         let right_text = vec![Line::from(vec![Span::from("Press ? for help ")])];
-        let right_content = Paragraph::new(if app.is_delete_mode() {
+        let right_content = Paragraph::new(if app.mode.is_delete() {
             vec![Line::from("")]
         } else {
             right_text

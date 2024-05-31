@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crossterm::event::KeyEvent;
-use pltx_app::{state::Display, App, CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler};
+use pltx_app::{state::View, App, CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
@@ -21,12 +21,12 @@ impl<I> Form<I> {
     pub fn new<const N: usize>(
         input_widgets: [Rc<RefCell<dyn FormWidget>>; N],
         inputs: I,
-        display: Display,
+        display: View,
     ) -> Self {
         for input in input_widgets.iter() {
             let mut access_input = (**input).borrow_mut();
             access_input.form_compatible();
-            access_input.display(display);
+            access_input.view(display);
         }
 
         Self {

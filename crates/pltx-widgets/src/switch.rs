@@ -1,5 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Display, App, DefaultWidget, FormWidget, KeyEventHandler};
+use pltx_app::{state::View, App, DefaultWidget, FormWidget, KeyEventHandler};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
@@ -57,7 +57,7 @@ impl DefaultWidget for Switch {
 
 impl FormWidget for Switch {
     fn form_compatible(&mut self) {}
-    fn display(&mut self, _: Display) {}
+    fn view(&mut self, _: View) {}
 
     fn reset(&mut self) {
         self.state = self.original_state;

@@ -1,3 +1,8 @@
+use core::fmt;
+
+use pltx_config::ColorsConfig;
+use ratatui::style::Color;
+
 /// The mode the application is in. The mode status is shown at the bottom left
 /// of the status bar.
 #[derive(PartialEq, Clone, Copy)]
@@ -12,69 +17,145 @@ pub enum Mode {
     Delete,
 }
 
-/// Represents what's being being rendered at the highest level.
-#[derive(PartialEq, Clone, Copy)]
-pub enum Display {
-    /// Render only the main content.
-    Default(Mode),
-
-    /// Renders a popup over the main content. Keypresses are directed only to
-    /// the popup.
-    Popup(Mode),
-
-    /// Renders a popup with the command prompt over the main content.
-    /// Keypressed are directed only to the command prompt.
-    Command(Mode),
+/// Used to get the mode properties (colors).
+pub struct ModeColors {
+    /// The foreground color of the mode shown in the status bar.
+    pub fg: Color,
+    /// The background color of the mode shown in the status bar.
+    pub bg: Color,
 }
 
-impl Display {
-    /// Creates a new default display in normal mode.
-    #[allow(clippy::should_implement_trait)]
-    pub fn default() -> Self {
-        Display::Default(Mode::Normal)
+impl Mode {
+    /// Sets the mode to [`Normal`](Mode::Normal).
+    pub fn normal(&mut self) {
+        *self = Mode::Normal;
     }
 
-    /// Creates a new popup display in normal mode.
-    pub fn popup() -> Self {
-        Display::Popup(Mode::Normal)
+    /// Sets the mode to [`Insert`](Mode::Insert).
+    pub fn insert(&mut self) {
+        *self = Mode::Insert;
     }
 
-    /// Creates a new command display in normal mode.
-    pub fn command() -> Self {
-        Display::Command(Mode::Normal)
+    /// Sets the mode to [`Interactive`](Mode::Interactive).
+    pub fn interactive(&mut self) {
+        *self = Mode::Interactive;
     }
 
-    /// Returns true if the display is [`Default`](Display::Default).
+    /// Sets the mode to [`Delete`](Mode::Delete).
+    pub fn delete(&mut self) {
+        *self = Mode::Delete;
+    }
+
+    /// Returns true if the mode is [`Normal`](Mode::Normal).
+    pub fn is_normal(&self) -> bool {
+        self == &Mode::Normal
+    }
+
+    /// Returns true if the mode is [`Insert`](Mode::Insert).
+    pub fn is_insert(&self) -> bool {
+        self == &Mode::Insert
+    }
+
+    /// Returns true if the mode is [`Interactive`](Mode::Interactive).
+    pub fn is_interactive(&self) -> bool {
+        self == &Mode::Interactive
+    }
+
+    /// Returns true if the mode is [`Delete`](Mode::Delete).
+    pub fn is_delete(&self) -> bool {
+        self == &Mode::Delete
+    }
+
+    /// Returns a modes colors.
+    pub fn colors(&self, colors: &ColorsConfig) -> ModeColors {
+        ModeColors {
+            fg: match *self {
+                Mode::Normal => colors.status_bar_normal_mode_fg,
+                Mode::Insert => colors.status_bar_insert_mode_fg,
+                Mode::Interactive => colors.status_bar_interactive_mode_fg,
+                Mode::Delete => colors.status_bar_delete_mode_fg,
+            },
+            bg: match *self {
+                Mode::Normal => colors.status_bar_normal_mode_bg,
+                Mode::Insert => colors.status_bar_insert_mode_bg,
+                Mode::Interactive => colors.status_bar_interactive_mode_bg,
+                Mode::Delete => colors.status_bar_delete_mode_bg,
+            },
+        }
+    }
+}
+
+impl fmt::Display for Mode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                Mode::Normal => "Normal",
+                Mode::Insert => "Insert",
+                Mode::Interactive => "Interactive",
+                Mode::Delete => "Delete",
+            }
+        )
+    }
+}
+
+/// Represents what's being being rendered at the highest level.
+#[derive(PartialEq, Clone, Copy)]
+pub enum View {
+    /// Render only the main content.
+    Default,
+    /// Renders a popup over the main content. Keypresses are directed only to
+    /// the popup.
+    Popup,
+    /// Renders a popup with the command prompt over the main content.
+    /// Keypressed are directed only to the command prompt.
+    Command,
+}
+
+impl View {
+    /// Sets the view to [`Default`](View::Default).
+    pub fn default(&mut self) {
+        *self = View::Default;
+    }
+
+    /// Sets the view to [`Popup`](View::Popup).
+    pub fn popup(&mut self) {
+        *self = View::Popup
+    }
+
+    /// Sets the view to [`Command`](View::Command).
+    pub fn command(&mut self) {
+        *self = View::Command;
+    }
+
+    /// Returns true if the view is [`Default`](View::Default).
     pub fn is_default(&self) -> bool {
-        matches!(self, Display::Default(_))
+        self == &View::Default
     }
 
-    /// Returns true if the display is [`Popup`](Display::Popup).
+    /// Returns true if the view is [`Popup`](View::Popup).
     pub fn is_popup(&self) -> bool {
-        matches!(self, Display::Popup(_))
+        self == &View::Popup
     }
 
-    /// Returns true if the display is [`Command`](Display::Command).
+    /// Returns true if the view is [`Command`](View::Command).
     pub fn is_command(&self) -> bool {
-        matches!(self, Display::Command(_))
+        self == &View::Command
     }
+}
 
-    /// Extract the mode from the display.
-    pub fn mode(&self) -> Mode {
-        match self {
-            Display::Default(mode) => *mode,
-            Display::Popup(mode) => *mode,
-            Display::Command(mode) => *mode,
-        }
-    }
-
-    /// Returns the insert mode equivalent of the current display is.
-    pub fn insert_equivalent(&self) -> Display {
-        match self {
-            Display::Default(_) => Display::Default(Mode::Insert),
-            Display::Popup(_) => Display::Popup(Mode::Insert),
-            Display::Command(_) => Display::Command(Mode::Insert),
-        }
+impl fmt::Display for View {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                View::Default => "Default",
+                View::Popup => "Popup",
+                View::Command => "Command",
+            }
+        )
     }
 }
 

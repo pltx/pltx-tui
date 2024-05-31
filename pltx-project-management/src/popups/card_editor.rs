@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashSet, rc::Rc, str::FromStr};
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{
-    state::Display, App, CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler, Popup,
+    state::View, App, CompositeWidget, DefaultWidget, FormWidget, KeyEventHandler, Popup,
 };
 use pltx_config::ColorsConfig;
 use pltx_database::Database;
@@ -90,17 +90,17 @@ impl Popup<Result<bool>> for CardEditor {
         let important_input = Rc::new(RefCell::new(Switch::from("Important")));
         let start_date_input = Rc::new(RefCell::new(
             TextInput::new("Start Date")
-                .display(Display::popup())
+                .view(View::Popup)
                 .datetime_input(),
         ));
         let due_date_input = Rc::new(RefCell::new(
             TextInput::new("Due Date")
-                .display(Display::popup())
+                .view(View::Popup)
                 .datetime_input(),
         ));
         let reminder_input = Rc::new(RefCell::new(
             TextInput::new("Reminder")
-                .display(Display::popup())
+                .view(View::Popup)
                 .datetime_input(),
         ));
 
@@ -117,15 +117,13 @@ impl Popup<Result<bool>> for CardEditor {
             project_id: None,
             list_id: None,
             inputs: Inputs {
-                title: TextInput::new("Title").display(Display::popup()).max(50),
-                description: TextInput::new("Description")
-                    .display(Display::popup())
-                    .max(4000),
+                title: TextInput::new("Title").view(View::Popup).max(50),
+                description: TextInput::new("Description").view(View::Popup).max(4000),
                 labels: Selection::default(),
                 properties: Form::new(
                     [important_input, start_date_input, due_date_input],
                     properties,
-                    Display::popup(),
+                    View::Popup,
                 )
                 .fixed_width(34),
                 actions: Buttons::from([(Action::Save, "Save Card"), (Action::Cancel, "Cancel")]),
@@ -151,10 +149,10 @@ impl Popup<Result<bool>> for CardEditor {
             FocusedPane::Actions => {}
         };
 
-        if app.is_normal_mode() {
+        if app.mode.is_normal() {
             match key_event.code {
                 KeyCode::Char('q') => {
-                    app.reset_display();
+                    app.view.default();
                     self.reset();
                 }
                 KeyCode::Char('j') => self.next_pane(),
@@ -370,11 +368,11 @@ impl CardEditor {
                     self.db_edit_card(&app.db)?;
                 }
                 self.reset();
-                app.reset_display();
+                app.view.default();
                 return Ok(true);
             } else if self.inputs.actions.is_focused(Action::Cancel) {
                 self.reset();
-                app.reset_display();
+                app.view.default();
             }
         }
 

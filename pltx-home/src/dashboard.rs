@@ -53,7 +53,7 @@ impl Screen for Dashboard {
             self.scrollable_sessions.key_event_handler(app, key_event);
         }
 
-        if app.display.is_default() {
+        if app.view.is_default() {
             match key_event.code {
                 KeyCode::Tab => {
                     self.pane = match self.pane {

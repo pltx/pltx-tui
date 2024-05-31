@@ -1,6 +1,6 @@
 use color_eyre::{eyre::eyre, Result};
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Display, App, DefaultWidget, KeyEventHandler, Popup};
+use pltx_app::{state::View, App, DefaultWidget, KeyEventHandler, Popup};
 use pltx_database::Database;
 use pltx_utils::DateTime;
 use pltx_widgets::{PopupSize, PopupWidget, TextInput};
@@ -36,7 +36,7 @@ impl Popup<Result<bool>> for ListEditor {
             project_id: None,
             inputs: Inputs {
                 title: TextInput::new("Title")
-                    .display(Display::popup())
+                    .view(View::Popup)
                     .max(50)
                     .size((size.width - 2, size.height - 2)),
             },
@@ -55,7 +55,7 @@ impl Popup<Result<bool>> for ListEditor {
                 } else {
                     self.db_edit_list(&app.db)?;
                 }
-                app.reset_display();
+                app.view.default();
                 self.inputs.title.reset();
                 return Ok(true);
             }
@@ -147,7 +147,7 @@ impl ListEditor {
     }
 
     pub fn reset(&mut self, app: &mut App) {
-        app.reset_display();
+        app.view.default();
         self.data = None;
         self.project_id = None;
         self.inputs.title.reset();

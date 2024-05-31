@@ -131,9 +131,9 @@ impl Screen<Result<bool>> for OpenProject {
     }
 
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
-        if app.display.is_popup() {
-            if app.is_normal_mode() && key_event.code == KeyCode::Char('q') {
-                app.reset_display();
+        if app.view.is_popup() {
+            if app.mode.is_normal() && key_event.code == KeyCode::Char('q') {
+                app.view.default();
                 self.popup = OpenProjectPopup::None;
             }
 
@@ -162,7 +162,7 @@ impl Screen<Result<bool>> for OpenProject {
             }
         }
 
-        if app.display.is_default() {
+        if app.view.is_default() && app.mode.is_normal() {
             if !self.data.lists.is_empty() {
                 self.list_selections[self.selected_list_index].key_event_handler(app, key_event);
             }
@@ -171,8 +171,8 @@ impl Screen<Result<bool>> for OpenProject {
                 KeyCode::Char('[') => return Ok(true),
                 KeyCode::Char('N') => {
                     self.popup = OpenProjectPopup::NewList;
-                    app.popup_display();
-                    app.insert_mode();
+                    app.view.popup();
+                    app.mode.insert();
                 }
                 KeyCode::Char('n') => {
                     if let Some(project_id) = self.project_id {
@@ -180,8 +180,8 @@ impl Screen<Result<bool>> for OpenProject {
                             let list_id = self.data.lists[self.selected_list_index].id;
                             self.popups.new_card.ids(project_id, list_id);
                             self.popup = OpenProjectPopup::NewCard;
-                            app.popup_display();
-                            app.insert_mode();
+                            app.view.popup();
+                            app.mode.insert();
                         }
                     }
                 }
@@ -190,8 +190,8 @@ impl Screen<Result<bool>> for OpenProject {
                         let list_id = self.data.lists[self.selected_list_index].id;
                         self.popup = OpenProjectPopup::EditList;
                         self.popups.edit_list.set(&app.db, list_id)?;
-                        app.popup_display();
-                        app.insert_mode();
+                        app.view.popup();
+                        app.mode.insert();
                     }
                 }
                 KeyCode::Char('e') => {
@@ -206,7 +206,7 @@ impl Screen<Result<bool>> for OpenProject {
                             let card_id =
                                 self.data.lists[self.selected_list_index].cards[card_index].id;
                             self.popups.edit_card.set_data(&app.db, card_id)?;
-                            app.popup_display();
+                            app.view.popup();
                         }
                     }
                 }
@@ -215,7 +215,7 @@ impl Screen<Result<bool>> for OpenProject {
                 KeyCode::Char('D') => {
                     if self.project_id.is_some() && !self.data.lists.is_empty() {
                         self.delete_selection = DeleteSelection::List;
-                        app.delete_mode();
+                        app.mode.delete();
                     }
                 }
                 KeyCode::Char('d') => {
@@ -223,7 +223,7 @@ impl Screen<Result<bool>> for OpenProject {
                         && !self.data.lists[self.selected_list_index].cards.is_empty()
                     {
                         self.delete_selection = DeleteSelection::Card;
-                        app.delete_mode();
+                        app.mode.delete();
                     }
                 }
                 KeyCode::Char('h') => {
@@ -240,23 +240,23 @@ impl Screen<Result<bool>> for OpenProject {
             }
         }
 
-        if app.is_delete_mode() {
+        if app.mode.is_delete() {
             match key_event.code {
                 KeyCode::Char('y') => {
                     if self.delete_selection == DeleteSelection::List {
                         if !self.data.lists.is_empty() {
                             self.db_delete_list(&app.db)?;
                             self.db_get_project(app)?;
-                            app.normal_mode();
+                            app.mode.normal();
                         }
                     } else if self.delete_selection == DeleteSelection::Card {
                         self.db_delete_card(&app.db)?;
                         self.db_get_project(app)?;
-                        app.normal_mode();
+                        app.mode.normal();
                     }
                     self.delete_selection = DeleteSelection::None;
                 }
-                KeyCode::Char('n') => app.normal_mode(),
+                KeyCode::Char('n') => app.mode.normal(),
 
                 _ => {}
             }
@@ -346,7 +346,7 @@ impl Screen<Result<bool>> for OpenProject {
             }
         }
 
-        if app.display.is_popup() && app.popup == AppPopup::None {
+        if app.view.is_popup() && app.popup == AppPopup::None {
             match self.popup {
                 OpenProjectPopup::NewList => self.popups.new_list.render(app, frame, list_areas),
                 OpenProjectPopup::EditList => self.popups.edit_list.render(app, frame, list_areas),
@@ -727,7 +727,6 @@ impl OpenProject {
 
         let list = &self.data.lists[self.selected_list_index];
 
-        // Update the position of the selected card before `data` is updated.
         let selected_card_index = self.list_selections[self.selected_list_index].focused;
         if list.cards.len() == 1 {
             self.list_selections[self.selected_list_index].focused = 0;

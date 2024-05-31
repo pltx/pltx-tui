@@ -4,7 +4,7 @@ use nucleo::{
     Matcher,
 };
 use pltx_app::{
-    state::{AppModule, Display},
+    state::{AppModule, View},
     App, DefaultWidget, KeyEventHandler, Popup,
 };
 use pltx_widgets::{PopupSize, PopupWidget, TextInput};
@@ -20,6 +20,7 @@ use ratatui::{
 enum Command {
     Dashboard,
     Help,
+    Home,
     ProjectManagement,
     Quit,
     None,
@@ -51,14 +52,17 @@ fn command_data<'a>() -> Vec<(Command, &'a str)> {
         match cmd {
             Command::Dashboard => "dashboard",
             Command::Help => "help",
+            Command::Home => "home",
             Command::ProjectManagement => "project management",
             Command::Quit => "quit",
             Command::None => "",
         }
     }
 
+    // NOTE: Add the command here.
     let cmds = [
         Command::Dashboard,
+        Command::Home,
         Command::Help,
         Command::ProjectManagement,
         Command::Quit,
@@ -82,7 +86,7 @@ impl Popup for CommandHandler {
 
         CommandHandler {
             command: TextInput::new("Command")
-                .display(Display::command())
+                .view(View::Command)
                 .size((size.width - 2, size.height - 2))
                 .placeholder("Enter a command...")
                 .max(50),
@@ -101,11 +105,11 @@ impl Popup for CommandHandler {
             self.update_options();
         }
 
-        if app.is_normal_mode() {
+        if app.mode.is_normal() {
             match key_event.code {
                 KeyCode::Enter => self.execute_command(app),
                 KeyCode::Char('q') => {
-                    app.reset_display();
+                    app.view.default();
                     self.reset();
                 }
                 KeyCode::Char('j') => {
@@ -130,10 +134,10 @@ impl Popup for CommandHandler {
                 }
                 _ => {}
             }
-        } else if app.is_insert_mode() {
+        } else if app.mode.is_insert() {
             match key_event.code {
                 KeyCode::Enter => self.execute_command(app),
-                KeyCode::Esc => app.command_display(),
+                KeyCode::Esc => app.view.command(),
                 _ => {}
             }
         }
@@ -220,15 +224,23 @@ impl CommandHandler {
         let command = self.parse_command();
         match command {
             Command::Dashboard => {
-                app.reset_display();
+                app.view.default();
+                app.mode.normal();
                 app.module = AppModule::Home;
             }
             Command::Help => {
-                app.reset_display();
+                app.view.default();
+                app.mode.normal();
+                app.module = AppModule::Home;
+            }
+            Command::Home => {
+                app.view.default();
+                app.mode.normal();
                 app.module = AppModule::Home;
             }
             Command::ProjectManagement => {
-                app.reset_display();
+                app.view.default();
+                app.mode.normal();
                 app.module = AppModule::ProjectManagement;
             }
             Command::Quit => app.exit(),

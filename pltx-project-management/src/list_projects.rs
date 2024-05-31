@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Mode, App, KeyEventHandler, Screen};
+use pltx_app::{App, KeyEventHandler, Screen};
 use pltx_database::Database;
 use pltx_utils::{centered_rect, DateTime};
 use pltx_widgets::Scrollable;
@@ -52,18 +52,18 @@ impl Screen<Result<bool>> for ListProjects {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         self.selection.key_event_handler(app, key_event);
 
-        if app.is_normal_mode() && key_event.code == KeyCode::Char('d') {
-            app.delete_mode();
+        if app.mode.is_normal() && key_event.code == KeyCode::Char('d') {
+            app.mode.delete();
         }
 
-        if app.mode() == Mode::Delete {
+        if app.mode.is_delete() {
             match key_event.code {
                 KeyCode::Char('y') => {
                     self.db_delete_project(&app.db)?;
                     self.db_get_projects(app)?;
-                    app.reset_display();
+                    app.view.default();
                 }
-                KeyCode::Char('n') => app.reset_display(),
+                KeyCode::Char('n') => app.view.default(),
                 _ => {}
             }
         }

@@ -1,5 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::Display, App, DefaultWidget, FormWidget, KeyEventHandler};
+use pltx_app::{state::View, App, DefaultWidget, FormWidget, KeyEventHandler};
 use pltx_utils::{symbols, DateTime};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -89,7 +89,7 @@ pub struct TextInput {
     required: bool,
     min: Option<usize>,
     max: Option<usize>,
-    display: Display,
+    view: View,
     inline: bool,
     form_input: bool,
     use_size: bool,
@@ -157,8 +157,8 @@ impl FormWidget for TextInput {
         self.form_input = true;
     }
 
-    fn display(&mut self, display: Display) {
-        self.display = display;
+    fn view(&mut self, view: View) {
+        self.view = view;
     }
 
     fn reset(&mut self) {
@@ -179,7 +179,7 @@ impl KeyEventHandler for TextInput {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) {
         // let mut event = TextInputEvent::None;
 
-        if app.display == self.display.insert_equivalent() {
+        if app.view == self.view && app.mode.is_insert() {
             match key_event.code {
                 KeyCode::Char(to_insert) => {
                     self.enter_char(to_insert);
@@ -191,12 +191,12 @@ impl KeyEventHandler for TextInput {
                 }
                 KeyCode::Left => self.move_cursor_left(),
                 KeyCode::Right => self.move_cursor_right(),
-                KeyCode::Esc => app.normal_mode(),
+                KeyCode::Esc => app.mode.normal(),
                 _ => {}
             }
         }
 
-        if app.display == self.display {
+        if app.view == self.view && app.mode.is_normal() {
             match key_event.code {
                 KeyCode::Char('h') | KeyCode::Left => self.move_cursor_left(),
                 KeyCode::Char('l') | KeyCode::Right => self.move_cursor_right(),
@@ -205,19 +205,19 @@ impl KeyEventHandler for TextInput {
                 KeyCode::Char('0') => self.cursor_start_line(),
                 KeyCode::Char('$') => self.cursor_end_line(),
                 KeyCode::Char('i') => {
-                    app.insert_mode();
+                    app.mode.insert();
                     self.keys.clear();
                 }
                 KeyCode::Char('I') => {
-                    app.insert_mode();
+                    app.mode.insert();
                     self.cursor_start_line();
                 }
                 KeyCode::Char('a') => {
-                    app.insert_mode();
+                    app.mode.insert();
                     self.move_cursor_right();
                 }
                 KeyCode::Char('A') => {
-                    app.insert_mode();
+                    app.mode.insert();
                     self.cursor_end_line();
                 }
                 KeyCode::Char('x') => self.delete_char_forward(),
@@ -241,7 +241,7 @@ impl TextInput {
             required: false,
             min: None,
             max: None,
-            display: Display::default(),
+            view: View::Default,
             inline: false,
             form_input: false,
             use_size: false,
@@ -315,8 +315,8 @@ impl TextInput {
         self
     }
 
-    pub fn display(mut self, display: Display) -> Self {
-        self.display = display;
+    pub fn view(mut self, view: View) -> Self {
+        self.view = view;
         self
     }
 
@@ -478,7 +478,7 @@ impl TextInput {
             } else {
                 vec![Line::from(vec![
                     Span::from(if self.inline { " " } else { "" }),
-                    Span::from(" ").style(if app.display == self.display.insert_equivalent() {
+                    Span::from(" ").style(if app.view == self.view && app.mode.is_insert() {
                         Style::new().fg(colors.bg).bg(colors.fg)
                     } else {
                         Style::new().fg(colors.bg).bg(colors.secondary_fg)
@@ -519,7 +519,7 @@ impl TextInput {
 
                     let cursor_on_char = self.cursor_position.is(real_line_x_value, line_index);
                     if focused && cursor_on_char {
-                        if app.display == self.display.insert_equivalent() {
+                        if app.view == self.view && app.mode.is_insert() {
                             style = style
                                 .fg(colors.input_cursor_insert_fg)
                                 .bg(colors.input_cursor_insert_bg)
@@ -544,7 +544,7 @@ impl TextInput {
                         && char_is_before_cursor
                     {
                         span.push(Span::from(" ").style(
-                            if app.display == self.display.insert_equivalent() {
+                            if app.view == self.view && app.mode.is_insert() {
                                 Style::new()
                                     .fg(colors.input_cursor_insert_fg)
                                     .bg(colors.input_cursor_insert_bg)
@@ -617,7 +617,7 @@ impl TextInput {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::new().fg(if focused {
-                    if app.display == self.display.insert_equivalent() {
+                    if app.view == self.view && app.mode.is_insert() {
                         colors.status_bar_insert_mode_bg
                     } else {
                         colors.border_active
