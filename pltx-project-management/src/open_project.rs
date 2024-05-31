@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr};
+use std::{collections::HashSet, str::FromStr, time::Instant};
 
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -13,6 +13,7 @@ use ratatui::{
     widgets::{Block, Borders, Padding, Paragraph, Widget},
     Frame,
 };
+use tracing::{info, info_span};
 
 use crate::popups::{card_editor::CardEditor, list_editor::ListEditor};
 
@@ -457,6 +458,9 @@ impl OpenProject {
 
 impl OpenProject {
     pub fn db_get_project(&mut self, app: &App) -> Result<()> {
+        let start = Instant::now();
+        let _span = info_span!("project management", screen = "open project").entered();
+
         let conn = app.db.conn();
         let query = "SELECT title, description, position, created_at, updated_at FROM project \
                      WHERE id = ?1 ORDER BY position";
@@ -470,6 +474,8 @@ impl OpenProject {
                     lists: vec![],
                 })
             })?;
+
+            info!("get project query executed in {:?}", start.elapsed());
 
             project.labels = self.db_get_labels(app)?;
             project.lists = self.db_get_lists(&app.db, project_id)?;
@@ -491,10 +497,16 @@ impl OpenProject {
             self.data = project;
         }
 
+        info!(
+            "get project query durations totaled at {:?}",
+            start.elapsed()
+        );
+
         Ok(())
     }
 
     fn db_get_labels(&mut self, app: &App) -> Result<Vec<ProjectLabel>> {
+        let start = Instant::now();
         let mut labels = vec![];
 
         let conn = app.db.conn();
@@ -521,10 +533,13 @@ impl OpenProject {
             .edit_card
             .labels(&app.config.colors, labels.clone());
 
+        info!("get project labels query executed in {:?}", start.elapsed());
+
         Ok(labels)
     }
 
     fn db_get_lists(&mut self, db: &Database, project_id: i32) -> Result<Vec<ProjectList>> {
+        let start = Instant::now();
         let mut lists = vec![];
 
         let conn = db.conn();
@@ -543,6 +558,9 @@ impl OpenProject {
             self.list_selections
                 .push(Scrollable::default().row_height(2));
         }
+
+        info!("get project lists query executed in {:?}", start.elapsed());
+
         Ok(lists)
     }
 
@@ -552,6 +570,7 @@ impl OpenProject {
         project: &mut ProjectData,
         project_id: i32,
     ) -> Result<ProjectData> {
+        let start = Instant::now();
         let conn = db.conn();
         let project_card_query = "SELECT id, list_id, title, important, start_date, due_date, \
                                   completed FROM project_card WHERE project_id = ?1 ORDER BY \
@@ -579,6 +598,9 @@ impl OpenProject {
                 .expect("failed to get project list index");
             project.lists[index].cards.push(c);
         }
+
+        tracing::info!("get project cards query executed in {:?}", start.elapsed());
+
         Ok(project.clone())
     }
 
@@ -588,6 +610,8 @@ impl OpenProject {
         project: &mut ProjectData,
         project_id: i32,
     ) -> Result<ProjectData> {
+        let start = Instant::now();
+
         let conn = db.conn();
         let card_label_query = "SELECT card_id, label_id FROM card_label WHERE project_id = ?1";
         let mut card_label_stmt = conn.prepare(card_label_query)?;
@@ -616,16 +640,19 @@ impl OpenProject {
                 .insert(label.label_id);
         }
 
+        info!("get card labels query executed in {:?}", start.elapsed());
+
         Ok(project.clone())
     }
 
     fn db_get_card_subtasks(
         &self,
-
         db: &Database,
         project: &mut ProjectData,
         project_id: i32,
     ) -> Result<ProjectData> {
+        let start = Instant::now();
+
         let conn = db.conn();
         let card_subtask_query =
             "SELECT card_id, completed FROM card_subtask WHERE project_id = ?1";
@@ -652,12 +679,16 @@ impl OpenProject {
                 .subtasks
                 .push(subtask);
         }
+
+        info!("get card subtasks query executed in {:?}", start.elapsed());
+
         Ok(project.clone())
     }
 
     fn db_delete_list(&mut self, db: &Database) -> Result<()> {
-        let list_id = self.data.lists[self.selected_list_index].id;
+        let start = Instant::now();
 
+        let list_id = self.data.lists[self.selected_list_index].id;
         let original_position = db.get_position("project_list", list_id)?;
 
         let conn = db.conn();
@@ -671,10 +702,17 @@ impl OpenProject {
             self.selected_list_index -= 1;
         }
 
+        info!(
+            "delete project list query exectued in {:?}",
+            start.elapsed()
+        );
+
         Ok(())
     }
 
     fn db_delete_card(&mut self, db: &Database) -> Result<()> {
+        let start = Instant::now();
+
         let card_index = self.list_selections[self.selected_list_index].focused;
         let card = self.data.lists[self.selected_list_index].cards[card_index].clone();
 
@@ -697,10 +735,16 @@ impl OpenProject {
             self.list_selections[self.selected_list_index].focused -= 1;
         }
 
+        info!(
+            "delete project card query executed in {:?}",
+            start.elapsed()
+        );
+
         Ok(())
     }
 
     fn db_toggle_card_completed(&mut self, app: &App) -> Result<()> {
+        let start = Instant::now();
         let card = self.get_card();
 
         let conn = app.db.conn();
@@ -710,10 +754,16 @@ impl OpenProject {
 
         self.db_get_project(app)?;
 
+        info!(
+            "toggle project card completed query executed in {:?}",
+            start.elapsed()
+        );
+
         Ok(())
     }
 
     fn db_toggle_card_important(&mut self, app: &App) -> Result<()> {
+        let start = Instant::now();
         let card = self.get_card();
 
         let conn = app.db.conn();
@@ -722,6 +772,11 @@ impl OpenProject {
         stmt.execute((!card.important, DateTime::now(), card.id))?;
 
         self.db_get_project(app)?;
+
+        info!(
+            "toggle project card important query executed in {:?}",
+            start.elapsed()
+        );
 
         Ok(())
     }

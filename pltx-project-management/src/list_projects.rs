@@ -13,6 +13,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
     Frame,
 };
+use tracing::{info, info_span};
 
 #[derive(Clone)]
 pub struct Project {
@@ -300,12 +301,7 @@ impl Screen<Result<bool>> for ListProjects {
 
 impl ListProjects {
     pub fn db_get_projects(&mut self, app: &App) -> Result<()> {
-        let _guard = tracing::span!(
-            tracing::Level::INFO,
-            "project management",
-            query = "get projects"
-        )
-        .entered();
+        let _guard = info_span!("project management", screen = "list projects").entered();
 
         let start = Instant::now();
 
@@ -334,7 +330,7 @@ impl ListProjects {
         for p in project_iter {
             projects.push(p?)
         }
-        tracing::info!("get projects query executed in {:?}", start.elapsed());
+        info!("get projects query executed in {:?}", start.elapsed());
 
         projects = self.db_get_labels(&app.db, &mut projects)?;
         projects = self.db_get_lists(&app.db, &mut projects)?;
@@ -342,7 +338,7 @@ impl ListProjects {
 
         self.projects = projects;
 
-        tracing::info!(
+        info!(
             "get projects query durations totaled at {:?}",
             start.elapsed()
         );
@@ -364,7 +360,7 @@ impl ListProjects {
                 .expect("failed to get project index");
             projects[index].labels += 1;
         }
-        tracing::info!("get project labels query executed in {:?}", start.elapsed());
+        info!("get project labels query executed in {:?}", start.elapsed());
         Ok(projects.to_vec())
     }
 
@@ -382,7 +378,7 @@ impl ListProjects {
                 .expect("failed to get project index");
             projects[index].lists += 1;
         }
-        tracing::info!("get project lists query executed in {:?}", start.elapsed());
+        info!("get project lists query executed in {:?}", start.elapsed());
         Ok(projects.to_vec())
     }
 
@@ -439,7 +435,7 @@ impl ListProjects {
             }
         }
 
-        tracing::info!("get project cards query executed in {:?}", start.elapsed());
+        info!("get project cards query executed in {:?}", start.elapsed());
 
         Ok(projects.to_vec())
     }
@@ -482,7 +478,7 @@ impl ListProjects {
                 self.selection.focused -= 1;
             }
 
-            tracing::info!("delete project query executed in {:?}", start.elapsed());
+            info!("delete project query executed in {:?}", start.elapsed());
         }
 
         Ok(())
