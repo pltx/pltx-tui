@@ -408,19 +408,13 @@ impl OpenProject {
 
         let mut details = vec![Span::from(" ".repeat(5)).fg(colors.tertiary_fg)];
 
-        for label in card.labels.iter() {
-            details.push(
-                Span::from(" ⬤").fg(Color::from_str(
-                    &self
-                        .data
-                        .labels
-                        .iter()
-                        .find(|l| label == &l.id)
-                        .expect("failed to find project label")
-                        .color,
-                )
-                .expect("failed to parse label color")),
-            );
+        for label in self.data.labels.iter() {
+            if card.labels.contains(&label.id) {
+                details.push(
+                    Span::from(" ⬤")
+                        .fg(Color::from_str(&label.color).expect("failed to parse label color")),
+                );
+            }
         }
 
         details.push(Span::from(" ".repeat(list_width.saturating_sub(

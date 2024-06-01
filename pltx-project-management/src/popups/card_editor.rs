@@ -87,7 +87,7 @@ impl Popup<Result<bool>> for CardEditor {
             form: Form::from([
                 FormInput::from(title).height(6),
                 FormInput::from(description).height(15),
-                labels.into(),
+                FormInput::from(labels).height(10),
                 FormInput::from(start_date).height(6),
                 FormInput::from(due_date).height(6),
                 FormInput::from(reminder).height(6),
