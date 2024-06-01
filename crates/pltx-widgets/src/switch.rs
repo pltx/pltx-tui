@@ -1,5 +1,7 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::View, App, DefaultWidget, FormWidget, KeyEventHandler};
+use pltx_app::{state::View, App, DefaultWidget, FormWidgetOld, KeyEventHandler};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
@@ -7,6 +9,8 @@ use ratatui::{
     widgets::Paragraph,
     Frame,
 };
+
+use crate::FormWidget;
 
 pub struct Switch {
     title: String,
@@ -55,12 +59,37 @@ impl DefaultWidget for Switch {
     }
 }
 
-impl FormWidget for Switch {
+impl FormWidgetOld for Switch {
     fn form_compatible(&mut self) {}
     fn view(&mut self, _: View) {}
 
     fn reset(&mut self) {
         self.state = self.original_state;
+    }
+}
+
+impl FormWidget for Switch {
+    fn form(self) -> Rc<RefCell<Self>>
+    where
+        Self: Sized,
+    {
+        Rc::new(RefCell::new(self))
+    }
+
+    fn hidden(&self) -> bool {
+        false
+    }
+
+    fn reset(&mut self) {
+        self.state = self.original_state;
+    }
+
+    fn get_title(&self) -> String {
+        self.title.to_owned()
+    }
+
+    fn enter_back(&self) -> bool {
+        true
     }
 }
 

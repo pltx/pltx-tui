@@ -8,7 +8,7 @@ pub struct Scrollable {
     pub focused: usize,
     focused_prev: usize,
     from_top: usize,
-    row_count: RefCell<usize>,
+    pub row_count: RefCell<usize>,
     row_height: u16,
     pub col_lengths: Option<Vec<u16>>,
     area_height: RefCell<u16>,

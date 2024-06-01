@@ -1,5 +1,7 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crossterm::event::{KeyCode, KeyEvent};
-use pltx_app::{state::View, App, DefaultWidget, FormWidget, KeyEventHandler};
+use pltx_app::{state::View, App, DefaultWidget, FormWidgetOld, KeyEventHandler};
 use pltx_utils::{symbols, DateTime};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -7,6 +9,8 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
 };
+
+use crate::FormWidget;
 
 const WORD_SEPARATORS: [char; 1] = [' '];
 
@@ -151,7 +155,7 @@ impl DefaultWidget for TextInput {
     }
 }
 
-impl FormWidget for TextInput {
+impl FormWidgetOld for TextInput {
     fn form_compatible(&mut self) {
         self.inline = true;
         self.form_input = true;
@@ -226,6 +230,31 @@ impl KeyEventHandler for TextInput {
                 _ => {}
             }
         }
+    }
+}
+
+impl FormWidget for TextInput {
+    fn form(self) -> Rc<RefCell<Self>>
+    where
+        Self: Sized,
+    {
+        Rc::new(RefCell::new(self.view(View::Popup).prompt()))
+    }
+
+    fn hidden(&self) -> bool {
+        false
+    }
+
+    fn get_title(&self) -> String {
+        self.title.clone()
+    }
+
+    fn enter_back(&self) -> bool {
+        true
+    }
+
+    fn reset(&mut self) {
+        self.reset();
     }
 }
 
@@ -593,9 +622,15 @@ impl TextInput {
         let colors = &app.config.colors;
         let input_lines = self.render_lines(app, area, focused);
         Text::from(input_lines).style(if focused {
-            Style::new()
-                .fg(colors.input_focus_fg)
-                .bg(colors.input_focus_bg)
+            if self.style == InputStyle::Prompt {
+                Style::new().fg(colors.input_focus_fg)
+            } else {
+                Style::new()
+                    .fg(colors.input_focus_fg)
+                    .bg(colors.input_focus_bg)
+            }
+        } else if self.style == InputStyle::Prompt {
+            Style::new().fg(colors.input_fg)
         } else {
             Style::new().fg(colors.input_fg).bg(colors.input_bg)
         })

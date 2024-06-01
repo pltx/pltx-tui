@@ -132,11 +132,6 @@ impl Screen<Result<bool>> for OpenProject {
 
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         if app.view.is_popup() {
-            if app.mode.is_normal() && key_event.code == KeyCode::Char('q') {
-                app.view.default();
-                self.popup = OpenProjectPopup::None;
-            }
-
             if self.popup == OpenProjectPopup::NewList {
                 if self.popups.new_list.key_event_handler(app, key_event)? {
                     self.db_get_project(app)?;
@@ -181,7 +176,6 @@ impl Screen<Result<bool>> for OpenProject {
                             self.popups.new_card.ids(project_id, list_id);
                             self.popup = OpenProjectPopup::NewCard;
                             app.view.popup();
-                            app.mode.insert();
                         }
                     }
                 }
@@ -291,7 +285,8 @@ impl Screen<Result<bool>> for OpenProject {
                 Span::from("You have no lists in your project. Press "),
                 Span::styled("N", Style::new().bold().fg(colors.keybind_key)),
                 Span::from(" to create a new list."),
-            ])]));
+            ])]))
+            .block(Block::new().padding(Padding::horizontal(1)));
 
             frame.render_widget(content, list_areas)
         } else {

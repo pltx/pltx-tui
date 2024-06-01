@@ -1,19 +1,22 @@
-use std::collections::HashSet;
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, CompositeWidget, DefaultWidget, KeyEventHandler};
 use ratatui::{
     layout::Rect,
-    style::{Style, Stylize},
+    style::Stylize,
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Paragraph},
+    widgets::Paragraph,
     Frame,
 };
+
+use crate::FormWidget;
 
 type SelectionOptions<T = String> = Vec<(T, Span<'static>)>;
 
 /// Selection Widget
 pub struct Selection<T> {
+    pub title: String,
     pub options: SelectionOptions<T>,
     pub focused_option: usize,
     pub selected: HashSet<usize>,
@@ -42,17 +45,7 @@ impl<T> DefaultWidget for Selection<T> {
                 },
             ]))
         }
-
-        let block = Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(if focused_widget {
-                colors.primary
-            } else {
-                colors.border
-            }));
-
-        let paragraph = Paragraph::new(text).block(block);
+        let paragraph = Paragraph::new(text);
 
         frame.render_widget(paragraph, area);
     }
@@ -88,19 +81,35 @@ impl<T> CompositeWidget for Selection<T> {
     }
 }
 
-impl<T> Default for Selection<T> {
-    fn default() -> Self {
-        Self {
-            options: vec![],
-            focused_option: 0,
-            selected: HashSet::new(),
-        }
+impl<T> FormWidget for Selection<T> {
+    fn form(self) -> Rc<RefCell<Self>>
+    where
+        Self: Sized,
+    {
+        Rc::new(RefCell::new(self))
+    }
+
+    fn hidden(&self) -> bool {
+        self.options.is_empty()
+    }
+
+    fn get_title(&self) -> String {
+        self.title.to_owned()
+    }
+
+    fn reset(&mut self) {
+        self.reset();
+    }
+
+    fn enter_back(&self) -> bool {
+        true
     }
 }
 
 impl<T> Selection<T> {
-    pub fn from(options: SelectionOptions<T>) -> Self {
+    pub fn new(title: &str, options: SelectionOptions<T>) -> Self {
         Self {
+            title: title.into(),
             options,
             focused_option: 0,
             selected: HashSet::new(),
@@ -148,7 +157,11 @@ impl<T> Selection<T> {
 impl<T> KeyEventHandler for Selection<T> {
     fn key_event_handler(&mut self, _: &mut App, key_event: KeyEvent) {
         match key_event.code {
-            KeyCode::Char(' ') | KeyCode::Enter => self.select(),
+            KeyCode::Char('j') => self.focus_next(),
+            KeyCode::Char('k') => self.focus_prev(),
+            KeyCode::Char('g') => self.focus_first(),
+            KeyCode::Char('G') => self.focus_last(),
+            KeyCode::Char(' ') => self.select(),
             KeyCode::Char('a') => self.toggle_all(),
             KeyCode::Char('i') => self.invert_selection(),
             _ => {}

@@ -10,7 +10,7 @@ pub trait DefaultWidget {
 
 /// Create a form widget. Used by the Form widget to
 /// create forms.
-pub trait FormWidget: DefaultWidget + KeyEventHandler {
+pub trait FormWidgetOld: DefaultWidget + KeyEventHandler {
     /// Modify the widget values to ensure it is form form compatible.
     fn form_compatible(&mut self);
     /// Set the view that the widget should be interactable in. Keys will not

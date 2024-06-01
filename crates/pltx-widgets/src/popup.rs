@@ -100,7 +100,7 @@ impl<'a> PopupWidget<'a> {
 
         let [sub_area] = Layout::default()
             .vertical_margin(1)
-            .horizontal_margin(2)
+            .horizontal_margin(1)
             .constraints([Constraint::Fill(1)])
             .areas(popup);
 
@@ -122,13 +122,11 @@ impl<'a> PopupWidget<'a> {
             (size.height, size.percentage_based_height),
             self.area,
         );
-
         self.sub_area = Layout::default()
             .vertical_margin(1)
-            .horizontal_margin(2)
+            .horizontal_margin(1)
             .constraints([Constraint::Fill(1)])
             .areas::<1>(self.popup_area)[0];
-
         self
     }
 

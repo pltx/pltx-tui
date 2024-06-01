@@ -83,7 +83,6 @@ CREATE TABLE IF NOT EXISTS card_label (
     project_id INTEGER NOT NULL,
     card_id INTEGER NOT NULL,
     label_id INTEGER NOT NULL,
-    position INTEGER NOT NULL,
     archived BOOLEAN CHECK (archived IN (0, 1)) DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
@@ -101,7 +100,6 @@ CREATE TABLE IF NOT EXISTS card_label (
             ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON card_label (position);
 CREATE INDEX IF NOT EXISTS idx_project_id ON card_label (project_id);
 CREATE INDEX IF NOT EXISTS idx_card_id ON card_label (card_id);
 

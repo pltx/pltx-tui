@@ -1,14 +1,14 @@
-use std::str::FromStr;
+use std::{cell::RefCell, rc::Rc, str::FromStr};
 
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::View, App, DefaultWidget, KeyEventHandler, Popup};
 use pltx_database::Database;
 use pltx_utils::DateTime;
-use pltx_widgets::{PopupSize, PopupWidget, Scrollable, TextInput};
+use pltx_widgets::{Form, FormInput, FormWidget, Scrollable, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::{Color, Style, Stylize},
+    style::{Color, Stylize},
     text::{Line, Span},
     widgets::Paragraph,
     Frame,
@@ -49,6 +49,31 @@ pub struct LabelEditor {
     inputs: LabelInputs,
     focused_input: FocusedLabelInput,
     has_id: bool,
+}
+
+impl FormWidget for LabelEditor {
+    fn form(self) -> Rc<RefCell<Self>>
+    where
+        Self: Sized,
+    {
+        Rc::new(RefCell::new(self))
+    }
+
+    fn hidden(&self) -> bool {
+        false
+    }
+
+    fn get_title(&self) -> String {
+        String::from("Label Editor")
+    }
+
+    fn enter_back(&self) -> bool {
+        self.view == LabelView::Selection
+    }
+
+    fn reset(&mut self) {
+        self.reset();
+    }
 }
 
 impl LabelEditor {
@@ -240,16 +265,10 @@ impl LabelEditor {
     }
 }
 
-#[derive(PartialEq)]
-enum EditorView {
-    Selection,
-    Input,
-}
-
 struct Inputs {
-    title: TextInput,
-    description: TextInput,
-    label_editor: LabelEditor,
+    title: Rc<RefCell<TextInput>>,
+    description: Rc<RefCell<TextInput>>,
+    label_editor: Rc<RefCell<LabelEditor>>,
 }
 
 struct ProjectData {
@@ -259,194 +278,65 @@ struct ProjectData {
     labels: Vec<Label<i32>>,
 }
 
-#[derive(Clone, PartialEq)]
-enum Input {
-    Title,
-    Description,
-    Labels,
-    None,
-}
-
 pub struct ProjectEditor {
-    /// If original data is Some(), then the project data will be updated in the
-    /// database, otherwise, a new entry will be created.
     original_data: Option<ProjectData>,
-    inputs: Vec<(Input, String)>,
-    input_widgets: Inputs,
-    view: EditorView,
-    selection: Scrollable,
-    current_input: Input,
-    default_size: PopupSize,
-    size: PopupSize,
+    inputs: Inputs,
+    form: Form,
 }
 
 impl Popup<Result<bool>> for ProjectEditor {
     fn init() -> Self {
-        let size = PopupSize::default().width(70).height(7);
+        let title = TextInput::new("Title")
+            .view(View::Popup)
+            .max(PROJECT_TITLE_MAX_LENGTH)
+            .form();
+        let description = TextInput::new("Description")
+            .view(View::Popup)
+            .max(PROJECT_DESCRIPTION_MAX_LENGTH)
+            .prompt_lines(3)
+            .form();
+        let label_editor = LabelEditor::init().form();
 
         Self {
             original_data: None,
-            inputs: vec![
-                (Input::Title, String::from("Title")),
-                (Input::Description, String::from("Description")),
-                (Input::Labels, String::from("Labels")),
-            ],
-            input_widgets: Inputs {
-                title: TextInput::new("Title")
-                    .view(View::Popup)
-                    .max(PROJECT_TITLE_MAX_LENGTH)
-                    .prompt(),
-                description: TextInput::new("Description")
-                    .view(View::Popup)
-                    .max(PROJECT_DESCRIPTION_MAX_LENGTH)
-                    .prompt()
-                    .prompt_lines(3),
-                label_editor: LabelEditor::init(),
+            inputs: Inputs {
+                title: Rc::clone(&title),
+                description: Rc::clone(&description),
+                label_editor: Rc::clone(&label_editor),
             },
-            view: EditorView::Selection,
-            selection: Scrollable::default(),
-            current_input: Input::None,
-            default_size: size,
-            size,
+            form: Form::from([
+                FormInput::from(title).height(6),
+                FormInput::from(description).height(8),
+                FormInput::new(label_editor).height(11),
+            ])
+            .default_title("New Project"),
         }
     }
 
     // Returns whether the project data in the database was modified. And the page
     // should be set to list projects.
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
-        self.selection.key_event_handler(app, key_event);
+        let result = self.form.key_event_handler(app, key_event);
 
-        if app.mode.is_normal() && key_event.code == KeyCode::Char('q') {
+        if result.is_submit() {
+            if self.original_data.is_some() {
+                self.db_edit_project(&app.db)?;
+            } else {
+                self.db_new_project(&app.db)?;
+            }
+
             self.reset();
-            app.view.default();
             return Ok(true);
-        }
-
-        if self.view == EditorView::Selection {
-            match key_event.code {
-                KeyCode::Enter | KeyCode::Char('l') => {
-                    self.view = EditorView::Input;
-                    self.current_input = self.inputs[self.selection.focused].0.clone();
-                    let height = match self.current_input {
-                        Input::Title => 6,
-                        Input::Description => 9,
-                        Input::Labels => 10,
-                        Input::None => 0,
-                    };
-                    if self.current_input != Input::None {
-                        self.size = PopupSize::default()
-                            .width(self.default_size.width)
-                            .height(height);
-                    }
-                    if [Input::Title, Input::Description].contains(&self.current_input) {
-                        app.mode.insert();
-                    }
-                }
-                KeyCode::Char('s') => {
-                    if self.view == EditorView::Selection {
-                        if self.original_data.is_some() {
-                            self.db_edit_project(&app.db)?;
-                        } else {
-                            self.db_new_project(&app.db)?;
-                        }
-                        self.reset()
-                    }
-
-                    return Ok(true);
-                }
-                _ => {}
-            }
-        } else if self.view == EditorView::Input {
-            if self.input_widgets.label_editor.view != LabelView::Input {
-                match key_event.code {
-                    KeyCode::Char('[') => {
-                        if app.mode.is_normal() {
-                            self.view = EditorView::Selection;
-                            self.size = self.default_size;
-                        }
-                    }
-                    KeyCode::Enter => {
-                        {
-                            self.view = EditorView::Selection;
-                            app.mode.normal();
-                            self.size = self.default_size;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            match self.current_input {
-                Input::Title => self.input_widgets.title.key_event_handler(app, key_event),
-                Input::Description => self
-                    .input_widgets
-                    .description
-                    .key_event_handler(app, key_event),
-                Input::Labels => self
-                    .input_widgets
-                    .label_editor
-                    .key_event_handler(app, key_event),
-                Input::None => {}
-            };
+        } else if result.is_closed() {
+            self.reset();
+            return Ok(true);
         }
 
         Ok(false)
     }
 
     fn render(&self, app: &App, frame: &mut Frame, area: Rect) {
-        let colors = &app.config.colors;
-
-        let popup = PopupWidget::new(app, area)
-            .title_top(if self.original_data.is_some() {
-                "Edit Project"
-            } else {
-                "New Project"
-            })
-            .size(self.size)
-            .render(frame);
-
-        let area = popup.sub_area;
-
-        if self.view == EditorView::Selection {
-            let table = self
-                .inputs
-                .iter()
-                .enumerate()
-                .map(|(i, input)| {
-                    if self.selection.focused == i {
-                        Paragraph::new(format!(" {} ", input.1))
-                            .style(Style::new().bg(colors.input_focus_bg))
-                    } else {
-                        Paragraph::new(format!(" {} ", input.1))
-                            .style(Style::new().fg(colors.secondary_fg))
-                    }
-                })
-                .collect::<Vec<Paragraph>>();
-
-            self.selection.render(frame, area, table);
-        } else {
-            let [input_layout] = Layout::default()
-                .margin(1)
-                .constraints([Constraint::Fill(1)])
-                .areas(area);
-
-            match self.current_input {
-                Input::Title => self
-                    .input_widgets
-                    .title
-                    .render(frame, app, input_layout, true),
-                Input::Description => {
-                    self.input_widgets
-                        .description
-                        .render(frame, app, input_layout, true)
-                }
-                Input::Labels => self
-                    .input_widgets
-                    .label_editor
-                    .render(frame, app, area, true),
-                Input::None => {}
-            }
-        }
+        self.form.render(frame, app, area, true);
     }
 }
 
@@ -467,10 +357,14 @@ impl ProjectEditor {
         project.labels = self.db_get_labels(db, project_id)?;
 
         self.original_data = Some(project);
+        self.form.title("Edit Project");
 
         if let Some(original_data) = &self.original_data {
-            self.input_widgets.title.input(original_data.title.clone());
-            self.input_widgets.description.input(
+            self.inputs
+                .title
+                .borrow_mut()
+                .input(original_data.title.to_owned());
+            self.inputs.description.borrow_mut().input(
                 if let Some(description) = &original_data.description {
                     description.clone()
                 } else {
@@ -499,22 +393,17 @@ impl ProjectEditor {
         for l in labels_iter {
             let label = l?;
 
-            let label_position = self
-                .input_widgets
-                .label_editor
+            let mut label_editor = self.inputs.label_editor.borrow_mut();
+            let label_position = label_editor
                 .labels
                 .iter()
                 .position(|p| p.id.is_some_and(|id| id == label.id));
 
             if let Some(pos) = label_position {
-                self.input_widgets.label_editor.labels[pos]
-                    .title
-                    .clone_from(&label.title);
-                self.input_widgets.label_editor.labels[pos]
-                    .color
-                    .clone_from(&label.color);
+                label_editor.labels[pos].title.clone_from(&label.title);
+                label_editor.labels[pos].color.clone_from(&label.color);
             } else {
-                self.input_widgets.label_editor.labels.push(Label {
+                label_editor.labels.push(Label {
                     id: Some(label.id),
                     title: label.title.to_owned(),
                     color: label.color.to_owned(),
@@ -528,25 +417,22 @@ impl ProjectEditor {
     }
 
     fn db_new_project(&self, db: &Database) -> Result<()> {
-        let description = if self
-            .input_widgets
-            .description
-            .input_string()
-            .chars()
-            .count()
-            == 0
-        {
+        let desc = (*self.inputs.description).borrow().input_string();
+        tracing::debug!("desc = {:?}", &desc);
+        let description = if desc.chars().count() == 0 {
             None
         } else {
-            Some(self.input_widgets.description.input_string())
+            Some(desc)
         };
+
+        tracing::debug!("description = {:?}", description);
 
         let highest_position = db.get_highest_position("project")?;
         db.conn().execute(
             "INSERT INTO project (title, description, position, created_at, updated_at) VALUES \
              (?1, ?2, ?3, ?4, ?5)",
             (
-                self.input_widgets.title.input_string(),
+                (*self.inputs.title).borrow().input_string(),
                 description,
                 highest_position + 1,
                 DateTime::now(),
@@ -562,7 +448,7 @@ impl ProjectEditor {
     }
 
     fn db_new_labels(&self, db: &Database, project_id: i32) -> Result<()> {
-        for (i, label) in self.input_widgets.label_editor.labels.iter().enumerate() {
+        for (i, label) in self.inputs.label_editor.borrow().labels.iter().enumerate() {
             let query = "INSERT INTO project_label (project_id, title, color, position, \
                          created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
             db.conn().execute(
@@ -588,8 +474,8 @@ impl ProjectEditor {
                 "UPDATE project SET title = ?1, description = ?2, updated_at = ?3 WHERE id = ?4";
             let mut stmt = conn.prepare(query)?;
             stmt.execute((
-                self.input_widgets.title.input_string(),
-                self.input_widgets.description.input_string(),
+                self.inputs.title.borrow().input_string(),
+                self.inputs.description.borrow().input_string(),
                 DateTime::now(),
                 data.id,
             ))?;
@@ -603,7 +489,7 @@ impl ProjectEditor {
 
     fn db_edit_labels(&self, db: &Database, project_id: i32) -> Result<()> {
         let conn = db.conn();
-        for (i, label) in self.input_widgets.label_editor.labels.iter().enumerate() {
+        for (i, label) in self.inputs.label_editor.borrow().labels.iter().enumerate() {
             if let Some(label_id) = label.id {
                 let query = "UPDATE project_label SET title = ?1, color = ?2, updated_at = ?3 \
                              WHERE project_id = ?4 and id = ?5";
@@ -637,11 +523,6 @@ impl ProjectEditor {
 
     pub fn reset(&mut self) {
         self.original_data = None;
-        self.view = EditorView::Selection;
-        self.current_input = Input::None;
-        self.size = self.default_size;
-        self.input_widgets.title.reset();
-        self.input_widgets.description.reset();
-        self.input_widgets.label_editor.reset();
+        self.form.reset();
     }
 }

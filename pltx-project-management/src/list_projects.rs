@@ -61,9 +61,9 @@ impl Screen<Result<bool>> for ListProjects {
                 KeyCode::Char('y') => {
                     self.db_delete_project(&app.db)?;
                     self.db_get_projects(app)?;
-                    app.view.default();
+                    app.mode.normal();
                 }
-                KeyCode::Char('n') => app.view.default(),
+                KeyCode::Char('n') => app.mode.normal(),
                 _ => {}
             }
         }
@@ -474,7 +474,7 @@ impl ListProjects {
             let mut update_position_stmt = conn.prepare(update_position_query)?;
             update_position_stmt.execute((DateTime::now(), select.position))?;
 
-            if self.selection.focused != 0 {
+            if self.selection.focused == self.selection.row_count.borrow().saturating_sub(1) {
                 self.selection.focused -= 1;
             }
 

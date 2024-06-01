@@ -17,8 +17,6 @@ struct ListData {
 
 pub struct ListEditor {
     project_id: Option<i32>,
-    /// If original data is Some(), then the list data will be updated in the
-    /// database, otherwise, a new entry will be created.
     original_data: Option<ListData>,
     title_input: TextInput,
     size: PopupSize,
