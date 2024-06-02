@@ -1,9 +1,8 @@
 [tasks.style-checks]
 description = "Style checks"
-dependencies = ["format-check", "docs-check"]
-# dependencies = ["format-check", "typos-check", "docs-check"]
+dependencies = ["format-check", "typos-check", "docs-check"]
 
-[tasks.format-check]
+[tasks.check-formatting]
 description = "Lint code formatting"
 toolchain = "nightly"
 command = "cargo"
@@ -15,12 +14,12 @@ toolchain = "nightly"
 command = "cargo"
 args = ["fmt", "--all"]
 
-[tasks.typos-check]
+[tasks.check-typos]
 description = "Run typo checks"
 install_crate = { crate_name = "typos-cli", binary = "typos", test_arg = "--version" }
 command = "typos"
 
-[tasks.docs-check]
+[tasks.check-docs]
 description = "Run doc checks"
 toolchain = "nightly"
 command = "cargo"

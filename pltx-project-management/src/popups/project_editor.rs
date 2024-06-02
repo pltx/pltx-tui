@@ -16,8 +16,8 @@ use ratatui::{
 
 const PROJECT_TITLE_MAX_LENGTH: usize = 50;
 const PROJECT_DESCRIPTION_MAX_LENGTH: usize = 160;
-const LABEL_TITLE_MAX_LENTH: usize = 15;
-const LABEL_COLOR_REQUIRED_LENTH: usize = 7;
+const LABEL_TITLE_MAX_LENGTH: usize = 15;
+const LABEL_COLOR_REQUIRED_LENGTH: usize = 7;
 
 #[derive(PartialEq)]
 pub enum LabelView {
@@ -85,11 +85,11 @@ impl LabelEditor {
             inputs: LabelInputs {
                 title: TextInput::new("Label Title")
                     .view(View::Popup)
-                    .max(LABEL_TITLE_MAX_LENTH)
+                    .max(LABEL_TITLE_MAX_LENGTH)
                     .prompt(),
                 color: TextInput::new("Label Color")
                     .view(View::Popup)
-                    .max(LABEL_COLOR_REQUIRED_LENTH)
+                    .max(LABEL_COLOR_REQUIRED_LENGTH)
                     .prompt(),
             },
             focused_input: FocusedLabelInput::Title,
@@ -229,7 +229,7 @@ impl DefaultWidget for LabelEditor {
                 Span::from("Preview: ").fg(colors.secondary_fg),
                 Span::from(self.inputs.title.input_string()).fg(
                     if self.inputs.color.input_string().chars().count()
-                        == LABEL_COLOR_REQUIRED_LENTH
+                        == LABEL_COLOR_REQUIRED_LENGTH
                     {
                         Color::from_str(&self.inputs.color.input_string()).unwrap_or(colors.fg)
                     } else {

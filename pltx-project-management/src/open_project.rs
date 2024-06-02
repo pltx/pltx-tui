@@ -693,7 +693,7 @@ impl OpenProject {
         }
 
         info!(
-            "delete project list query exectued in {:?}",
+            "delete project list query executed in {:?}",
             start.elapsed()
         );
 

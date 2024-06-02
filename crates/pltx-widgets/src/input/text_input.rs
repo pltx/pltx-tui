@@ -515,7 +515,7 @@ impl TextInput {
                 ])]
             }
         } else {
-            // TODO: Implement multiline by spliting \n
+            // TODO: Implement multiline by splitting \n
             // TODO: Scrollable view (not with the widget) for when there are more lines to
             // display than `height`
 

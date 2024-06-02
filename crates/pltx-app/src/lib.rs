@@ -92,7 +92,7 @@ pub struct App {
     pub view: View,
     /// The current application mode.
     pub mode: Mode,
-    /// The current applicatio module.
+    /// The current application module.
     pub module: AppModule,
     /// The selected popup. Will only show if the [`View`](View) is set to
     /// [`View::Popup`].

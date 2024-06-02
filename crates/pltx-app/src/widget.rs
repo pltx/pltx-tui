@@ -29,7 +29,7 @@ pub trait CompositeWidget {
     fn focus_last(&mut self);
     /// Focus on the next element.
     fn focus_next(&mut self);
-    /// Focus on the previus element.
+    /// Focus on the previous element.
     fn focus_prev(&mut self);
     /// Check if the first element has the focus.
     fn is_focus_first(&self) -> bool;

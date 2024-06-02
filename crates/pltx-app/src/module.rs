@@ -7,7 +7,7 @@ use crate::App;
 /// Create a new module. Used to represent a new
 /// module or section of the application.
 pub trait Module<T = ()> {
-    /// Intialize the module. Used to fetch data that only needs to be fetched
+    /// Initialize the module. Used to fetch data that only needs to be fetched
     /// once.
     fn init(app: &App) -> Result<Self>
     where
@@ -21,7 +21,7 @@ pub trait Module<T = ()> {
 
 /// Create new screen. Used to represent a new screen in a module.
 pub trait Screen<T = ()> {
-    /// Intialize the module. Used to fetch data that only needs to be fetched
+    /// Initialize the module. Used to fetch data that only needs to be fetched
     /// once.
     fn init(app: &App) -> Result<Self>
     where
@@ -35,7 +35,7 @@ pub trait Screen<T = ()> {
 
 /// Create a new popup.
 pub trait Popup<T = ()> {
-    /// Intialize the module. Do not use to fetch data, create separate methods
+    /// Initialize the module. Do not use to fetch data, create separate methods
     /// that can be called by the parent based on it's own state.
     fn init() -> Self;
     /// Used to change state and fetch data based on user interaction. Can
