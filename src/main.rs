@@ -1,3 +1,4 @@
+//! pltx
 use std::time::Instant;
 
 use clap::{Parser, Subcommand};

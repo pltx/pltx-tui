@@ -2,10 +2,12 @@
 name: Tests
 
 on:
+  workflow_dispatch:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
-    branches: ["**"]
+    branches: ["main"]
+  merge_group:
 
 concurrency:
   # Group based on workflow name and PR if it exists, if no PR, let it run so carryforward flags work
@@ -14,25 +16,135 @@ concurrency:
 
 env:
   RUSTFLAGS: "-Dwarnings"
+  CARGO_TERM_COLOR: always
 
 jobs:
   tests:
-    name: Tests
     runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo make check-formatting
+
+      - name: Check documentation
+        run: cargo make check-docs
+
+      - name: Check typos
+        run: cargo make check-typos
+
+      - name: Lint dependencies
+        uses: EmbarkStudios/cargo-deny-action@v1
+
       - name: Check
         run: cargo check --verbose --workspace
 
-      - name: Format
-        run: cargo fmt --all -- --check --verbose
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install cargo-make
+        uses: taiki-e/install-action@cargo-make
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy
+        run: cargo make clippy
+
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        toolchain: ["1.78.0", "stable"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust {{ matrix.toolchain }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Install cargo-make
+        uses: taiki-e/install-action@cargo-make
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run cargo make check
+        run: cargo make check
+        env:
+          RUST_BACKTRACE: full
+
+  test-doc:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-make
+        uses: taiki-e/install-action@cargo-make
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test docs
+        run: cargo make docs-check
+        env:
+          RUST_BACKTRACE: full
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        toolchain: ["1.78.0", "stable"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust ${{ matrix.toolchain }}}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Install cargo-make
+        uses: taiki-e/install-action@cargo-make
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
 
       - name: Test
-        run: cargo test --verbose --workspace
+        run: cargo make test
+        env:
+          RUST_BACKTRACE: full
