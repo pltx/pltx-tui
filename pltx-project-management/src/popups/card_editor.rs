@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashSet, rc::Rc, str::FromStr};
+use std::{cell::RefCell, collections::HashSet, rc::Rc, str::FromStr, time::Instant};
 
 use color_eyre::Result;
 use crossterm::event::KeyEvent;
@@ -13,6 +13,7 @@ use ratatui::{
     text::Span,
     Frame,
 };
+use tracing::{info, info_span};
 
 use crate::open_project::ProjectLabel;
 
@@ -97,6 +98,8 @@ impl Popup<Result<bool>> for CardEditor {
     }
 
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
+        let _span = info_span!("project management", popup = "card editor").entered();
+
         let result = self.form.key_event_handler(app, key_event);
 
         if result.is_submit() {
@@ -115,8 +118,11 @@ impl Popup<Result<bool>> for CardEditor {
 
 impl CardEditor {
     fn db_new_card(&self, db: &Database) -> Result<i32> {
+        let start = Instant::now();
+
         let highest_position = db.get_highest_position("project_card")?;
 
+        let query_start = Instant::now();
         let query = "INSERT INTO project_card (project_id, list_id, title, description, \
                      important, start_date, due_date, reminder, position, created_at, updated_at) \
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)";
@@ -135,14 +141,18 @@ impl CardEditor {
         );
         db.conn().execute(query, params)?;
 
-        let new_card_id = db.last_row_id("project_card")?;
+        info!("new card query executed in {:?}", query_start.elapsed());
 
+        let new_card_id = db.last_row_id("project_card")?;
         self.db_new_card_labels(db, new_card_id)?;
+
+        info!("new card query durations totaled at {:?}", start.elapsed());
 
         Ok(new_card_id)
     }
 
     fn db_new_card_labels(&self, db: &Database, card_id: i32) -> Result<()> {
+        let start = Instant::now();
         let conn = db.conn();
 
         for index in (*self.inputs.labels).borrow().selected.iter() {
@@ -161,10 +171,14 @@ impl CardEditor {
             )?;
         }
 
+        info!("new card labels query executed in {:?}", start.elapsed());
+
         Ok(())
     }
 
     fn db_edit_card(&self, db: &Database) -> Result<i32> {
+        let start = Instant::now();
+
         let data = self.original_data.as_ref().expect("list data was not set");
         let query = "UPDATE project_card SET title = ?1, description = ?2, important = ?3, \
                      start_date = ?4, due_date = ?5, reminder = ?6, updated_at = ?7 WHERE id = ?8";
@@ -181,12 +195,17 @@ impl CardEditor {
             data.id,
         ))?;
 
+        info!("edit card query executed in {:?}", start.elapsed());
+
         self.db_edit_card_labels(db, data.id)?;
+
+        info!("edit card query durations total at {:?}", start.elapsed());
 
         Ok(data.id)
     }
 
     fn db_edit_card_labels(&self, db: &Database, card_id: i32) -> Result<()> {
+        let start = Instant::now();
         let conn = db.conn();
 
         for (i, label) in (*self.inputs.labels).borrow().options.iter().enumerate() {
@@ -211,6 +230,8 @@ impl CardEditor {
                 stmt.execute((card_id, &label.0))?;
             }
         }
+
+        info!("edit card labels query executed in {:?}", start.elapsed());
 
         Ok(())
     }
@@ -250,10 +271,12 @@ impl CardEditor {
     }
 
     pub fn set_data(&mut self, db: &Database, card_id: i32) -> Result<()> {
+        let start = Instant::now();
         self.reset();
 
         let conn = db.conn();
 
+        let query_start = Instant::now();
         let query = "SELECT id, title, description, start_date, due_date, reminder, position, \
                      created_at, updated_at FROM project_card WHERE id = ?1";
         let mut stmt = conn.prepare(query)?;
@@ -270,6 +293,10 @@ impl CardEditor {
                 // updated_at: r.get(9)?,
             })
         })?;
+        info!(
+            "get card data query executed in {:?}",
+            query_start.elapsed()
+        );
 
         self.db_get_card_labels(db, &mut card)?;
         self.original_data = Some(card);
@@ -302,10 +329,13 @@ impl CardEditor {
             }
         }
 
+        info!("set card data in {:?}", start.elapsed());
+
         Ok(())
     }
 
     fn db_get_card_labels(&mut self, db: &Database, data: &mut CardData) -> Result<()> {
+        let start = Instant::now();
         let conn = db.conn();
         let query = "SELECT label_id from card_label WHERE card_id = ?1";
         let mut stmt = conn.prepare(query)?;
@@ -330,6 +360,8 @@ impl CardEditor {
                 .borrow_mut()
                 .input(start_date.display());
         }
+
+        info!("get card labels query executed in {:?}", start.elapsed());
 
         Ok(())
     }
