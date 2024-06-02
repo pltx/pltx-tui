@@ -59,7 +59,7 @@ Press **`[`** to go back and **`:`** to open the command prompt where you can ty
 
 ## Modules
 
-- **Home:** Includes the dashboard, settings, and help pages.
+- **[Home]():** Includes the dashboard, settings, and help pages.
 - **Project Management:** Manage project or general tasks. Similar to Trello or GitHub projects.
 - More coming soon!
 

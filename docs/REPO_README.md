@@ -5,7 +5,8 @@
 [![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg)](https://www.rust-lang.org/)
 [![GPL 3.0 license](https://img.shields.io/badge/License-GPL_3.0-blue.svg)](/LICENSE)
 
-**pltx** _(Privacy Life Tracker X)_ is a tool for tracking and managing your personal life privately and securely.
+**pltx** _(Privacy Life Tracker X)_ is a tool for tracking and managing your personal life in a private and secure manner.
+**`pltx-tui`** is the default interface that provides this capability in the terminal!
 
 ![pltx-tui preview](./.github/assets/preview.png)
 
@@ -18,7 +19,7 @@
 - Data can be stored locally ~~or on a [server](https://github.com/pltx/server) (coming soon)~~.
 
 > [!IMPORTANT]
-> This software is designed to work on all platforms. However, please [open an issue](https://github.com/pltx/tui/issues/new) if it doesn't work on yours!
+> pltx is designed to work on all platforms. However, if something isn't quite working right on your platform, such as macOS or Windows, please [open an issue](https://github.com/pltx/tui/issues/new).
 
 ## Documentation
 
@@ -38,8 +39,6 @@ git clone https://github.com/pltx/tui
 cargo install --path .
 ```
 
-pltx can also be uninstalled with `cargo uninstall pltx-tui`.
-
 ## Usage
 
 1. Run `pltx` to start the application.
@@ -49,7 +48,7 @@ pltx can also be uninstalled with `cargo uninstall pltx-tui`.
 
 These pages are generated from the README files in the `/docs` directory, so you can also [view them on GitHub](https://github.com/pltx/tui/blob/main/docs).
 
-Press **`[`** to go back and **`:`** to open the command prompt where you can type **`q`** + **`<enter>`** to quit (quit should auto-complete).
+Press **`[`** to go back and **`:`** to open the command prompt where you can type **`q`** + **`<enter>`** to quit (quit should auto-complete). You can also use the help command to go to the help pages from anywhere in the application.
 
 ## Modules
 
