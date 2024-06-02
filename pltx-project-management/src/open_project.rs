@@ -151,8 +151,8 @@ impl Screen<Result<bool>> for OpenProject {
                 OpenProjectPopup::NewCard => {
                     if self.popups.new_card.key_event_handler(app, key_event)? {
                         self.db_get_project(app)?;
-                        let selected_list = self.list_selections[self.selected_list_index].focused;
-                        let last_card_index = self.data.lists[selected_list].cards.len() - 1;
+                        let last_card_index =
+                            self.data.lists[self.selected_list_index].cards.len() - 1;
                         self.list_selections[self.selected_list_index].focused = last_card_index;
                     }
                 }
@@ -188,6 +188,8 @@ impl Screen<Result<bool>> for OpenProject {
 
             if self.focus == Focus::List {
                 match key_event.code {
+                    KeyCode::Char('H') => self.decrement_list_position(app)?,
+                    KeyCode::Char('L') => self.increment_list_position(app)?,
                     KeyCode::Char('j') => {
                         self.focus = Focus::Card;
                     }
@@ -224,6 +226,8 @@ impl Screen<Result<bool>> for OpenProject {
                 }
 
                 match key_event.code {
+                    KeyCode::Char('J') => self.increment_card_position(app)?,
+                    KeyCode::Char('K') => self.decrement_card_position(app)?,
                     KeyCode::Char('n') => {
                         if let Some(project_id) = self.project_id {
                             if !self.data.lists.is_empty() {
@@ -720,7 +724,7 @@ impl OpenProject {
         let mut stmt = conn.prepare(query)?;
         stmt.execute([list_id])?;
 
-        db.update_positions("project_list", original_position)?;
+        db.decrement_positions_after("project_list", original_position)?;
 
         if self.selected_list_index != 0 {
             self.selected_list_index -= 1;
@@ -747,7 +751,7 @@ impl OpenProject {
         let mut stmt = conn.prepare(query)?;
         stmt.execute([card.id])?;
 
-        db.update_positions("project_card", original_position)?;
+        db.decrement_positions_after("project_card", original_position)?;
 
         let list = &self.data.lists[self.selected_list_index];
 
@@ -814,5 +818,85 @@ impl OpenProject {
                     .cards
                     .get(card_indexes.focused)
             })
+    }
+
+    fn increment_list_position(&mut self, app: &App) -> Result<()> {
+        let _span = info_span!("project management", screen = "open project").entered();
+        let start = Instant::now();
+        if self.selected_list_index + 1 != self.data.lists.len() {
+            let id = self.data.lists[self.selected_list_index].id;
+            let next_id = self.data.lists[self.selected_list_index + 1].id;
+            app.db.increment_position("project_list", id, next_id)?;
+            self.selected_list_index += 1;
+            info!(
+                "increment list position query executed in {:?}",
+                start.elapsed()
+            );
+            self.db_get_project(app)?;
+        }
+        Ok(())
+    }
+
+    fn decrement_list_position(&mut self, app: &App) -> Result<()> {
+        let _span = info_span!("project management", screen = "open project").entered();
+        let start = Instant::now();
+        if self.selected_list_index != 0 {
+            let id = self.data.lists[self.selected_list_index].id;
+            let prev_id = self.data.lists[self.selected_list_index - 1].id;
+            app.db.decrement_position("project_list", id, prev_id)?;
+            self.selected_list_index -= 1;
+            info!(
+                "decrement list position query executed in {:?}",
+                start.elapsed()
+            );
+            self.db_get_project(app)?;
+        }
+        Ok(())
+    }
+
+    fn increment_card_position(&mut self, app: &App) -> Result<()> {
+        let _span = info_span!("project management", screen = "open project").entered();
+        let start = Instant::now();
+        if let Some(card_index) = self
+            .list_selections
+            .get(self.selected_list_index)
+            .map(|l| l.focused)
+        {
+            if card_index + 1 != self.data.lists[self.selected_list_index].cards.len() {
+                let id = self.data.lists[self.selected_list_index].cards[card_index].id;
+                let next_id = self.data.lists[self.selected_list_index].cards[card_index + 1].id;
+                app.db.increment_position("project_card", id, next_id)?;
+                self.list_selections[self.selected_list_index].focused += 1;
+                info!(
+                    "increment card position query executed in {:?}",
+                    start.elapsed()
+                );
+                self.db_get_project(app)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn decrement_card_position(&mut self, app: &App) -> Result<()> {
+        let _span = info_span!("project management", screen = "open project").entered();
+        let start = Instant::now();
+        if let Some(card_index) = self
+            .list_selections
+            .get(self.selected_list_index)
+            .map(|l| l.focused)
+        {
+            if card_index != 0 {
+                let id = self.data.lists[self.selected_list_index].cards[card_index].id;
+                let prev_id = self.data.lists[self.selected_list_index].cards[card_index - 1].id;
+                app.db.decrement_position("project_card", id, prev_id)?;
+                self.list_selections[self.selected_list_index].focused -= 1;
+                info!(
+                    "decrement card position query executed in {:?}",
+                    start.elapsed()
+                );
+                self.db_get_project(app)?;
+            }
+        }
+        Ok(())
     }
 }

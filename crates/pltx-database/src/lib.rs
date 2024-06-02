@@ -131,7 +131,7 @@ impl Database {
         Ok(highest_position)
     }
 
-    pub fn update_positions(&self, table: &str, old_position: i32) -> Result<()> {
+    pub fn decrement_positions_after(&self, table: &str, old_position: i32) -> Result<()> {
         let update_position_query = format!(
             "UPDATE {} SET position = position - 1, updated_at = ?1 WHERE position > ?2",
             table
@@ -139,6 +139,46 @@ impl Database {
         let conn = self.conn();
         let mut update_position_stmt = conn.prepare(&update_position_query)?;
         update_position_stmt.execute((DateTime::now(), old_position))?;
+        Ok(())
+    }
+
+    pub fn increment_position(&self, table: &str, id: i32, next_id: i32) -> Result<()> {
+        let conn = self.conn();
+
+        let query = format!(
+            "UPDATE {} SET position = position + 1, updated_at = ?1 where id = ?2",
+            table,
+        );
+        let mut stmt = conn.prepare(&query)?;
+        stmt.execute((DateTime::now(), id))?;
+
+        let query_2 = format!(
+            "UPDATE {} SET position = position - 1, updated_at = ?1 where id = ?2",
+            table
+        );
+        let mut stmt_2 = conn.prepare(&query_2)?;
+        stmt_2.execute((DateTime::now(), next_id))?;
+
+        Ok(())
+    }
+
+    pub fn decrement_position(&self, table: &str, id: i32, prev_id: i32) -> Result<()> {
+        let conn = self.conn();
+
+        let query = format!(
+            "UPDATE {} SET position = position - 1, updated_at = ?1 where id = ?2",
+            table,
+        );
+        let mut stmt = conn.prepare(&query)?;
+        stmt.execute((DateTime::now(), id))?;
+
+        let query_2 = format!(
+            "UPDATE {} SET position = position + 1, updated_at = ?1 where id = ?2",
+            table
+        );
+        let mut stmt_2 = conn.prepare(&query_2)?;
+        stmt_2.execute((DateTime::now(), prev_id))?;
+
         Ok(())
     }
 
