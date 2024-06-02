@@ -55,13 +55,19 @@ Press **`[`** to go back and **`:`** to open the command prompt where you can ty
 
 ## Modules
 
-- **Home:** Includes the dashboard, settings, and help pages.
-- **Project Management:** Manage project or general tasks. Similar to Trello or GitHub projects.
-- More coming soon!
+- **[Home](./docs/home.md):** Includes the dashboard, settings, and help pages.
+- **[Project Management](./docs/project-management.md):** Manage project or general tasks. Similar to Trello or GitHub projects.
+- **More coming soon!**
 
 ## Configuration
 
-Edit the configuration in `~/.config/pltx/config.toml`.
+You can edit the config in your platforms config directory:
+
+| Platform | Location                                 | Default                                        |
+| -------- | ---------------------------------------- | ---------------------------------------------- |
+| Linux    | `$XDG_CONFIG_HOME/.config/pltx`          | `/home/user/.config/pltx/config.toml`          |
+| macOS    | `$HOME/Library/Application Support/pltx` | `/Users/User/Library/Application Support/pltx` |
+| Windows  | `{FOLDERID_RoamingAppData}/pltx`         | `C:\Users\User\AppData\Roaming\pltx`           |
 
 ```toml
 # The file is located in `docs/config.toml`.
