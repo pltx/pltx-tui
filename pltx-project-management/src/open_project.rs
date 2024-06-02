@@ -102,6 +102,7 @@ enum DeleteSelection {
     None,
 }
 
+#[derive(PartialEq)]
 enum Focus {
     List,
     Card,
@@ -170,68 +171,8 @@ impl Screen<Result<bool>> for OpenProject {
         }
 
         if app.view.is_default() && app.mode.is_normal() {
-            if !self.data.lists.is_empty() {
-                self.list_selections[self.selected_list_index].key_event_handler(app, key_event);
-            }
-
             match key_event.code {
                 KeyCode::Char('[') => return Ok(true),
-                KeyCode::Char('N') => {
-                    self.popup = OpenProjectPopup::NewList;
-                    app.view.popup();
-                    app.mode.insert();
-                }
-                KeyCode::Char('n') => {
-                    if let Some(project_id) = self.project_id {
-                        if !self.data.lists.is_empty() {
-                            let list_id = self.data.lists[self.selected_list_index].id;
-                            self.popups.new_card.ids(project_id, list_id);
-                            self.popup = OpenProjectPopup::NewCard;
-                            app.view.popup();
-                        }
-                    }
-                }
-                KeyCode::Char('E') => {
-                    if !self.data.lists.is_empty() {
-                        let list_id = self.data.lists[self.selected_list_index].id;
-                        self.popup = OpenProjectPopup::EditList;
-                        self.popups.edit_list.set(&app.db, list_id)?;
-                        app.view.popup();
-                        app.mode.insert();
-                    }
-                }
-                KeyCode::Char('e') => {
-                    if let Some(project_id) = self.project_id {
-                        let selected_list_has_cards =
-                            !self.data.lists[self.selected_list_index].cards.is_empty();
-                        if !self.data.lists.is_empty() && selected_list_has_cards {
-                            let list_id = self.data.lists[self.selected_list_index].id;
-                            self.popups.edit_card.ids(project_id, list_id);
-                            self.popup = OpenProjectPopup::EditCard;
-                            let card_index = self.list_selections[self.selected_list_index].focused;
-                            let card_id =
-                                self.data.lists[self.selected_list_index].cards[card_index].id;
-                            self.popups.edit_card.set_data(&app.db, card_id)?;
-                            app.view.popup();
-                        }
-                    }
-                }
-                KeyCode::Char('c') => self.db_toggle_card_completed(app)?,
-                KeyCode::Char('i') => self.db_toggle_card_important(app)?,
-                KeyCode::Char('D') => {
-                    if self.project_id.is_some() && !self.data.lists.is_empty() {
-                        self.delete_selection = DeleteSelection::List;
-                        app.mode.delete();
-                    }
-                }
-                KeyCode::Char('d') => {
-                    if !self.data.lists.is_empty()
-                        && !self.data.lists[self.selected_list_index].cards.is_empty()
-                    {
-                        self.delete_selection = DeleteSelection::Card;
-                        app.mode.delete();
-                    }
-                }
                 KeyCode::Char('h') => {
                     if self.selected_list_index != 0 {
                         self.selected_list_index -= 1;
@@ -243,6 +184,85 @@ impl Screen<Result<bool>> for OpenProject {
                     }
                 }
                 _ => {}
+            }
+
+            if self.focus == Focus::List {
+                match key_event.code {
+                    KeyCode::Char('j') => {
+                        self.focus = Focus::Card;
+                    }
+                    KeyCode::Char('d') => {
+                        if self.project_id.is_some() && !self.data.lists.is_empty() {
+                            self.delete_selection = DeleteSelection::List;
+                            app.mode.delete();
+                        }
+                    }
+                    KeyCode::Char('e') => {
+                        if !self.data.lists.is_empty() {
+                            let list_id = self.data.lists[self.selected_list_index].id;
+                            self.popup = OpenProjectPopup::EditList;
+                            self.popups.edit_list.set(&app.db, list_id)?;
+                            app.view.popup();
+                            app.mode.insert();
+                        }
+                    }
+                    KeyCode::Char('n') => {
+                        self.popup = OpenProjectPopup::NewList;
+                        app.view.popup();
+                        app.mode.insert();
+                    }
+                    _ => {}
+                }
+            } else if self.focus == Focus::Card && !self.data.lists.is_empty() {
+                if self.list_selections[self.selected_list_index].focused == 0
+                    && key_event.code == KeyCode::Char('k')
+                {
+                    self.focus = Focus::List;
+                } else {
+                    self.list_selections[self.selected_list_index]
+                        .key_event_handler(app, key_event);
+                }
+
+                match key_event.code {
+                    KeyCode::Char('n') => {
+                        if let Some(project_id) = self.project_id {
+                            if !self.data.lists.is_empty() {
+                                let list_id = self.data.lists[self.selected_list_index].id;
+                                self.popups.new_card.ids(project_id, list_id);
+                                self.popup = OpenProjectPopup::NewCard;
+                                app.view.popup();
+                            }
+                        }
+                    }
+                    KeyCode::Char('e') => {
+                        if let Some(project_id) = self.project_id {
+                            let selected_list_has_cards =
+                                !self.data.lists[self.selected_list_index].cards.is_empty();
+                            if !self.data.lists.is_empty() && selected_list_has_cards {
+                                let list_id = self.data.lists[self.selected_list_index].id;
+                                self.popups.edit_card.ids(project_id, list_id);
+                                self.popup = OpenProjectPopup::EditCard;
+                                let card_index =
+                                    self.list_selections[self.selected_list_index].focused;
+                                let card_id =
+                                    self.data.lists[self.selected_list_index].cards[card_index].id;
+                                self.popups.edit_card.set_data(&app.db, card_id)?;
+                                app.view.popup();
+                            }
+                        }
+                    }
+                    KeyCode::Char('c') => self.db_toggle_card_completed(app)?,
+                    KeyCode::Char('i') => self.db_toggle_card_important(app)?,
+                    KeyCode::Char('d') => {
+                        if !self.data.lists.is_empty()
+                            && !self.data.lists[self.selected_list_index].cards.is_empty()
+                        {
+                            self.delete_selection = DeleteSelection::Card;
+                            app.mode.delete();
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
 
@@ -318,6 +338,7 @@ impl Screen<Result<bool>> for OpenProject {
                 let list = &self.data.lists[list_index];
 
                 let list_card = Card::new(&format!(" {} ", list.title), *list_layout)
+                    .focused_title(self.focus == Focus::List)
                     .border_type(CardBorderType::Rounded)
                     .margin(if list_index == 0 {
                         WidgetMargin::zero()
@@ -397,13 +418,14 @@ impl OpenProject {
             &config.default_char
         };
 
-        let line_style = if self.selected_list_index == list_index && selected {
-            Style::new().bold().fg(colors.fg).bg(colors.input_focus_bg)
-        } else if unfocused_selected {
-            Style::new().bold().fg(colors.fg)
-        } else {
-            Style::new().fg(colors.secondary_fg)
-        };
+        let line_style =
+            if self.selected_list_index == list_index && selected && self.focus == Focus::Card {
+                Style::new().bold().fg(colors.fg).bg(colors.input_focus_bg)
+            } else if unfocused_selected {
+                Style::new().bold().fg(colors.fg)
+            } else {
+                Style::new().fg(colors.secondary_fg)
+            };
 
         let title = Line::from(vec![
             Span::from(format!(" [{}] ", status_char)).fg(

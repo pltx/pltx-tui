@@ -20,6 +20,7 @@ pub enum CardBorderType {
 /// Card widget
 pub struct Card {
     title: String,
+    focused_title: bool,
     area: Rect,
     margin: WidgetMargin,
     child_margin: WidgetMargin,
@@ -31,11 +32,17 @@ impl Card {
     pub fn new(title: &str, area: Rect) -> Self {
         Self {
             title: title.to_string(),
+            focused_title: false,
             area,
             margin: WidgetMargin::default(),
             child_margin: WidgetMargin::default(),
             border_type: CardBorderType::Rounded,
         }
+    }
+
+    pub fn focused_title(mut self, focused: bool) -> Self {
+        self.focused_title = focused;
+        self
     }
 
     pub fn margin(mut self, margin: WidgetMargin) -> Self {
@@ -97,7 +104,7 @@ impl DefaultWidget for Card {
             ])
             .areas(self.margin.apply(area));
 
-        let title_paragraph = Paragraph::new(vec![
+        let mut title_paragraph = Paragraph::new(vec![
             Line::from(vec![
                 Span::from(if self.border_type == CardBorderType::Bold {
                     symbols::bold::border::TOP_LEFT
@@ -128,14 +135,20 @@ impl DefaultWidget for Card {
                 } else {
                     symbols::border::VERTICAL
                 }),
-                Span::from(format!(
-                    " {}{} ",
-                    self.title,
-                    " ".repeat(
-                        (title_layout.width as usize)
-                            .saturating_sub(self.title.chars().count() + 4)
-                    )
-                ))
+                {
+                    let mut title_span = Span::from(format!(
+                        " {}{} ",
+                        self.title,
+                        " ".repeat(
+                            (title_layout.width as usize)
+                                .saturating_sub(self.title.chars().count() + 4)
+                        )
+                    ));
+                    if focused && self.focused_title {
+                        title_span = title_span.bold().bg(colors.input_focus_bg);
+                    }
+                    title_span
+                }
                 .fg(colors.fg),
                 Span::from(if self.border_type == CardBorderType::Bold {
                     symbols::bold::border::VERTICAL
@@ -165,6 +178,10 @@ impl DefaultWidget for Card {
             ]),
         ])
         .fg(border_color);
+
+        if focused && self.focused_title {
+            title_paragraph = title_paragraph.fg(colors.fg);
+        }
 
         frame.render_widget(title_paragraph, title_layout);
 

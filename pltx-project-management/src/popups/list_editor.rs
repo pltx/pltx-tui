@@ -42,6 +42,11 @@ impl Popup<Result<bool>> for ListEditor {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         self.title_input.key_event_handler(app, key_event);
 
+        if app.mode.is_normal() && key_event.code == KeyCode::Char('q') {
+            self.reset(app);
+            return Ok(false);
+        }
+
         if let Some(project_id) = self.project_id {
             if key_event.code == KeyCode::Enter {
                 if self.original_data.is_some() {
@@ -49,9 +54,7 @@ impl Popup<Result<bool>> for ListEditor {
                 } else {
                     self.db_new_list(app, project_id)?;
                 }
-                app.view.default();
-                app.mode.normal();
-                self.title_input.reset();
+                self.reset(app);
                 return Ok(true);
             }
         }
@@ -141,6 +144,7 @@ impl ListEditor {
 
     pub fn reset(&mut self, app: &mut App) {
         app.view.default();
+        app.mode.normal();
         self.original_data = None;
         self.project_id = None;
         self.title_input.reset();
