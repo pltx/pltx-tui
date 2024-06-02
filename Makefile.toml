@@ -21,7 +21,6 @@ command = "typos"
 
 [tasks.check-docs]
 description = "Run doc checks"
-toolchain = "nightly"
 command = "cargo"
 args = ["rustdoc", "--all-targets", "--all-features"]
 
