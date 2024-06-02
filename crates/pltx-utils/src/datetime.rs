@@ -163,8 +163,8 @@ impl DateTime {
     /// Calculates the duration since a past date.
     /// ```
     /// # use pltx_utils::DateTime;
-    /// let later_datetime= DateTime::from("2024-05-25T23:56:30+00:00");
-    /// let past_datetime  = DateTime::from("2024-05-25T20:59:54+00:00");
+    /// let later_datetime = DateTime::from("2024-05-25T23:56:30+00:00");
+    /// let past_datetime = DateTime::from("2024-05-25T20:59:54+00:00");
     /// let duration = later_datetime.duration_since(&past_datetime);
     /// assert_eq!(duration.hours, 2);
     /// assert_eq!(duration.minutes, 56);
