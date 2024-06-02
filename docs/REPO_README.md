@@ -1,4 +1,7 @@
+[![crates.io](https://img.shields.io/crates/v/pltx.svg)](https://crates.io/crates/pltx)
 [![Tests status](https://github.com/pltx/tui/actions/workflows/tests.yaml/badge.svg?branch=main)](https://github.com/pltx/tui/actions)
+[![Latest release](https://img.shields.io/github/v/tag/pltx/tui?label=Release)](https://github.com/pltx/tui/releases)
+[![Crates.io installs](https://img.shields.io/crates/d/pltx?label=cargo%20installs)](https://crates.io/crates/pltx)
 [![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg)](https://www.rust-lang.org/)
 [![GPL 3.0 license](https://img.shields.io/badge/License-GPL_3.0-blue.svg)](/LICENSE)
 
@@ -8,14 +11,14 @@
 
 ## Features
 
+- [See all the modules here](#modules).
 - Vim-like keybinds for navigation and editing.
-- Fully configurable at `~/.config/pltx/config.toml`.
+- Fully customizable profiles, colors, limits, and more.
 - ~~Data is encrypted by default with a passphrase (coming soon).~~
-- Data is stored locally ~~or on a [server](https://github.com/pltx/server) (coming soon)~~.
-- [See all modules here](#modules).
+- Data can be stored locally ~~or on a [server](https://github.com/pltx/server) (coming soon)~~.
 
 > [!IMPORTANT]
-> This software is designed for use on Linux. However, porting for use on other OSs would not be a difficult task if there is a demand.
+> This software is designed to work on all platforms. However, please [open an issue](https://github.com/pltx/tui/issues/new) if it doesn't work on yours!
 
 ## Documentation
 
@@ -76,5 +79,3 @@ This project is licensed under the [GPL-3.0](./LICENSE) license.
 - [`PlankCipher/kabmat`](https://github.com/PlankCipher/kabmat) (project management)
 - [`Zaloog/kanban-python`](https://github.com/Zaloog/kanban-python) (project management)
 - [`topydo/topydo`](https://github.com/topydo/topydo) (project management)
-
-Have a similar project? [Open an issue](https://github.com/pltx/tui/issues/new).
