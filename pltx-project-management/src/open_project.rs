@@ -1,4 +1,4 @@
-use std::{collections::HashSet, iter::once, str::FromStr, time::Instant};
+use std::{collections::HashSet, str::FromStr, time::Instant};
 
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -102,6 +102,11 @@ enum DeleteSelection {
     None,
 }
 
+enum Focus {
+    List,
+    Card,
+}
+
 pub struct OpenProject {
     project_id: Option<i32>,
     selected_list_index: usize,
@@ -110,6 +115,7 @@ pub struct OpenProject {
     popups: Popups,
     delete_selection: DeleteSelection,
     list_selections: Vec<Scrollable>,
+    focus: Focus,
 }
 
 impl Screen<Result<bool>> for OpenProject {
@@ -127,34 +133,40 @@ impl Screen<Result<bool>> for OpenProject {
             },
             delete_selection: DeleteSelection::None,
             list_selections: vec![],
+            focus: Focus::Card,
         })
     }
 
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         if app.view.is_popup() {
-            if self.popup == OpenProjectPopup::NewList {
-                if self.popups.new_list.key_event_handler(app, key_event)? {
-                    self.db_get_project(app)?;
-                    self.selected_list_index = self.data.lists.len() - 1;
+            match self.popup {
+                OpenProjectPopup::NewList => {
+                    if self.popups.new_list.key_event_handler(app, key_event)? {
+                        self.db_get_project(app)?;
+                        let last_list_index = self.data.lists.len() - 1;
+                        self.selected_list_index = last_list_index;
+                    }
                 }
-            } else if self.popup == OpenProjectPopup::NewCard
-                && self.popups.new_card.key_event_handler(app, key_event)?
-                && !self.data.lists.is_empty()
-            {
-                self.db_get_project(app)?;
-            }
-
-            if match self.popup {
+                OpenProjectPopup::NewCard => {
+                    if self.popups.new_card.key_event_handler(app, key_event)? {
+                        self.db_get_project(app)?;
+                        let selected_list = self.list_selections[self.selected_list_index].focused;
+                        let last_card_index = self.data.lists[selected_list].cards.len() - 1;
+                        self.list_selections[self.selected_list_index].focused = last_card_index;
+                    }
+                }
                 OpenProjectPopup::EditList => {
-                    self.popups.edit_list.key_event_handler(app, key_event)?
+                    if self.popups.edit_list.key_event_handler(app, key_event)? {
+                        self.db_get_project(app)?
+                    }
                 }
                 OpenProjectPopup::EditCard => {
-                    self.popups.edit_card.key_event_handler(app, key_event)?
+                    if self.popups.edit_card.key_event_handler(app, key_event)? {
+                        self.db_get_project(app)?
+                    }
                 }
-                _ => false,
-            } {
-                self.db_get_project(app)?
-            }
+                OpenProjectPopup::None => {}
+            };
         }
 
         if app.view.is_default() && app.mode.is_normal() {
