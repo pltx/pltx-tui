@@ -30,6 +30,9 @@ jobs:
         with:
           components: rustfmt
 
+      - name: Install cargo-make
+        uses: taiki-e/install-action@cargo-make
+
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
 
