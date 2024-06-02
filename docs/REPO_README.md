@@ -18,9 +18,6 @@
 - ~~Data is encrypted by default with a passphrase (coming soon).~~
 - Data can be stored locally ~~or on a [server](https://github.com/pltx/server) (coming soon)~~.
 
-> [!IMPORTANT]
-> pltx is designed to work on all platforms. However, if something isn't quite working right on your platform, such as macOS or Windows, please [open an issue](https://github.com/pltx/tui/issues/new).
-
 ## Documentation
 
 - [Installation](#installation)
