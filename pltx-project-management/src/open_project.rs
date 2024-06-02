@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr, time::Instant};
+use std::{collections::HashSet, iter::once, str::FromStr, time::Instant};
 
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -734,44 +734,51 @@ impl OpenProject {
 
     fn db_toggle_card_completed(&mut self, app: &App) -> Result<()> {
         let start = Instant::now();
-        let card = self.get_card();
 
-        let conn = app.db.conn();
-        let query = "UPDATE project_card SET completed = ?1, updated_at = ?2 WHERE id = ?3";
-        let mut stmt = conn.prepare(query)?;
-        stmt.execute((!card.completed, DateTime::now(), card.id))?;
+        if let Some(card) = self.get_card() {
+            let conn = app.db.conn();
+            let query = "UPDATE project_card SET completed = ?1, updated_at = ?2 WHERE id = ?3";
+            let mut stmt = conn.prepare(query)?;
+            stmt.execute((!card.completed, DateTime::now(), card.id))?;
 
-        self.db_get_project(app)?;
+            self.db_get_project(app)?;
 
-        info!(
-            "toggle project card completed query executed in {:?}",
-            start.elapsed()
-        );
+            info!(
+                "toggle project card completed query executed in {:?}",
+                start.elapsed()
+            );
+        }
 
         Ok(())
     }
 
     fn db_toggle_card_important(&mut self, app: &App) -> Result<()> {
         let start = Instant::now();
-        let card = self.get_card();
 
-        let conn = app.db.conn();
-        let query = "UPDATE project_card SET important = ?1, updated_at = ?2 WHERE id = ?3";
-        let mut stmt = conn.prepare(query)?;
-        stmt.execute((!card.important, DateTime::now(), card.id))?;
+        if let Some(card) = self.get_card() {
+            let conn = app.db.conn();
+            let query = "UPDATE project_card SET important = ?1, updated_at = ?2 WHERE id = ?3";
+            let mut stmt = conn.prepare(query)?;
+            stmt.execute((!card.important, DateTime::now(), card.id))?;
 
-        self.db_get_project(app)?;
+            self.db_get_project(app)?;
 
-        info!(
-            "toggle project card important query executed in {:?}",
-            start.elapsed()
-        );
+            info!(
+                "toggle project card important query executed in {:?}",
+                start.elapsed()
+            );
+        }
 
         Ok(())
     }
 
-    fn get_card(&self) -> OpenProjectCard {
-        let card_index = self.list_selections[self.selected_list_index].focused;
-        self.data.lists[self.selected_list_index].cards[card_index].clone()
+    fn get_card(&self) -> Option<&OpenProjectCard> {
+        self.list_selections
+            .get(self.selected_list_index)
+            .and_then(|card_indexes| {
+                self.data.lists[self.selected_list_index]
+                    .cards
+                    .get(card_indexes.focused)
+            })
     }
 }

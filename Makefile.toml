@@ -1,6 +1,6 @@
 [tasks.style-checks]
 description = "Style checks"
-dependencies = ["format-check", "typos-check", "docs-check"]
+dependencies = ["check-formatting", "check-typos", "check-docs"]
 
 [tasks.check-formatting]
 description = "Lint code formatting"
