@@ -63,11 +63,11 @@ Press **`[`** to go back and **`:`** to open the command prompt where you can ty
 
 You can edit the config in your platforms config directory:
 
-| Platform | Location                                 | Default                                        |
-| -------- | ---------------------------------------- | ---------------------------------------------- |
-| Linux    | `$XDG_CONFIG_HOME/.config/pltx`          | `/home/user/.config/pltx/config.toml`          |
-| macOS    | `$HOME/Library/Application Support/pltx` | `/Users/User/Library/Application Support/pltx` |
-| Windows  | `{FOLDERID_RoamingAppData}/pltx`         | `C:\Users\User\AppData\Roaming\pltx`           |
+| Platform | Location                                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------ |
+| Linux    | `$XDG_CONFIG_HOME/.config/pltx/config.toml`<br>`/home/user/.config/pltx/config.toml`                               |
+| macOS    | `$HOME/Library/Application Support/pltx/config.toml`<br>`/Users/User/Library/Application Support/pltx/config.toml` |
+| Windows  | `{FOLDERID_RoamingAppData}\pltx\config.toml` <br>`C:\Users\User\AppData\Roaming\pltx\config.toml`                  |
 
 ```toml
 # The file is located in `docs/config.toml`.
