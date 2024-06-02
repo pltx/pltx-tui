@@ -1,18 +1,22 @@
-[tasks.style-checks]
-description = "Style checks"
-dependencies = ["check-formatting", "check-typos", "check-docs"]
+
+[tasks.build]
+description = "Build the project"
+command = "cargo"
+args = ["build", "--all-targets", "--all-features"]
 
 [tasks.check-formatting]
 description = "Lint code formatting"
 toolchain = "nightly"
 command = "cargo"
 args = ["fmt", "--all", "--check"]
+dependencies = ["build"]
 
 [tasks.format]
 description = "Run formatting checks"
 toolchain = "nightly"
 command = "cargo"
 args = ["fmt", "--all"]
+dependencies = ["build"]
 
 [tasks.check-typos]
 description = "Run typo checks"
@@ -23,6 +27,10 @@ command = "typos"
 description = "Run doc checks"
 command = "cargo"
 args = ["rustdoc", "--all-targets", "--all-features"]
+
+[tasks.style-checks]
+description = "Style checks"
+dependencies = ["check-formatting", "check-typos", "check-docs"]
 
 [tasks.clippy]
 description = "Run cargo clippy"
@@ -49,13 +57,9 @@ install_crate = { crate_name = "cargo-nextest", binary = "cargo-nextest", test_a
 command = "cargo"
 args = ["test", "--all-targets", "--all-features", "--workspace"]
 
-
 [tasks.ci]
 description = "Continuous integration tasks"
 dependencies = ["style-checks", "clippy", "check", "test"]
 
 [tasks.default]
 alias = "ci"
-
-[tasks.yeet]
-command = "echo test"
