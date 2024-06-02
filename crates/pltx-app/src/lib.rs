@@ -94,7 +94,7 @@ pub struct App {
     pub mode: Mode,
     /// The current application module.
     pub module: AppModule,
-    /// The selected popup. Will only show if the [`View`](View) is set to
+    /// The selected popup. Will only show if the [`View`] is set to
     /// [`View::Popup`].
     pub popup: AppPopup,
     /// The breadcrumbs shown in the titlebar.

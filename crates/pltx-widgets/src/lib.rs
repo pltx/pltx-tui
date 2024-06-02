@@ -1,8 +1,7 @@
 //! Reusable widgets. Widgets implement
-//! [`DefaultWidget`](pltx_app::DefaultWidget),
-//! [`FormWidget`](pltx_app::FormWidget), or
-//! [`CompositeWidget`](pltx_app::CompositeWidget), which must be
-//! imported to call the `render()` method.
+//! [`DefaultWidget`](pltx_app::DefaultWidget) or
+//! [`CompositeWidget`](pltx_app::CompositeWidget), which must be imported to
+//! call the `render()` method.
 
 mod buttons;
 mod card;
