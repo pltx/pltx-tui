@@ -10,110 +10,39 @@ use ratatui::{
     Frame,
 };
 
-use crate::FormWidget;
+use crate::{FormInputState, FormWidget};
+
+const DEFAULT_HEIGHT: u16 = 12;
 
 type SelectionOptions<T = String> = Vec<(T, Span<'static>)>;
 
 /// Selection Widget
 pub struct Selection<T> {
-    pub title: String,
     pub options: SelectionOptions<T>,
     pub focused_option: usize,
     pub selected: HashSet<usize>,
-}
-
-impl<T> DefaultWidget for Selection<T> {
-    fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused_widget: bool) {
-        let colors = &app.config.colors;
-
-        let mut text = vec![];
-
-        for (i, option) in self.options.iter().enumerate() {
-            let focused = focused_widget && self.focused_option == i;
-
-            text.push(Line::from(vec![
-                Span::from(if focused { "❯" } else { " " })
-                    .bold()
-                    .fg(colors.primary),
-                Span::from("[").fg(colors.secondary_fg),
-                Span::from(if self.selected.contains(&i) { "x" } else { " " }),
-                Span::from("] ").fg(colors.secondary_fg),
-                if focused {
-                    option.1.clone().bold()
-                } else {
-                    option.1.clone()
-                },
-            ]))
-        }
-        let paragraph = Paragraph::new(text);
-
-        frame.render_widget(paragraph, area);
-    }
-}
-
-impl<T> CompositeWidget for Selection<T> {
-    fn focus_next(&mut self) {
-        if !self.is_focus_last() {
-            self.focused_option += 1;
-        }
-    }
-
-    fn focus_prev(&mut self) {
-        if !self.is_focus_first() {
-            self.focused_option -= 1;
-        }
-    }
-
-    fn is_focus_first(&self) -> bool {
-        self.focused_option == 0
-    }
-
-    fn is_focus_last(&self) -> bool {
-        self.focused_option == self.options.len() - 1
-    }
-
-    fn focus_first(&mut self) {
-        self.focused_option = 0;
-    }
-
-    fn focus_last(&mut self) {
-        self.focused_option = self.options.len() - 1;
-    }
-}
-
-impl<T> FormWidget for Selection<T> {
-    fn form(self) -> Rc<RefCell<Self>>
-    where
-        Self: Sized,
-    {
-        Rc::new(RefCell::new(self))
-    }
-
-    fn hidden(&self) -> bool {
-        self.options.is_empty()
-    }
-
-    fn get_title(&self) -> String {
-        self.title.to_owned()
-    }
-
-    fn reset(&mut self) {
-        self.reset();
-    }
-
-    fn enter_back(&self) -> bool {
-        true
-    }
+    title: String,
+    height: u16,
 }
 
 impl<T> Selection<T> {
     pub fn new(title: &str, options: SelectionOptions<T>) -> Self {
         Self {
-            title: title.into(),
             options,
             focused_option: 0,
             selected: HashSet::new(),
+            title: title.into(),
+            height: DEFAULT_HEIGHT,
         }
+    }
+
+    pub fn default_height(mut self, height: u16) -> Self {
+        self.height = height;
+        self
+    }
+
+    pub fn height(&mut self, height: u16) {
+        self.height = height;
     }
 
     pub fn options(&mut self, options: SelectionOptions<T>) {
@@ -166,5 +95,87 @@ impl<T> KeyEventHandler for Selection<T> {
             KeyCode::Char('i') => self.invert_selection(),
             _ => {}
         }
+    }
+}
+
+impl<T> FormWidget for Selection<T> {
+    fn form(self) -> Rc<RefCell<Self>>
+    where
+        Self: Sized,
+    {
+        Rc::new(RefCell::new(self))
+    }
+
+    fn state(&self) -> FormInputState {
+        FormInputState {
+            title: self.title.clone(),
+            height: self.height,
+            uses_insert_mode: false,
+            hidden: self.options.is_empty(),
+            enter_back: true,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.reset();
+    }
+}
+
+impl<T> CompositeWidget for Selection<T> {
+    fn focus_next(&mut self) {
+        if !self.is_focus_last() {
+            self.focused_option += 1;
+        }
+    }
+
+    fn focus_prev(&mut self) {
+        if !self.is_focus_first() {
+            self.focused_option -= 1;
+        }
+    }
+
+    fn is_focus_first(&self) -> bool {
+        self.focused_option == 0
+    }
+
+    fn is_focus_last(&self) -> bool {
+        self.focused_option == self.options.len() - 1
+    }
+
+    fn focus_first(&mut self) {
+        self.focused_option = 0;
+    }
+
+    fn focus_last(&mut self) {
+        self.focused_option = self.options.len() - 1;
+    }
+}
+
+impl<T> DefaultWidget for Selection<T> {
+    fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused_widget: bool) {
+        let colors = &app.config.colors;
+
+        let mut text = vec![];
+
+        for (i, option) in self.options.iter().enumerate() {
+            let focused = focused_widget && self.focused_option == i;
+
+            text.push(Line::from(vec![
+                Span::from(if focused { "❯" } else { " " })
+                    .bold()
+                    .fg(colors.primary),
+                Span::from("[").fg(colors.secondary_fg),
+                Span::from(if self.selected.contains(&i) { "x" } else { " " }),
+                Span::from("] ").fg(colors.secondary_fg),
+                if focused {
+                    option.1.clone().bold()
+                } else {
+                    option.1.clone()
+                },
+            ]))
+        }
+        let paragraph = Paragraph::new(text);
+
+        frame.render_widget(paragraph, area);
     }
 }

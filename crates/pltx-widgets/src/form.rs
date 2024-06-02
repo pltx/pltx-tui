@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{RefCell, RefMut},
+    rc::Rc,
+};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, DefaultWidget, KeyEventHandler};
@@ -9,18 +12,24 @@ use ratatui::{
     Frame,
 };
 
-use crate::{PopupSize, PopupWidget, Scrollable, Selection, TextInput};
+use crate::{PopupSize, PopupWidget, Scrollable};
+
+pub struct FormInputState {
+    pub title: String,
+    pub height: u16,
+    pub uses_insert_mode: bool,
+    pub hidden: bool,
+    /// Determines whether pressing enter or ] should take the user
+    /// back to the input selection. If the input is composite and has multiple
+    /// screens, then this should be conditionally disabled.
+    pub enter_back: bool,
+}
 
 pub trait FormWidget: KeyEventHandler + DefaultWidget {
     fn form(self) -> Rc<RefCell<Self>>
     where
         Self: Sized;
-    fn hidden(&self) -> bool;
-    fn get_title(&self) -> String;
-    /// The result determines whether pressing enter or ] should take the user
-    /// back to the input selection. If the input is composite and has multiple
-    /// screens, then this should be conditionally disabled.
-    fn enter_back(&self) -> bool;
+    fn state(&self) -> FormInputState;
     fn reset(&mut self);
 }
 
@@ -30,50 +39,13 @@ pub enum EditorView {
     Input,
 }
 
-pub struct FormInput {
-    widget: Rc<RefCell<dyn FormWidget>>,
-    height: Option<u16>,
-    /// Whether the input uses insert mode.
-    needs_insert: bool,
-}
+type FormInputWidget = Rc<RefCell<dyn FormWidget>>;
 
-impl From<Rc<RefCell<TextInput>>> for FormInput {
-    fn from(widget: Rc<RefCell<TextInput>>) -> Self {
-        Self {
-            widget,
-            height: None,
-            needs_insert: true,
-        }
-    }
-}
+pub struct FormInput(pub Rc<RefCell<dyn FormWidget>>);
 
-impl From<Rc<RefCell<Selection<i32>>>> for FormInput {
-    fn from(widget: Rc<RefCell<Selection<i32>>>) -> Self {
-        Self {
-            widget,
-            height: None,
-            needs_insert: false,
-        }
-    }
-}
-
-impl FormInput {
-    pub fn new(widget: Rc<RefCell<dyn FormWidget>>) -> Self {
-        Self {
-            widget,
-            height: None,
-            needs_insert: false,
-        }
-    }
-
-    pub fn height(mut self, height: u16) -> Self {
-        self.height = Some(height);
-        self
-    }
-
-    pub fn needs_insert(mut self) -> Self {
-        self.needs_insert = true;
-        self
+impl From<FormInputWidget> for FormInput {
+    fn from(input: FormInputWidget) -> Self {
+        Self(input)
     }
 }
 
@@ -81,7 +53,7 @@ impl FormInput {
 /// Parent scopes must keep their own references to inputs to access their
 /// values.
 pub struct Form {
-    inputs: Vec<FormInput>,
+    inputs: Vec<FormInputWidget>,
     view: EditorView,
     selection: Scrollable,
     default_title: Option<String>,
@@ -97,7 +69,10 @@ impl From<Vec<FormInput>> for Form {
         let default_size = PopupSize::default().height(inputs.len() as u16 + border_height);
 
         Self {
-            inputs,
+            inputs: inputs
+                .into_iter()
+                .map(|i| i.0)
+                .collect::<Vec<FormInputWidget>>(),
             view: EditorView::Selection,
             selection: Scrollable::default(),
             default_title: None,
@@ -121,7 +96,8 @@ where
             inputs: inputs
                 .into_iter()
                 .map(Into::into)
-                .collect::<Vec<FormInput>>(),
+                .map(|i| i.0)
+                .collect::<Vec<FormInputWidget>>(),
             view: EditorView::Selection,
             selection: Scrollable::default(),
             default_title: None,
@@ -136,7 +112,7 @@ where
 impl Form {
     pub fn add_input<I>(&mut self, input: I)
     where
-        I: Into<FormInput>,
+        I: Into<FormInputWidget>,
     {
         self.inputs.push(input.into());
     }
@@ -159,7 +135,7 @@ impl Form {
 
     pub fn reset(&mut self) {
         for input in self.inputs.iter_mut() {
-            (*input.widget).borrow_mut().reset();
+            (*input).borrow_mut().reset();
         }
         self.view = EditorView::Selection;
         self.selection.reset();
@@ -205,13 +181,12 @@ impl KeyEventHandler<FormState> for Form {
                         self.show_close_prompt = false;
                         self.title.clone_from(&self.default_title);
                         if self.view == EditorView::Input {
-                            if let Some(height) = self.current_input().height {
-                                self.size = PopupSize::default()
-                                    .width(self.default_size.width)
-                                    .height(height);
-                            } else {
-                                self.size = self.default_size;
-                            }
+                            let border_height = 2;
+                            let margin = 2;
+                            let height = self.current_input_state().height + border_height + margin;
+                            self.size = PopupSize::default()
+                                .width(self.default_size.width)
+                                .height(height);
                         } else {
                             self.size = self.default_size;
                         }
@@ -232,15 +207,14 @@ impl KeyEventHandler<FormState> for Form {
 
             match key_event.code {
                 KeyCode::Enter | KeyCode::Char('l') => {
-                    if let Some(height) = self.current_input().height {
-                        self.size = PopupSize::default()
-                            .width(self.default_size.width)
-                            .height(height);
-                    } else {
-                        self.size = self.default_size;
-                    }
+                    let border_height = 2;
+                    let margin = 2;
+                    let height = self.current_input_state().height + border_height + margin;
+                    self.size = PopupSize::default()
+                        .width(self.default_size.width)
+                        .height(height);
                     self.view = EditorView::Input;
-                    if self.current_input().needs_insert {
+                    if self.current_input_state().uses_insert_mode {
                         app.mode.insert();
                     }
                 }
@@ -252,7 +226,7 @@ impl KeyEventHandler<FormState> for Form {
                 _ => {}
             }
         } else if self.view == EditorView::Input {
-            if (*self.current_input().widget).borrow().enter_back() {
+            if self.current_input_state().enter_back {
                 match key_event.code {
                     KeyCode::Char('[') => {
                         if app.mode.is_normal() {
@@ -269,9 +243,7 @@ impl KeyEventHandler<FormState> for Form {
                 }
             }
 
-            (*self.current_input().widget)
-                .borrow_mut()
-                .key_event_handler(app, key_event);
+            self.current_input().key_event_handler(app, key_event);
         }
 
         FormState::None
@@ -304,14 +276,14 @@ impl DefaultWidget for Form {
             let table = self
                 .inputs
                 .iter()
-                .filter(|i| !(*i.widget).borrow().hidden())
+                .filter(|i| !(*i).borrow().state().hidden)
                 .enumerate()
                 .map(|(i, input)| {
                     if self.selection.focused == i {
-                        Paragraph::new(format!(" {} ", (*input.widget).borrow().get_title()))
+                        Paragraph::new(format!(" {} ", (*input).borrow().state().title))
                             .style(Style::new().bg(colors.input_focus_bg))
                     } else {
-                        Paragraph::new(format!(" {} ", (*input.widget).borrow().get_title()))
+                        Paragraph::new(format!(" {} ", (*input).borrow().state().title))
                             .style(Style::new().fg(colors.secondary_fg))
                     }
                 })
@@ -324,19 +296,28 @@ impl DefaultWidget for Form {
                 .constraints([Constraint::Fill(1)])
                 .areas(area);
 
-            (*self.current_input().widget)
-                .borrow()
-                .render(frame, app, input_layout, true);
+            self.current_input().render(frame, app, input_layout, true);
         }
     }
 }
 
 impl Form {
     /// Gets the current inputs, excluding hidden inputs in the process
-    fn current_input(&self) -> &FormInput {
-        self.inputs
+    fn current_input(&self) -> RefMut<dyn FormWidget> {
+        let widget = self
+            .inputs
             .iter()
-            .filter(|i| !(*i.widget).borrow().hidden())
-            .collect::<Vec<&FormInput>>()[self.selection.focused]
+            .filter(|i| !(*i).borrow().state().hidden)
+            .collect::<Vec<&FormInputWidget>>()[self.selection.focused];
+        (*widget).borrow_mut()
+    }
+
+    fn current_input_state(&self) -> FormInputState {
+        let widget = self
+            .inputs
+            .iter()
+            .filter(|i| !(*i).borrow().state().hidden)
+            .collect::<Vec<&FormInputWidget>>()[self.selection.focused];
+        (*widget).borrow().state()
     }
 }

@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::View, App, DefaultWidget, FormWidgetOld, KeyEventHandler};
@@ -8,9 +11,10 @@ use ratatui::{
     style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
+    Frame,
 };
 
-use crate::FormWidget;
+use crate::{FormInputState, FormWidget};
 
 const WORD_SEPARATORS: [char; 1] = [' '];
 
@@ -101,16 +105,13 @@ pub struct TextInput {
     style: InputStyle,
     prompt_lines: u16,
     keys: KeyManager,
+    height: Cell<u16>,
 }
 
 impl DefaultWidget for TextInput {
-    fn render(
-        &self,
-        frame: &mut ratatui::prelude::Frame,
-        app: &App,
-        area: ratatui::prelude::Rect,
-        focused: bool,
-    ) {
+    fn render(&self, frame: &mut Frame, app: &App, area: Rect, focused: bool) {
+        self.height.set(area.height);
+
         if self.style == InputStyle::Prompt {
             let [side_line_layout, content_layout] = Layout::default()
                 .direction(Direction::Horizontal)
@@ -241,16 +242,18 @@ impl FormWidget for TextInput {
         Rc::new(RefCell::new(self.view(View::Popup).prompt()))
     }
 
-    fn hidden(&self) -> bool {
-        false
-    }
-
-    fn get_title(&self) -> String {
-        self.title.clone()
-    }
-
-    fn enter_back(&self) -> bool {
-        true
+    fn state(&self) -> FormInputState {
+        FormInputState {
+            title: self.title.clone(),
+            height: if self.style == InputStyle::Prompt {
+                self.prompt_lines + 1
+            } else {
+                self.height.get()
+            },
+            uses_insert_mode: true,
+            hidden: false,
+            enter_back: true,
+        }
     }
 
     fn reset(&mut self) {
@@ -278,6 +281,7 @@ impl TextInput {
             style: InputStyle::Default,
             prompt_lines: 1,
             keys: KeyManager::default(),
+            height: Cell::new(0),
         }
     }
 
@@ -375,6 +379,7 @@ impl TextInput {
     }
 
     pub fn prompt_lines(mut self, lines: u16) -> Self {
+        self.style = InputStyle::Prompt;
         self.prompt_lines = lines;
         self
     }

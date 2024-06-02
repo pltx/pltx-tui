@@ -10,12 +10,12 @@ use ratatui::{
     Frame,
 };
 
-use crate::FormWidget;
+use crate::{FormInputState, FormWidget};
 
 pub struct Switch {
+    pub state: bool,
     title: String,
     original_state: bool,
-    pub state: bool,
     max_title_len: u16,
 }
 
@@ -76,20 +76,18 @@ impl FormWidget for Switch {
         Rc::new(RefCell::new(self))
     }
 
-    fn hidden(&self) -> bool {
-        false
+    fn state(&self) -> FormInputState {
+        FormInputState {
+            title: self.title.clone(),
+            height: 1,
+            uses_insert_mode: false,
+            hidden: false,
+            enter_back: true,
+        }
     }
 
     fn reset(&mut self) {
         self.state = self.original_state;
-    }
-
-    fn get_title(&self) -> String {
-        self.title.to_owned()
-    }
-
-    fn enter_back(&self) -> bool {
-        true
     }
 }
 

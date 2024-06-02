@@ -138,16 +138,6 @@ impl Screen<Result<bool>> for ListProjects {
                         } else {
                             colors.tertiary_fg
                         }),
-                        Paragraph::new(if p.cards_due_soon > 0 {
-                            p.cards_due_soon.to_string()
-                        } else {
-                            String::from("-")
-                        })
-                        .fg(if p.cards_due_soon > 0 {
-                            colors.warning
-                        } else {
-                            colors.tertiary_fg
-                        }),
                         Paragraph::new(if p.cards_in_progress > 0 {
                             p.cards_in_progress.to_string()
                         } else {
@@ -155,6 +145,16 @@ impl Screen<Result<bool>> for ListProjects {
                         })
                         .fg(if p.cards_in_progress > 0 {
                             colors.success
+                        } else {
+                            colors.tertiary_fg
+                        }),
+                        Paragraph::new(if p.cards_due_soon > 0 {
+                            p.cards_due_soon.to_string()
+                        } else {
+                            String::from("-")
+                        })
+                        .fg(if p.cards_due_soon > 0 {
+                            colors.warning
                         } else {
                             colors.tertiary_fg
                         }),

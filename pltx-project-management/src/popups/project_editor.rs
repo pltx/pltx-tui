@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::View, App, DefaultWidget, KeyEventHandler, Popup};
 use pltx_database::Database;
 use pltx_utils::DateTime;
-use pltx_widgets::{Form, FormInput, FormWidget, Scrollable, TextInput};
+use pltx_widgets::{Form, FormInput, FormInputState, FormWidget, Scrollable, TextInput};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Stylize},
@@ -59,16 +59,14 @@ impl FormWidget for LabelEditor {
         Rc::new(RefCell::new(self))
     }
 
-    fn hidden(&self) -> bool {
-        false
-    }
-
-    fn get_title(&self) -> String {
-        String::from("Label Editor")
-    }
-
-    fn enter_back(&self) -> bool {
-        self.view == LabelView::Selection
+    fn state(&self) -> FormInputState {
+        FormInputState {
+            title: String::from("Label Editor"),
+            height: 8,
+            uses_insert_mode: false,
+            hidden: false,
+            enter_back: self.view == LabelView::Selection,
+        }
     }
 
     fn reset(&mut self) {
@@ -148,6 +146,7 @@ impl KeyEventHandler for LabelEditor {
             KeyCode::Char('y') => {
                 if self.view == LabelView::Selection && app.mode.is_delete() {
                     self.labels.remove(self.selection.focused);
+                    self.selection.focused = self.selection.focused.saturating_sub(1);
                     app.mode.normal();
                 }
             }
@@ -305,9 +304,9 @@ impl Popup<Result<bool>> for ProjectEditor {
                 label_editor: Rc::clone(&label_editor),
             },
             form: Form::from([
-                FormInput::from(title).height(6),
-                FormInput::from(description).height(8),
-                FormInput::new(label_editor).height(11),
+                FormInput(title),
+                FormInput(description),
+                FormInput(label_editor),
             ])
             .default_title("New Project"),
         }
