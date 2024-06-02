@@ -55,7 +55,7 @@ status_bar_delete_mode_fg = "#232b44"
 
 [modules.home]
 dashboard_title = "Privacy Life Tracker X"
-dashboard_message = "Manage your personal life privately and securely."
+dashboard_message = "Manage your life privately and securely."
 
 [modules.project_management]
 # The maximum number of lists allowed in a project.

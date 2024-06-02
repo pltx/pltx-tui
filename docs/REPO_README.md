@@ -5,7 +5,7 @@
 [![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg)](https://www.rust-lang.org/)
 [![GPL 3.0 license](https://img.shields.io/badge/License-GPL_3.0-blue.svg)](/LICENSE)
 
-**pltx** _(Privacy Life Tracker X)_ is a tool for tracking and managing your personal life in a private and secure manner.
+**pltx** _(Privacy Life Tracker X)_ is a tool for tracking and managing your life in a private and secure manner.
 **`pltx-tui`** is the default interface that provides this capability in the terminal!
 
 ![pltx-tui preview](./.github/assets/preview.png)
