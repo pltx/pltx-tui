@@ -26,7 +26,7 @@ static HELP_TEMPLATE: &str = "\
     name = "pltx",
     version = VERSION,
     author = "Slekup <opensource@slekup.com>",
-    about = "TUI for pltx. Manage your personal life privately and securely.",
+    about = "Manage your personal life privately and securely in the terminal.",
     help_template(HELP_TEMPLATE)
 )]
 struct Cli {
