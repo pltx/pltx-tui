@@ -5,7 +5,7 @@ skip = [
   { crate = "yaml-rust@0.4.5", reason = "Temporary skip until updated by syntect https://github.com/trishume/syntect/issues/537" },
 ]
 
-[licences]
+[licenses]
 version = "2"
 confidence-threshold = 0.93
 allow = [
