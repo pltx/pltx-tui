@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use color_eyre::{eyre::eyre, Result};
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{state::View, App, DefaultWidget, KeyEventHandler, Popup};
@@ -8,6 +10,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     Frame,
 };
+use tracing::{info, info_span};
 
 #[derive(Clone)]
 struct ListData {
@@ -47,16 +50,16 @@ impl Popup<Result<bool>> for ListEditor {
             return Ok(false);
         }
 
-        if let Some(project_id) = self.project_id {
-            if key_event.code == KeyCode::Enter {
-                if self.original_data.is_some() {
-                    self.db_edit_list(&app.db)?;
-                } else {
-                    self.db_new_list(app, project_id)?;
-                }
-                self.reset(app);
-                return Ok(true);
+        if key_event.code == KeyCode::Enter {
+            if self.original_data.is_some() {
+                self.db_edit_list(&app.db)?;
+            } else if let Some(project_id) = self.project_id {
+                self.db_new_list(app, project_id)?;
+            } else {
+                panic!("error")
             }
+            self.reset(app);
+            return Ok(true);
         }
 
         Ok(false)
@@ -83,6 +86,9 @@ impl Popup<Result<bool>> for ListEditor {
 
 impl ListEditor {
     fn db_new_list(&self, app: &mut App, project_id: i32) -> Result<i32> {
+        let _span = info_span!("project management", popup = "list editor").entered();
+        let start = Instant::now();
+
         let highest_position =
             app.db
                 .get_highest_position_where("project_list", "project_id", project_id)?;
@@ -106,16 +112,24 @@ impl ListEditor {
 
         let new_list_id = app.db.last_row_id("project_list")?;
 
+        info!("new list query executed in {:?}", start.elapsed());
+
         Ok(new_list_id)
     }
 
     fn db_edit_list(&self, db: &Database) -> Result<i32> {
+        let _span = info_span!("project management", popup = "list editor").entered();
+        let start = Instant::now();
+
         let data = self.original_data.as_ref().expect("list data was not set");
 
         let conn = db.conn();
         let query = "UPDATE project_list SET title = ?1, updated_at = ?2 WHERE id = ?3";
         let mut stmt = conn.prepare(query)?;
         stmt.execute((&self.title_input.input_string(), DateTime::now(), data.id))?;
+
+        info!("edit list query executed in {:?}", start.elapsed());
+
         Ok(data.id)
     }
 }
@@ -146,7 +160,6 @@ impl ListEditor {
         app.view.default();
         app.mode.normal();
         self.original_data = None;
-        self.project_id = None;
         self.title_input.reset();
     }
 }

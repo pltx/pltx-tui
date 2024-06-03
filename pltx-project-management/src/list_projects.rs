@@ -474,7 +474,9 @@ impl ListProjects {
             let mut update_position_stmt = conn.prepare(update_position_query)?;
             update_position_stmt.execute((DateTime::now(), select.position))?;
 
-            if self.selection.focused == self.selection.row_count.borrow().saturating_sub(1) {
+            if self.selection.focused == self.selection.row_count.borrow().saturating_sub(1)
+                && self.selection.focused != 0
+            {
                 self.selection.focused -= 1;
             }
 

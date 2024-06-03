@@ -117,18 +117,18 @@ impl Popup<Result<bool>> for CardEditor {
 }
 
 impl CardEditor {
-    fn db_new_card(&self, db: &Database) -> Result<i32> {
+    fn db_new_card(&self, db: &Database, project_id: i32, list_id: i32) -> Result<i32> {
         let start = Instant::now();
 
-        let highest_position = db.get_highest_position("project_card")?;
+        let highest_position = db.get_highest_position_where("project_card", "list_id", list_id)?;
 
         let query_start = Instant::now();
         let query = "INSERT INTO project_card (project_id, list_id, title, description, \
                      important, start_date, due_date, reminder, position, created_at, updated_at) \
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)";
         let params = (
-            Some(self.project_id),
-            Some(self.list_id),
+            project_id,
+            list_id,
             (*self.inputs.title).borrow().input_string(),
             (*self.inputs.description).borrow().input_string(),
             false,
@@ -239,14 +239,18 @@ impl CardEditor {
 
 impl CardEditor {
     fn submit(&mut self, app: &mut App) -> Result<bool> {
-        if self.original_data.is_some() {
-            self.db_edit_card(&app.db)?;
+        if let Some(project_id) = self.project_id {
+            if self.original_data.is_some() {
+                self.db_edit_card(&app.db)?;
+            } else if let Some(list_id) = self.list_id {
+                self.db_new_card(&app.db, project_id, list_id)?;
+            }
+            self.reset();
+            app.view.default();
+            Ok(true)
         } else {
-            self.db_new_card(&app.db)?;
+            Ok(false)
         }
-        self.reset();
-        app.view.default();
-        Ok(true)
     }
 }
 

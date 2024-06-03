@@ -121,11 +121,12 @@ impl Database {
     where
         T: ToSql,
     {
-        let query = format!(
-            "SELECT position from {} WHERE position = (SELECT MAX(position) FROM {}) AND {} = ?1",
-            table, table, field,
-        );
         let conn = self.conn();
+        let query = format!(
+            "SELECT position from {} WHERE {} = ?1 AND position = (SELECT MAX(position) FROM {} \
+             WHERE {} = ?1)",
+            table, field, table, field
+        );
         let mut stmt = conn.prepare(&query)?;
         let highest_position: i32 = stmt.query_row([equals], |r| r.get(0)).unwrap_or(-1);
         Ok(highest_position)
@@ -139,6 +140,27 @@ impl Database {
         let conn = self.conn();
         let mut update_position_stmt = conn.prepare(&update_position_query)?;
         update_position_stmt.execute((DateTime::now(), old_position))?;
+        Ok(())
+    }
+
+    pub fn decrement_positions_after_where<T>(
+        &self,
+        table: &str,
+        old_position: i32,
+        field: &str,
+        equals: T,
+    ) -> Result<()>
+    where
+        T: ToSql,
+    {
+        let update_position_query = format!(
+            "UPDATE {} SET position = position - 1, updated_at = ?1 WHERE position > ?2 and {} = \
+             ?3",
+            table, field
+        );
+        let conn = self.conn();
+        let mut update_position_stmt = conn.prepare(&update_position_query)?;
+        update_position_stmt.execute((DateTime::now(), old_position, equals))?;
         Ok(())
     }
 

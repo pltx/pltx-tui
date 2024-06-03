@@ -45,7 +45,7 @@ struct OpenProjectCard {
     start_date: Option<DateTime>,
     due_date: Option<DateTime>,
     completed: bool,
-    // position: i32,
+    position: i32,
     labels: HashSet<i32>,
     subtasks: Vec<ProjectCardSubtask>,
 }
@@ -68,7 +68,6 @@ impl OpenProjectCard {
 struct ProjectList {
     id: i32,
     title: String,
-    // position: i32,
     cards: Vec<OpenProjectCard>,
 }
 
@@ -215,6 +214,13 @@ impl Screen<Result<bool>> for OpenProject {
                     }
                     _ => {}
                 }
+            } else if self.focus == Focus::Card
+                && self.data.lists.is_empty()
+                && key_event.code == KeyCode::Char('n')
+            {
+                self.popup = OpenProjectPopup::NewList;
+                app.view.popup();
+                app.mode.insert();
             } else if self.focus == Focus::Card && !self.data.lists.is_empty() {
                 if self.list_selections[self.selected_list_index].focused == 0
                     && key_event.code == KeyCode::Char('k')
@@ -228,6 +234,8 @@ impl Screen<Result<bool>> for OpenProject {
                 match key_event.code {
                     KeyCode::Char('J') => self.increment_card_position(app)?,
                     KeyCode::Char('K') => self.decrement_card_position(app)?,
+                    KeyCode::Char('H') => self.move_card_left(app)?,
+                    KeyCode::Char('L') => self.move_card_right(app)?,
                     KeyCode::Char('n') => {
                         if let Some(project_id) = self.project_id {
                             if !self.data.lists.is_empty() {
@@ -319,7 +327,7 @@ impl Screen<Result<bool>> for OpenProject {
         if self.data.lists.is_empty() {
             let content = Paragraph::new(Text::from(vec![Line::from(vec![
                 Span::from("You have no lists in your project. Press "),
-                Span::styled("N", Style::new().bold().fg(colors.keybind_key)),
+                Span::styled("n", Style::new().bold().fg(colors.keybind_key)),
                 Span::from(" to create a new list."),
             ])]))
             .block(Block::new().padding(Padding::horizontal(1)));
@@ -517,6 +525,7 @@ impl OpenProject {
                 self.popups.edit_list.set(&app.db, list_id)?;
 
                 if let Some(project_id) = self.project_id {
+                    info!("set the ids");
                     self.popups.new_card.ids(project_id, list_id);
                     self.popups.edit_card.ids(project_id, list_id);
                 }
@@ -601,8 +610,8 @@ impl OpenProject {
         let start = Instant::now();
         let conn = db.conn();
         let project_card_query = "SELECT id, list_id, title, important, start_date, due_date, \
-                                  completed FROM project_card WHERE project_id = ?1 ORDER BY \
-                                  position";
+                                  completed, position FROM project_card WHERE project_id = ?1 \
+                                  ORDER BY position";
         let mut project_card_stmt = conn.prepare(project_card_query)?;
         let project_card_iter = project_card_stmt.query_map([project_id], |r| {
             Ok(OpenProjectCard {
@@ -613,6 +622,7 @@ impl OpenProject {
                 start_date: DateTime::from_db_option(r.get(4)?),
                 due_date: DateTime::from_db_option(r.get(5)?),
                 completed: r.get(6)?,
+                position: r.get(7)?,
                 labels: HashSet::new(),
                 subtasks: vec![],
             })
@@ -894,6 +904,101 @@ impl OpenProject {
                     "decrement card position query executed in {:?}",
                     start.elapsed()
                 );
+                self.db_get_project(app)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn move_card_left(&mut self, app: &App) -> Result<()> {
+        let _span = info_span!("project management", screen = "open project").entered();
+        let start = Instant::now();
+        if let Some(card_index) = self
+            .list_selections
+            .get(self.selected_list_index)
+            .map(|l| l.focused)
+        {
+            if self.selected_list_index != 0 {
+                let list_id = self.data.lists[self.selected_list_index].id;
+                let card_id = self.data.lists[self.selected_list_index].cards[card_index].id;
+                let left_list_id = self.data.lists[self.selected_list_index - 1].id;
+                let left_list_last_position = self.data.lists[self.selected_list_index - 1]
+                    .cards
+                    .last()
+                    .map(|l| l.position)
+                    .unwrap_or(-1);
+
+                let conn = app.db.conn();
+                let query = "UPDATE project_card SET list_id = ?1, position = ?2 where list_id = \
+                             ?3 and id = ?4";
+                let mut stmt = conn.prepare(query)?;
+                stmt.execute([left_list_id, left_list_last_position + 1, list_id, card_id])?;
+
+                app.db.decrement_positions_after_where(
+                    "project_card",
+                    card_index as i32,
+                    "list_id",
+                    list_id,
+                )?;
+
+                self.list_selections[self.selected_list_index].focused = self.list_selections
+                    [self.selected_list_index]
+                    .focused
+                    .saturating_sub(1);
+                self.list_selections[self.selected_list_index - 1].focused =
+                    left_list_last_position as usize + 1;
+                self.selected_list_index -= 1;
+                info!("move card left query executed in {:?}", start.elapsed());
+                self.db_get_project(app)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn move_card_right(&mut self, app: &App) -> Result<()> {
+        let _span = info_span!("project management", screen = "open project").entered();
+        let start = Instant::now();
+        if let Some(card_index) = self
+            .list_selections
+            .get(self.selected_list_index)
+            .map(|l| l.focused)
+        {
+            if self.selected_list_index + 1 != self.data.lists.len() {
+                let list_id = self.data.lists[self.selected_list_index].id;
+                let card_id = self.data.lists[self.selected_list_index].cards[card_index].id;
+                let right_list_id = self.data.lists[self.selected_list_index + 1].id;
+                let right_list_last_position = self.data.lists[self.selected_list_index + 1]
+                    .cards
+                    .last()
+                    .map(|c| c.position)
+                    .unwrap_or(-1);
+
+                let conn = app.db.conn();
+                let query = "UPDATE project_card SET list_id = ?1, position = ?2 where list_id = \
+                             ?3 and id = ?4";
+                let mut stmt = conn.prepare(query)?;
+                stmt.execute([
+                    right_list_id,
+                    right_list_last_position + 1,
+                    list_id,
+                    card_id,
+                ])?;
+
+                app.db.decrement_positions_after_where(
+                    "project_card",
+                    card_index as i32,
+                    "list_id",
+                    list_id,
+                )?;
+
+                self.list_selections[self.selected_list_index].focused = self.list_selections
+                    [self.selected_list_index]
+                    .focused
+                    .saturating_sub(1);
+                self.list_selections[self.selected_list_index + 1].focused =
+                    (right_list_last_position + 1) as usize;
+                self.selected_list_index += 1;
+                info!("move card right query executed in {:?}", start.elapsed());
                 self.db_get_project(app)?;
             }
         }
