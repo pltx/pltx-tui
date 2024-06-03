@@ -236,7 +236,7 @@ impl Help {
             Line::from(vec![
                 Span::from("GitHub: ").fg(colors.secondary_fg),
                 Span::from(format!(
-                    "https://github.com/pltx/tui/blob/main/docs/{}.md",
+                    "https://github.com/pltx/pltx-tui/blob/main/docs/{}.md",
                     document.filename
                 )),
             ])

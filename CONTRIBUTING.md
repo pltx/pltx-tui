@@ -10,7 +10,7 @@ All contributions to the project are welcome! Before you start working with the 
   - [After submitting](#after-submitting)
 - [Commit Message Guidelines](#commit-message-guidelines)
 
-- Take a look at [existing issues](https://github.com/pltx/tui/issues).
+- Take a look at [existing issues](https://github.com/pltx/pltx-tui/issues).
   - If you need to create a new issue:
     - Make sure to use a clear and descriptive title.
     - Include as much information as possible: Steps to reproduce the issue, error message, version, operating system, etc.

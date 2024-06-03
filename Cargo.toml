@@ -14,9 +14,9 @@ members = [
 version = "0.0.1"
 license = "GPL-3.0"
 edition = "2021"
-documentation = "https://github.com/pltx/tui"
-repository = "https://github.com/pltx/tui"
-homepage = "https://github.com/pltx/tui"
+documentation = "https://github.com/pltx/pltx-tui"
+repository = "https://github.com/pltx/pltx-tui"
+homepage = "https://github.com/pltx/pltx-tui"
 authors = ["Slekup <opensource@slekup.com>"]
 
 [package]
