@@ -57,11 +57,11 @@ Press **`[`** to go back and **`:`** to open the command prompt where you can ty
 
 You can edit the config in your platforms config directory:
 
-| Platform | Location                                                                                                           |
-| -------- | ------------------------------------------------------------------------------------------------------------------ |
-| Linux    | `$XDG_CONFIG_HOME/.config/pltx/config.toml`<br>`/home/user/.config/pltx/config.toml`                               |
-| macOS    | `$HOME/Library/Application Support/pltx/config.toml`<br>`/Users/User/Library/Application Support/pltx/config.toml` |
-| Windows  | `{FOLDERID_RoamingAppData}\pltx\config.toml` <br>`C:\Users\User\AppData\Roaming\pltx\config.toml`                  |
+| Platform | Location                                                                                                                                            |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux    | <pre><code>$XDG_CONFIG_HOME/.config/pltx/config.toml</code><br><code>/home/user/.config/pltx/config.toml</code></pre>                               |
+| macOS    | <pre><code>$HOME/Library/Application Support/pltx/config.toml</code><br><code>/Users/User/Library/Application Support/pltx/config.toml</code></pre> |
+| Windows  | <pre><code>{FOLDERID_RoamingAppData}\pltx\config.toml</code><br><code>C:\Users\User\AppData\Roaming\pltx\config.toml</code></pre>                   |
 
 ```toml
 {default_config}
@@ -77,7 +77,7 @@ This project is licensed under the [GPL-3.0](./LICENSE) license.
 
 ## Similar Projects
 
-- [`kdheepak/taskwarrior-tui`](https://github.com/kdheepak/taskwarrior-tui) (project management)
-- [`PlankCipher/kabmat`](https://github.com/PlankCipher/kabmat) (project management)
-- [`Zaloog/kanban-python`](https://github.com/Zaloog/kanban-python) (project management)
-- [`topydo/topydo`](https://github.com/topydo/topydo) (project management)
+- [kdheepak/taskwarrior-tui](https://github.com/kdheepak/taskwarrior-tui) (project management)
+- [PlankCipher/kabmat](https://github.com/PlankCipher/kabmat) (project management)
+- [Zaloog/kanban-python](https://github.com/Zaloog/kanban-python) (project management)
+- [topydo/topydo](https://github.com/topydo/topydo) (project management)
