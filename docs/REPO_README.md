@@ -6,7 +6,7 @@
 [![GPL 3.0 license](https://img.shields.io/badge/License-GPL_3.0-blue.svg)](/LICENSE)
 
 **pltx** _(Privacy Life Tracker X)_ is a tool for tracking and managing your life in a private and secure manner.<br>
-**`pltx-tui`** is the default interface that provides this capability in the terminal!
+**pltx-tui** is the default interface that provides this capability in the terminal!
 
 ![pltx-tui preview](./.github/assets/preview.png)
 
