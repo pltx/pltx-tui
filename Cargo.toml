@@ -12,7 +12,7 @@ members = [
 
 [workspace.package]
 version = "0.0.1"
-license = "GPL-3.0"
+license = "MIT OR Apache-2.0"
 edition = "2021"
 documentation = "https://github.com/pltx/pltx-tui"
 repository = "https://github.com/pltx/pltx-tui"
