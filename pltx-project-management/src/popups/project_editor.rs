@@ -61,7 +61,7 @@ impl FormWidget for LabelEditor {
 
     fn state(&self) -> FormInputState {
         FormInputState {
-            title: String::from("Label Editor"),
+            title: String::from("Labels"),
             height: 8,
             uses_insert_mode: false,
             hidden: false,
@@ -70,7 +70,11 @@ impl FormWidget for LabelEditor {
     }
 
     fn reset(&mut self) {
-        self.reset();
+        self.view = LabelView::Selection;
+        self.focused_input = FocusedLabelInput::Title;
+        self.inputs.title.reset();
+        self.inputs.color.reset();
+        self.labels.clear();
     }
 }
 
@@ -152,7 +156,10 @@ impl KeyEventHandler for LabelEditor {
             }
             KeyCode::Char('[') => {
                 if app.mode.is_normal() && self.view == LabelView::Input {
-                    self.reset()
+                    self.view = LabelView::Selection;
+                    self.focused_input = FocusedLabelInput::Title;
+                    self.inputs.title.reset();
+                    self.inputs.color.reset();
                 }
             }
             KeyCode::Tab => {
@@ -178,7 +185,10 @@ impl KeyEventHandler for LabelEditor {
                                 color: self.inputs.color.input_string(),
                             });
                         };
-                        self.reset();
+                        self.view = LabelView::Selection;
+                        self.focused_input = FocusedLabelInput::Title;
+                        self.inputs.title.reset();
+                        self.inputs.color.reset();
                         app.mode.normal();
                     }
                 }
@@ -255,19 +265,10 @@ impl DefaultWidget for LabelEditor {
     }
 }
 
-impl LabelEditor {
-    pub fn reset(&mut self) {
-        self.view = LabelView::Selection;
-        self.focused_input = FocusedLabelInput::Title;
-        self.inputs.title.reset();
-        self.inputs.color.reset();
-    }
-}
-
 struct Inputs {
     title: Rc<RefCell<TextInput>>,
     description: Rc<RefCell<TextInput>>,
-    label_editor: Rc<RefCell<LabelEditor>>,
+    labels: Rc<RefCell<LabelEditor>>,
 }
 
 struct ProjectData {
@@ -301,7 +302,7 @@ impl Popup<Result<bool>> for ProjectEditor {
             inputs: Inputs {
                 title: Rc::clone(&title),
                 description: Rc::clone(&description),
-                label_editor: Rc::clone(&label_editor),
+                labels: Rc::clone(&label_editor),
             },
             form: Form::from([
                 FormInput(title),
@@ -389,25 +390,15 @@ impl ProjectEditor {
         })?;
 
         let mut labels = vec![];
+        let mut label_editor = self.inputs.labels.borrow_mut();
         for l in labels_iter {
             let label = l?;
 
-            let mut label_editor = self.inputs.label_editor.borrow_mut();
-            let label_position = label_editor
-                .labels
-                .iter()
-                .position(|p| p.id.is_some_and(|id| id == label.id));
-
-            if let Some(pos) = label_position {
-                label_editor.labels[pos].title.clone_from(&label.title);
-                label_editor.labels[pos].color.clone_from(&label.color);
-            } else {
-                label_editor.labels.push(Label {
-                    id: Some(label.id),
-                    title: label.title.to_owned(),
-                    color: label.color.to_owned(),
-                })
-            }
+            label_editor.labels.push(Label {
+                id: Some(label.id),
+                title: label.title.to_owned(),
+                color: label.color.to_owned(),
+            });
 
             labels.push(label);
         }
@@ -447,7 +438,7 @@ impl ProjectEditor {
     }
 
     fn db_new_labels(&self, db: &Database, project_id: i32) -> Result<()> {
-        for (i, label) in self.inputs.label_editor.borrow().labels.iter().enumerate() {
+        for (i, label) in self.inputs.labels.borrow().labels.iter().enumerate() {
             let query = "INSERT INTO project_label (project_id, title, color, position, \
                          created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
             let params = (
@@ -484,7 +475,24 @@ impl ProjectEditor {
     }
 
     fn db_edit_labels(&self, db: &Database, project_id: i32) -> Result<()> {
-        for (i, label) in self.inputs.label_editor.borrow().labels.iter().enumerate() {
+        if let Some(data) = &self.original_data {
+            let input_label_ids = self
+                .inputs
+                .labels
+                .borrow()
+                .labels
+                .iter()
+                .map(|l| l.id)
+                .collect::<Vec<Option<i32>>>();
+            for label in &data.labels {
+                if !input_label_ids.contains(&Some(label.id)) {
+                    let query = "DELETE FROM project_label WHERE project_id = ?1 and id = ?2";
+                    db.execute(query, (project_id, label.id))?;
+                }
+            }
+        }
+
+        for (i, label) in self.inputs.labels.borrow().labels.iter().enumerate() {
             if let Some(label_id) = label.id {
                 let query = "UPDATE project_label SET title = ?1, color = ?2, updated_at = ?3 \
                              WHERE project_id = ?4 and id = ?5";

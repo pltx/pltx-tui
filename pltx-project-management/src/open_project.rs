@@ -33,7 +33,7 @@ struct ProjectCardLabel {
 #[derive(Clone)]
 struct ProjectCardSubtask {
     card_id: i32,
-    // completed: i32,
+    completed: bool,
 }
 
 #[derive(Clone)]
@@ -454,6 +454,18 @@ impl OpenProject {
 
         let mut details = vec![Span::from(" ".repeat(5)).fg(colors.tertiary_fg)];
 
+        if !card.subtasks.is_empty() {
+            details.push(
+                Span::from(format!(
+                    " {}",
+                    card.subtasks.iter().filter(|st| st.completed).count(),
+                ))
+                .fg(colors.success),
+            );
+            details.push(Span::from("/").fg(colors.secondary_fg));
+            details.push(Span::from(card.subtasks.len().to_string()));
+        }
+
         for label in self.data.labels.iter() {
             if card.labels.contains(&label.id) {
                 details.push(
@@ -698,9 +710,10 @@ impl OpenProject {
         let card_subtask_iter = card_subtask_stmt.query_map([project_id], |r| {
             Ok(ProjectCardSubtask {
                 card_id: r.get(0)?,
-                // completed: r.get(0)?,
+                completed: r.get(1)?,
             })
         })?;
+
         for card_subtask in card_subtask_iter {
             let subtask = card_subtask?;
             let list_index = project
