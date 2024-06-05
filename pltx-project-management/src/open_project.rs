@@ -729,10 +729,8 @@ impl OpenProject {
         let list_id = self.data.lists[self.selected_list_index].id;
         let original_position = db.get_position("project_list", list_id)?;
 
-        let conn = db.conn();
         let query = "DELETE FROM project_list WHERE id = ?1";
-        let mut stmt = conn.prepare(query)?;
-        stmt.execute([list_id])?;
+        db.execute(query, [list_id])?;
 
         db.decrement_positions_after("project_list", original_position)?;
 
@@ -756,10 +754,8 @@ impl OpenProject {
 
         let original_position = db.get_position("project_card", card.id)?;
 
-        let conn = db.conn();
         let query = "DELETE FROM project_card WHERE id = ?1";
-        let mut stmt = conn.prepare(query)?;
-        stmt.execute([card.id])?;
+        db.execute(query, [card.id])?;
 
         db.decrement_positions_after("project_card", original_position)?;
 
@@ -784,10 +780,9 @@ impl OpenProject {
         let start = Instant::now();
 
         if let Some(card) = self.get_card() {
-            let conn = app.db.conn();
             let query = "UPDATE project_card SET completed = ?1, updated_at = ?2 WHERE id = ?3";
-            let mut stmt = conn.prepare(query)?;
-            stmt.execute((!card.completed, DateTime::now(), card.id))?;
+            let params = (!card.completed, DateTime::now(), card.id);
+            app.db.execute(query, params)?;
 
             self.db_get_project(app)?;
 
@@ -804,10 +799,9 @@ impl OpenProject {
         let start = Instant::now();
 
         if let Some(card) = self.get_card() {
-            let conn = app.db.conn();
             let query = "UPDATE project_card SET important = ?1, updated_at = ?2 WHERE id = ?3";
-            let mut stmt = conn.prepare(query)?;
-            stmt.execute((!card.important, DateTime::now(), card.id))?;
+            let params = (!card.important, DateTime::now(), card.id);
+            app.db.execute(query, params)?;
 
             self.db_get_project(app)?;
 
@@ -919,26 +913,27 @@ impl OpenProject {
             .map(|l| l.focused)
         {
             if self.selected_list_index != 0 {
-                let list_id = self.data.lists[self.selected_list_index].id;
-                let card_id = self.data.lists[self.selected_list_index].cards[card_index].id;
-                let left_list_id = self.data.lists[self.selected_list_index - 1].id;
-                let left_list_last_position = self.data.lists[self.selected_list_index - 1]
-                    .cards
-                    .last()
-                    .map(|l| l.position)
-                    .unwrap_or(-1);
+                let original_list = &self.data.lists[self.selected_list_index];
+                let left_list = &self.data.lists[self.selected_list_index - 1];
+                let left_list_last_position =
+                    left_list.cards.last().map(|l| l.position).unwrap_or(-1);
 
-                let conn = app.db.conn();
-                let query = "UPDATE project_card SET list_id = ?1, position = ?2 where list_id = \
-                             ?3 and id = ?4";
-                let mut stmt = conn.prepare(query)?;
-                stmt.execute([left_list_id, left_list_last_position + 1, list_id, card_id])?;
+                app.db.execute(
+                    "UPDATE project_card SET list_id = ?1, position = ?2 where list_id = ?3 and \
+                     id = ?4",
+                    [
+                        left_list.id,
+                        left_list_last_position + 1,
+                        original_list.id,
+                        original_list.cards[card_index].id,
+                    ],
+                )?;
 
                 app.db.decrement_positions_after_where(
                     "project_card",
                     card_index as i32,
                     "list_id",
-                    list_id,
+                    original_list.id,
                 )?;
 
                 self.list_selections[self.selected_list_index].focused = self.list_selections
@@ -973,16 +968,15 @@ impl OpenProject {
                     .map(|c| c.position)
                     .unwrap_or(-1);
 
-                let conn = app.db.conn();
                 let query = "UPDATE project_card SET list_id = ?1, position = ?2 where list_id = \
                              ?3 and id = ?4";
-                let mut stmt = conn.prepare(query)?;
-                stmt.execute([
+                let params = [
                     right_list_id,
                     right_list_last_position + 1,
                     list_id,
                     card_id,
-                ])?;
+                ];
+                app.db.execute(query, params)?;
 
                 app.db.decrement_positions_after_where(
                     "project_card",

@@ -44,11 +44,17 @@ impl Database {
         self.pool.get().expect("failed to get database pool")
     }
 
+    pub fn execute<P: rusqlite::Params>(&self, query: &str, params: P) -> Result<usize> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(query)?;
+        Ok(stmt.execute(params)?)
+    }
+
     pub fn start_session(&mut self) -> Result<()> {
         let start = Instant::now();
         self.ensure_tables()?;
         let started = DateTime::new();
-        self.conn().execute(
+        self.execute(
             "INSERT INTO session (started, ended) VALUES (?1, ?2)",
             [started.into_db(), DateTime::now()],
         )?;
@@ -64,7 +70,7 @@ impl Database {
     /// don't, then create them.
     /// Non-global modules, popups, etc, manage their own data initialization.
     fn ensure_tables(&self) -> Result<()> {
-        self.conn().execute(
+        self.execute(
             "CREATE TABLE IF NOT EXISTS session (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 started DATETIME NOT NULL,
@@ -133,13 +139,11 @@ impl Database {
     }
 
     pub fn decrement_positions_after(&self, table: &str, old_position: i32) -> Result<()> {
-        let update_position_query = format!(
+        let query = format!(
             "UPDATE {} SET position = position - 1, updated_at = ?1 WHERE position > ?2",
             table
         );
-        let conn = self.conn();
-        let mut update_position_stmt = conn.prepare(&update_position_query)?;
-        update_position_stmt.execute((DateTime::now(), old_position))?;
+        self.execute(&query, (DateTime::now(), old_position))?;
         Ok(())
     }
 
@@ -153,53 +157,43 @@ impl Database {
     where
         T: ToSql,
     {
-        let update_position_query = format!(
+        let query = format!(
             "UPDATE {} SET position = position - 1, updated_at = ?1 WHERE position > ?2 and {} = \
              ?3",
             table, field
         );
-        let conn = self.conn();
-        let mut update_position_stmt = conn.prepare(&update_position_query)?;
-        update_position_stmt.execute((DateTime::now(), old_position, equals))?;
+        self.execute(&query, (DateTime::now(), old_position, equals))?;
         Ok(())
     }
 
     pub fn increment_position(&self, table: &str, id: i32, next_id: i32) -> Result<()> {
-        let conn = self.conn();
-
         let query = format!(
             "UPDATE {} SET position = position + 1, updated_at = ?1 where id = ?2",
             table,
         );
-        let mut stmt = conn.prepare(&query)?;
-        stmt.execute((DateTime::now(), id))?;
+        self.execute(&query, (DateTime::now(), id))?;
 
         let query_2 = format!(
             "UPDATE {} SET position = position - 1, updated_at = ?1 where id = ?2",
             table
         );
-        let mut stmt_2 = conn.prepare(&query_2)?;
-        stmt_2.execute((DateTime::now(), next_id))?;
+        self.execute(&query_2, (DateTime::now(), next_id))?;
 
         Ok(())
     }
 
     pub fn decrement_position(&self, table: &str, id: i32, prev_id: i32) -> Result<()> {
-        let conn = self.conn();
-
         let query = format!(
             "UPDATE {} SET position = position - 1, updated_at = ?1 where id = ?2",
             table,
         );
-        let mut stmt = conn.prepare(&query)?;
-        stmt.execute((DateTime::now(), id))?;
+        self.execute(&query, (DateTime::now(), id))?;
 
         let query_2 = format!(
             "UPDATE {} SET position = position + 1, updated_at = ?1 where id = ?2",
             table
         );
-        let mut stmt_2 = conn.prepare(&query_2)?;
-        stmt_2.execute((DateTime::now(), prev_id))?;
+        self.execute(&query_2, (DateTime::now(), prev_id))?;
 
         Ok(())
     }

@@ -465,14 +465,11 @@ impl ListProjects {
                 })
             })?;
 
-            let query = "DELETE FROM project WHERE id = ?1";
-            let mut stmt = conn.prepare(query)?;
-            stmt.execute([id])?;
+            db.execute("DELETE FROM project WHERE id = ?1", [id])?;
 
             let update_position_query =
                 "UPDATE project SET position = position - 1, updated_at = ?1 WHERE position > ?2";
-            let mut update_position_stmt = conn.prepare(update_position_query)?;
-            update_position_stmt.execute((DateTime::now(), select.position))?;
+            db.execute(update_position_query, (DateTime::now(), select.position))?;
 
             if self.selection.focused == self.selection.row_count.borrow().saturating_sub(1)
                 && self.selection.focused != 0

@@ -427,7 +427,7 @@ impl ProjectEditor {
         tracing::debug!("description = {:?}", description);
 
         let highest_position = db.get_highest_position("project")?;
-        db.conn().execute(
+        db.execute(
             "INSERT INTO project (title, description, position, created_at, updated_at) VALUES \
              (?1, ?2, ?3, ?4, ?5)",
             (
@@ -450,17 +450,15 @@ impl ProjectEditor {
         for (i, label) in self.inputs.label_editor.borrow().labels.iter().enumerate() {
             let query = "INSERT INTO project_label (project_id, title, color, position, \
                          created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
-            db.conn().execute(
-                query,
-                (
-                    project_id,
-                    label.title.to_owned(),
-                    label.color.to_owned(),
-                    i,
-                    DateTime::now(),
-                    DateTime::now(),
-                ),
-            )?;
+            let params = (
+                project_id,
+                label.title.to_owned(),
+                label.color.to_owned(),
+                i,
+                DateTime::now(),
+                DateTime::now(),
+            );
+            db.execute(query, params)?;
         }
 
         Ok(())
@@ -468,16 +466,15 @@ impl ProjectEditor {
 
     fn db_edit_project(&self, db: &Database) -> Result<()> {
         if let Some(data) = &self.original_data {
-            let conn = db.conn();
             let query =
                 "UPDATE project SET title = ?1, description = ?2, updated_at = ?3 WHERE id = ?4";
-            let mut stmt = conn.prepare(query)?;
-            stmt.execute((
+            let params = (
                 self.inputs.title.borrow().input_string(),
                 self.inputs.description.borrow().input_string(),
                 DateTime::now(),
                 data.id,
-            ))?;
+            );
+            db.execute(query, params)?;
             self.db_edit_labels(db, data.id)?;
         } else {
             panic!("project data was not set")
@@ -487,33 +484,30 @@ impl ProjectEditor {
     }
 
     fn db_edit_labels(&self, db: &Database, project_id: i32) -> Result<()> {
-        let conn = db.conn();
         for (i, label) in self.inputs.label_editor.borrow().labels.iter().enumerate() {
             if let Some(label_id) = label.id {
                 let query = "UPDATE project_label SET title = ?1, color = ?2, updated_at = ?3 \
                              WHERE project_id = ?4 and id = ?5";
-                let mut stmt = conn.prepare(query)?;
-                stmt.execute((
+                let params = (
                     label.title.to_owned(),
                     label.color.to_owned(),
                     DateTime::now(),
                     project_id,
                     label_id,
-                ))?;
+                );
+                db.execute(query, params)?;
             } else {
                 let query = "INSERT INTO project_label (project_id, title, color, position, \
                              created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
-                conn.execute(
-                    query,
-                    (
-                        project_id,
-                        label.title.to_owned(),
-                        label.color.to_owned(),
-                        i,
-                        DateTime::now(),
-                        DateTime::now(),
-                    ),
-                )?;
+                let params = (
+                    project_id,
+                    label.title.to_owned(),
+                    label.color.to_owned(),
+                    i,
+                    DateTime::now(),
+                    DateTime::now(),
+                );
+                db.execute(query, params)?;
             }
         }
 

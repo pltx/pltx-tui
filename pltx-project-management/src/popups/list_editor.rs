@@ -108,7 +108,7 @@ impl ListEditor {
             DateTime::now(),
             DateTime::now(),
         );
-        app.db.conn().execute(query, params)?;
+        app.db.execute(query, params)?;
 
         let new_list_id = app.db.last_row_id("project_list")?;
 
@@ -123,10 +123,11 @@ impl ListEditor {
 
         let data = self.original_data.as_ref().expect("list data was not set");
 
-        let conn = db.conn();
         let query = "UPDATE project_list SET title = ?1, updated_at = ?2 WHERE id = ?3";
-        let mut stmt = conn.prepare(query)?;
-        stmt.execute((&self.title_input.input_string(), DateTime::now(), data.id))?;
+        db.execute(
+            query,
+            (&self.title_input.input_string(), DateTime::now(), data.id),
+        )?;
 
         info!("edit list query executed in {:?}", start.elapsed());
 

@@ -139,7 +139,7 @@ impl CardEditor {
             DateTime::now(),
             DateTime::now(),
         );
-        db.conn().execute(query, params)?;
+        db.execute(query, params)?;
 
         info!("new card query executed in {:?}", query_start.elapsed());
 
@@ -153,22 +153,19 @@ impl CardEditor {
 
     fn db_new_card_labels(&self, db: &Database, card_id: i32) -> Result<()> {
         let start = Instant::now();
-        let conn = db.conn();
 
         for index in (*self.inputs.labels).borrow().selected.iter() {
             let label = (*self.inputs.labels).borrow().options[*index].clone();
             let query = "INSERT INTO card_label (project_id, card_id, label_id, created_at, \
                          updated_at) VALUES (?1, ?2, ?3, ?4, ?5)";
-            conn.execute(
-                query,
-                (
-                    Some(self.project_id),
-                    card_id,
-                    label.0,
-                    DateTime::now(),
-                    DateTime::now(),
-                ),
-            )?;
+            let params = (
+                Some(self.project_id),
+                card_id,
+                label.0,
+                DateTime::now(),
+                DateTime::now(),
+            );
+            db.execute(query, params)?;
         }
 
         info!("new card labels query executed in {:?}", start.elapsed());
@@ -182,9 +179,7 @@ impl CardEditor {
         let data = self.original_data.as_ref().expect("list data was not set");
         let query = "UPDATE project_card SET title = ?1, description = ?2, important = ?3, \
                      start_date = ?4, due_date = ?5, reminder = ?6, updated_at = ?7 WHERE id = ?8";
-        let conn = db.conn();
-        let mut stmt = conn.prepare(query)?;
-        stmt.execute((
+        let params = (
             (*self.inputs.title).borrow().input_string(),
             (*self.inputs.description).borrow().input_string(),
             false,
@@ -193,7 +188,8 @@ impl CardEditor {
             Option::<String>::None,
             DateTime::now(),
             data.id,
-        ))?;
+        );
+        db.execute(query, params)?;
 
         info!("edit card query executed in {:?}", start.elapsed());
 
@@ -206,28 +202,23 @@ impl CardEditor {
 
     fn db_edit_card_labels(&self, db: &Database, card_id: i32) -> Result<()> {
         let start = Instant::now();
-        let conn = db.conn();
-
         for (i, label) in (*self.inputs.labels).borrow().options.iter().enumerate() {
             if (*self.inputs.labels).borrow().selected.contains(&i) {
                 if !self.original_labels.contains(&i) {
                     let query = "INSERT INTO card_label (project_id, card_id, label_id, \
                                  created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)";
-                    conn.execute(
-                        query,
-                        (
-                            Some(self.project_id),
-                            card_id,
-                            label.0,
-                            DateTime::now(),
-                            DateTime::now(),
-                        ),
-                    )?;
+                    let params = (
+                        Some(self.project_id),
+                        card_id,
+                        label.0,
+                        DateTime::now(),
+                        DateTime::now(),
+                    );
+                    db.execute(query, params)?;
                 }
             } else {
                 let query = "DELETE FROM card_label WHERE card_id = ?1 and label_id = ?2";
-                let mut stmt = conn.prepare(query)?;
-                stmt.execute((card_id, &label.0))?;
+                db.execute(query, (card_id, &label.0))?;
             }
         }
 
