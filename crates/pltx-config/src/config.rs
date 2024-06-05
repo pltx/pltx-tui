@@ -45,8 +45,6 @@ pub struct ColorsConfig<S = String, C = Color> {
     pub status_bar_normal_mode_fg: C,
     pub status_bar_insert_mode_bg: C,
     pub status_bar_insert_mode_fg: C,
-    pub status_bar_interactive_mode_bg: C,
-    pub status_bar_interactive_mode_fg: C,
     pub status_bar_delete_mode_bg: C,
     pub status_bar_delete_mode_fg: C,
 }

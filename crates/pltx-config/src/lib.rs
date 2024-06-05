@@ -128,14 +128,6 @@ fn merge_config(user_config: ConfigFile, base_config: Config) -> Config {
                 a.status_bar_insert_mode_fg,
                 b.status_bar_insert_mode_fg,
             ),
-            status_bar_interactive_mode_bg: color_op(
-                a.status_bar_interactive_mode_bg,
-                b.status_bar_interactive_mode_bg,
-            ),
-            status_bar_interactive_mode_fg: color_op(
-                a.status_bar_interactive_mode_fg,
-                b.status_bar_interactive_mode_fg,
-            ),
             status_bar_delete_mode_bg: color_op(
                 a.status_bar_delete_mode_bg,
                 b.status_bar_delete_mode_bg,

@@ -11,8 +11,6 @@ pub enum Mode {
     Normal,
     /// For editing text inputs.
     Insert,
-    /// For editing the layout and moving things around.
-    Interactive,
     /// For prompting the user to delete the selected item.
     Delete,
 }
@@ -36,11 +34,6 @@ impl Mode {
         *self = Mode::Insert;
     }
 
-    /// Sets the mode to [`Interactive`](Mode::Interactive).
-    pub fn interactive(&mut self) {
-        *self = Mode::Interactive;
-    }
-
     /// Sets the mode to [`Delete`](Mode::Delete).
     pub fn delete(&mut self) {
         *self = Mode::Delete;
@@ -56,11 +49,6 @@ impl Mode {
         self == &Mode::Insert
     }
 
-    /// Returns true if the mode is [`Interactive`](Mode::Interactive).
-    pub fn is_interactive(&self) -> bool {
-        self == &Mode::Interactive
-    }
-
     /// Returns true if the mode is [`Delete`](Mode::Delete).
     pub fn is_delete(&self) -> bool {
         self == &Mode::Delete
@@ -72,13 +60,11 @@ impl Mode {
             fg: match *self {
                 Mode::Normal => colors.status_bar_normal_mode_fg,
                 Mode::Insert => colors.status_bar_insert_mode_fg,
-                Mode::Interactive => colors.status_bar_interactive_mode_fg,
                 Mode::Delete => colors.status_bar_delete_mode_fg,
             },
             bg: match *self {
                 Mode::Normal => colors.status_bar_normal_mode_bg,
                 Mode::Insert => colors.status_bar_insert_mode_bg,
-                Mode::Interactive => colors.status_bar_interactive_mode_bg,
                 Mode::Delete => colors.status_bar_delete_mode_bg,
             },
         }
@@ -93,7 +79,6 @@ impl fmt::Display for Mode {
             match *self {
                 Mode::Normal => "Normal",
                 Mode::Insert => "Insert",
-                Mode::Interactive => "Interactive",
                 Mode::Delete => "Delete",
             }
         )
