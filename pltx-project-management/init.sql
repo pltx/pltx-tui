@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS project (
     updated_at DATETIME NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project (position);
+CREATE INDEX IF NOT EXISTS idx_project_position ON project (position);
 
 
 CREATE TABLE IF NOT EXISTS project_label (
@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS project_label (
             ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_label (position);
-CREATE INDEX IF NOT EXISTS idx_project_id ON project_label (project_id);
+CREATE INDEX IF NOT EXISTS idx_project_label_position ON project_label (position);
+CREATE INDEX IF NOT EXISTS idx_project_label_project_id ON project_label (project_id);
 
 
 CREATE TABLE IF NOT EXISTS project_list (
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS project_list (
             ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_list (position);
-CREATE INDEX IF NOT EXISTS idx_project_id ON project_list (project_id);
+CREATE INDEX IF NOT EXISTS idx_project_list_position ON project_list (position);
+CREATE INDEX IF NOT EXISTS idx_project_list_project_id ON project_list (project_id);
 
 
 CREATE TABLE IF NOT EXISTS project_card (
@@ -75,8 +75,8 @@ CREATE TABLE IF NOT EXISTS project_card (
             ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON project_card (position);
-CREATE INDEX IF NOT EXISTS idx_project_id ON project_card (project_id);
+CREATE INDEX IF NOT EXISTS idx_project_card_position ON project_card (position);
+CREATE INDEX IF NOT EXISTS idx_project_card_project_id ON project_card (project_id);
 
 CREATE TABLE IF NOT EXISTS card_label (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,8 +100,8 @@ CREATE TABLE IF NOT EXISTS card_label (
             ON UPDATE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_project_id ON card_label (project_id);
-CREATE INDEX IF NOT EXISTS idx_card_id ON card_label (card_id);
+CREATE INDEX IF NOT EXISTS idx_card_label_project_id ON card_label (project_id);
+CREATE INDEX IF NOT EXISTS idx_card_label_card_id ON card_label (card_id);
 
 CREATE TABLE IF NOT EXISTS card_subtask (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,8 +123,8 @@ CREATE TABLE IF NOT EXISTS card_subtask (
             ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_position ON card_subtask (position);
-CREATE INDEX IF NOT EXISTS idx_project_id ON card_subtask (project_id);
-CREATE INDEX IF NOT EXISTS idx_card_id ON card_subtask (card_id);
+CREATE INDEX IF NOT EXISTS idx_card_subtask_position ON card_subtask (position);
+CREATE INDEX IF NOT EXISTS idx_card_subtask_project_id ON card_subtask (project_id);
+CREATE INDEX IF NOT EXISTS idx_card_subtask_card_id ON card_subtask (card_id);
 
 COMMIT;

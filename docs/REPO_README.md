@@ -8,15 +8,16 @@
 **pltx** _(Privacy Life Tracker X)_ is a tool for tracking and managing your life in a private and secure manner.<br>
 **pltx-tui** is the default interface that provides this capability in the terminal!
 
-![pltx-tui preview](./.github/assets/preview.png)
+![pltx-tui preview](/.github/assets/preview.png)
 
 ## Features
 
-- [See all the modules here](#modules).
-- Vim-like keybinds for navigation and editing.
-- Fully customizable profiles, colors, limits, and more.
-- ~~Data is encrypted by default with a passphrase (coming soon).~~
-- Data can be stored locally ~~or on a [server](https://github.com/pltx/server) (coming soon)~~.
+**[See the modules here](#modules)**
+
+- [x] Fully customizable profiles, colors, limits, and more.
+- [x] Vim-like keybinds for navigation and editing.
+- [ ] Data is encrypted by default with a passphrase (coming soon).
+- [x] Data can be stored locally ~~or on a [server](https://github.com/pltx/server) (coming soon)~~.
 
 ## Documentation
 
@@ -49,8 +50,8 @@ Press **`[`** to go back and **`:`** to open the command prompt where you can ty
 
 ## Modules
 
-- **[Home](./docs/home.md):** Includes the dashboard, settings, and help pages.
-- **[Project Management](./docs/project-management.md):** Manage project or general tasks. Similar to Trello or GitHub projects.
+- **[Home](/docs/home.md):** Includes the dashboard, settings, and help pages.
+- **[Project Management](/docs/project-management.md):** Manage project or general tasks. Similar to Trello or GitHub projects.
 - **More coming soon!**
 
 ## Configuration

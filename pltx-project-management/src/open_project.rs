@@ -959,22 +959,18 @@ impl OpenProject {
             .map(|l| l.focused)
         {
             if self.selected_list_index + 1 != self.data.lists.len() {
-                let list_id = self.data.lists[self.selected_list_index].id;
-                let card_id = self.data.lists[self.selected_list_index].cards[card_index].id;
-                let right_list_id = self.data.lists[self.selected_list_index + 1].id;
-                let right_list_last_position = self.data.lists[self.selected_list_index + 1]
-                    .cards
-                    .last()
-                    .map(|c| c.position)
-                    .unwrap_or(-1);
+                let list = &self.data.lists[self.selected_list_index];
+                let right_list = &self.data.lists[self.selected_list_index + 1];
+                let right_list_last_position =
+                    right_list.cards.last().map(|c| c.position).unwrap_or(-1);
 
                 let query = "UPDATE project_card SET list_id = ?1, position = ?2 where list_id = \
                              ?3 and id = ?4";
                 let params = [
-                    right_list_id,
+                    right_list.id,
                     right_list_last_position + 1,
-                    list_id,
-                    card_id,
+                    list.id,
+                    list.cards[card_index].id,
                 ];
                 app.db.execute(query, params)?;
 
@@ -982,7 +978,7 @@ impl OpenProject {
                     "project_card",
                     card_index as i32,
                     "list_id",
-                    list_id,
+                    list.id,
                 )?;
 
                 self.list_selections[self.selected_list_index].focused = self.list_selections

@@ -52,8 +52,13 @@ impl Screen<Result<bool>> for ListProjects {
     fn key_event_handler(&mut self, app: &mut App, key_event: KeyEvent) -> Result<bool> {
         self.selection.key_event_handler(app, key_event);
 
-        if app.mode.is_normal() && key_event.code == KeyCode::Char('d') {
-            app.mode.delete();
+        if app.mode.is_normal() {
+            match key_event.code {
+                KeyCode::Char('d') => app.mode.delete(),
+                KeyCode::Char('J') => self.increment_project_position(app)?,
+                KeyCode::Char('K') => self.decrement_project_position(app)?,
+                _ => {}
+            }
         }
 
         if app.mode.is_delete() {
@@ -127,7 +132,7 @@ impl Screen<Result<bool>> for ListProjects {
                 .map(|(i, p)| {
                     vec![
                         Paragraph::new(format!(" {}", p.position)).fg(colors.secondary_fg),
-                        Paragraph::new(p.title.clone()),
+                        Paragraph::new(p.title.to_string()),
                         Paragraph::new(if p.total_cards > 0 {
                             p.total_cards.to_string()
                         } else {
@@ -300,6 +305,14 @@ impl Screen<Result<bool>> for ListProjects {
 }
 
 impl ListProjects {
+    pub fn get_id(&self) -> Option<i32> {
+        if self.projects.is_empty() {
+            return None;
+        }
+
+        Some(self.projects[self.selection.focused].id)
+    }
+
     pub fn db_get_projects(&mut self, app: &App) -> Result<()> {
         let _guard = info_span!("project management", screen = "list projects").entered();
 
@@ -439,16 +452,6 @@ impl ListProjects {
 
         Ok(projects.to_vec())
     }
-}
-
-impl ListProjects {
-    pub fn get_id(&self) -> Option<i32> {
-        if self.projects.is_empty() {
-            return None;
-        }
-
-        Some(self.projects[self.selection.focused].id)
-    }
 
     fn db_delete_project(&mut self, db: &Database) -> Result<()> {
         if let Some(id) = self.get_id() {
@@ -480,6 +483,38 @@ impl ListProjects {
             info!("delete project query executed in {:?}", start.elapsed());
         }
 
+        Ok(())
+    }
+
+    fn increment_project_position(&mut self, app: &App) -> Result<()> {
+        let start = Instant::now();
+        if !self.projects.is_empty() && self.selection.focused + 1 != self.projects.len() {
+            let id = self.projects[self.selection.focused].id;
+            let next_id = self.projects[self.selection.focused + 1].id;
+            app.db.increment_position("project", id, next_id)?;
+            self.selection.focused += 1;
+            info!(
+                "increment project position query executed in {:?}",
+                start.elapsed()
+            );
+            self.db_get_projects(app)?;
+        }
+        Ok(())
+    }
+
+    fn decrement_project_position(&mut self, app: &App) -> Result<()> {
+        let start = Instant::now();
+        if !self.projects.is_empty() && self.selection.focused != 0 {
+            let id = self.projects[self.selection.focused].id;
+            let prev_id = self.projects[self.selection.focused - 1].id;
+            app.db.decrement_position("project", id, prev_id)?;
+            self.selection.focused -= 1;
+            info!(
+                "decrement project position query executed in {:?}",
+                start.elapsed()
+            );
+            self.db_get_projects(app)?;
+        }
         Ok(())
     }
 }
