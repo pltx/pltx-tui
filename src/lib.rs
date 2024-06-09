@@ -15,6 +15,7 @@ mod tui;
 mod ui;
 
 use command_handler::CommandHandler;
+use tracing::info;
 use tui::Tui;
 use ui::Interface;
 
@@ -25,7 +26,7 @@ pub fn run_tui(app: &mut App, application_start: Instant) -> Result<()> {
     let mut interface = Interface::init(app)?;
     let mut command_handler = CommandHandler::init();
 
-    tracing::info!(
+    info!(
         "initialized application in {:?}",
         application_start.elapsed()
     );
@@ -50,7 +51,7 @@ pub fn run_tui(app: &mut App, application_start: Instant) -> Result<()> {
 
     Tui::restore()?;
 
-    tracing::info!(
+    info!(
         "application finished after {:?}",
         application_start.elapsed()
     );

@@ -5,6 +5,7 @@ use std::{
 
 use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
 use ratatui::{backend::CrosstermBackend, Terminal};
+use tracing::info;
 
 use crate::keybinds::EventHandler;
 
@@ -30,7 +31,7 @@ impl Tui {
             events: EventHandler::init(),
         };
 
-        tracing::info!("initialized terminal backend in {:?}", start.elapsed());
+        info!("initialized terminal backend in {:?}", start.elapsed());
         Ok(tui)
     }
 
@@ -38,7 +39,7 @@ impl Tui {
         let start = Instant::now();
         terminal::disable_raw_mode()?;
         crossterm::execute!(stdout(), LeaveAlternateScreen)?;
-        tracing::info!("restored the terminal in {:?}", start.elapsed());
+        info!("restored the terminal in {:?}", start.elapsed());
         Ok(())
     }
 }

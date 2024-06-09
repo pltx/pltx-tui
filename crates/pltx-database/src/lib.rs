@@ -15,6 +15,7 @@ use rusqlite::ToSql;
 mod init_sql;
 
 pub use init_sql::*;
+use tracing::info;
 
 pub struct Database {
     pool: Pool<SqliteConnectionManager>,
@@ -62,7 +63,7 @@ impl Database {
         self.started = Some(started);
         self.session_started = true;
         self.create_sync_session_thread()?;
-        tracing::info!("started session in {:?}", start.elapsed());
+        info!("started session in {:?}", start.elapsed());
         Ok(())
     }
 

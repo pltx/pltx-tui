@@ -302,6 +302,14 @@ impl TextInput {
         self.input.join("\n")
     }
 
+    pub fn get_value_option(&self) -> Option<String> {
+        if self.input.join("\n").chars().count() == 0 {
+            None
+        } else {
+            Some(self.input.join("\n"))
+        }
+    }
+
     pub fn reset(&mut self) {
         self.input = vec![String::new()];
         self.cursor_position.reset();

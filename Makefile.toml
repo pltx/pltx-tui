@@ -4,7 +4,7 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 [tasks.build]
 description = "Build the project"
 command = "cargo"
-args = ["build", "--all-targets", "--all-features"]
+args = ["build", "--release", "--all-targets", "--all-features"]
 
 [tasks.check-formatting]
 description = "Lint code formatting"

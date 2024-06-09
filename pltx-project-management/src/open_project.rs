@@ -8,14 +8,14 @@ use pltx_utils::{DateTime, WidgetMargin};
 use pltx_widgets::{Card, CardBorderType, Scrollable};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style, Stylize},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget},
     Frame,
 };
 use tracing::{info, info_span};
 
-use crate::popups::{card_editor::CardEditor, list_editor::ListEditor};
+use crate::popups::{card_editor::CardEditor, card_viewer::CardViewer, list_editor::ListEditor};
 
 #[derive(Clone)]
 pub struct ProjectLabel {
@@ -82,6 +82,7 @@ struct ProjectData {
 enum OpenProjectPopup {
     NewList,
     EditList,
+    ViewCard,
     NewCard,
     EditCard,
     None,
@@ -90,6 +91,7 @@ enum OpenProjectPopup {
 struct Popups {
     new_list: ListEditor,
     edit_list: ListEditor,
+    view_card: CardViewer,
     new_card: CardEditor,
     edit_card: CardEditor,
 }
@@ -128,6 +130,7 @@ impl Screen<Result<bool>> for OpenProject {
             popups: Popups {
                 new_list: ListEditor::init(),
                 edit_list: ListEditor::init(),
+                view_card: CardViewer::init(),
                 new_card: CardEditor::init(),
                 edit_card: CardEditor::init(),
             },
@@ -147,17 +150,22 @@ impl Screen<Result<bool>> for OpenProject {
                         self.selected_list_index = last_list_index;
                     }
                 }
+                OpenProjectPopup::EditList => {
+                    if self.popups.edit_list.key_event_handler(app, key_event)? {
+                        self.db_get_project(app)?
+                    }
+                }
+                OpenProjectPopup::ViewCard => {
+                    if self.popups.view_card.key_event_handler(app, key_event)? {
+                        self.db_get_project(app)?;
+                    }
+                }
                 OpenProjectPopup::NewCard => {
                     if self.popups.new_card.key_event_handler(app, key_event)? {
                         self.db_get_project(app)?;
                         let last_card_index =
                             self.data.lists[self.selected_list_index].cards.len() - 1;
                         self.list_selections[self.selected_list_index].focused = last_card_index;
-                    }
-                }
-                OpenProjectPopup::EditList => {
-                    if self.popups.edit_list.key_event_handler(app, key_event)? {
-                        self.db_get_project(app)?
                     }
                 }
                 OpenProjectPopup::EditCard => {
@@ -236,6 +244,19 @@ impl Screen<Result<bool>> for OpenProject {
                     KeyCode::Char('K') => self.decrement_card_position(app)?,
                     KeyCode::Char('H') => self.move_card_left(app)?,
                     KeyCode::Char('L') => self.move_card_right(app)?,
+                    KeyCode::Enter => {
+                        if !self.data.lists.is_empty()
+                            && !self.data.lists[self.selected_list_index].cards.is_empty()
+                        {
+                            self.popup = OpenProjectPopup::ViewCard;
+                            let card_index = self.list_selections[self.selected_list_index].focused;
+                            let card_id =
+                                self.data.lists[self.selected_list_index].cards[card_index].id;
+                            self.popups.view_card.id(card_id);
+                            self.popups.view_card.set_data(&app.db, card_id)?;
+                            app.view.popup();
+                        }
+                    }
                     KeyCode::Char('n') => {
                         if let Some(project_id) = self.project_id {
                             if !self.data.lists.is_empty() {
@@ -391,6 +412,7 @@ impl Screen<Result<bool>> for OpenProject {
             match self.popup {
                 OpenProjectPopup::NewList => self.popups.new_list.render(app, frame, list_areas),
                 OpenProjectPopup::EditList => self.popups.edit_list.render(app, frame, list_areas),
+                OpenProjectPopup::ViewCard => self.popups.view_card.render(app, frame, list_areas),
                 OpenProjectPopup::NewCard => self.popups.new_card.render(app, frame, list_areas),
                 OpenProjectPopup::EditCard => self.popups.edit_card.render(app, frame, list_areas),
                 OpenProjectPopup::None => {}
@@ -447,7 +469,13 @@ impl OpenProject {
                     colors.secondary_fg
                 },
             ),
-            Span::from(card.title.to_string()).fg(colors.fg),
+            if card.completed {
+                Span::from(card.title.to_string())
+                    .fg(colors.secondary_fg)
+                    .add_modifier(Modifier::CROSSED_OUT)
+            } else {
+                Span::from(card.title.to_string()).fg(colors.fg)
+            },
             Span::from(" ".repeat(list_width.saturating_sub(card.title.chars().count() + 2))),
         ])
         .style(line_style);
@@ -464,6 +492,7 @@ impl OpenProject {
             );
             details.push(Span::from("/").fg(colors.secondary_fg));
             details.push(Span::from(card.subtasks.len().to_string()));
+            details.push(Span::from(" "));
         }
 
         for label in self.data.labels.iter() {
@@ -498,6 +527,7 @@ impl OpenProject {
         self.popup = OpenProjectPopup::None;
         self.popups.new_list.reset(app);
         self.popups.edit_list.reset(app);
+        self.popups.view_card.reset();
         self.popups.new_card.reset();
         self.popups.edit_card.reset();
         self.delete_selection = DeleteSelection::None;
@@ -537,7 +567,6 @@ impl OpenProject {
                 self.popups.edit_list.set(&app.db, list_id)?;
 
                 if let Some(project_id) = self.project_id {
-                    info!("set the ids");
                     self.popups.new_card.ids(project_id, list_id);
                     self.popups.edit_card.ids(project_id, list_id);
                 }
@@ -575,6 +604,7 @@ impl OpenProject {
             labels.push(label?);
         }
 
+        self.popups.view_card.labels(labels.clone());
         self.popups
             .new_card
             .labels(&app.config.colors, labels.clone());
@@ -649,7 +679,7 @@ impl OpenProject {
             project.lists[index].cards.push(c);
         }
 
-        tracing::info!("get project cards query executed in {:?}", start.elapsed());
+        info!("get project cards query executed in {:?}", start.elapsed());
 
         Ok(project.clone())
     }

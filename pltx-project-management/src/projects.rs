@@ -60,6 +60,7 @@ impl Screen<Result<()>> for Projects {
                         self.pages.open_project.set_project_id(id);
                         self.pages.open_project.db_get_project(app)?;
                         self.page = Page::OpenProject;
+                        return Ok(());
                     }
                 }
                 _ => {}

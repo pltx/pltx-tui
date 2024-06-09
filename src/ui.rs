@@ -16,6 +16,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph},
     Frame,
 };
+use tracing::info;
 
 use crate::command_handler::CommandHandler;
 
@@ -46,7 +47,7 @@ impl Interface {
             },
             _popups: PopupState {},
         };
-        tracing::info!("initialized interface in {:?}", start.elapsed());
+        info!("initialized interface in {:?}", start.elapsed());
         Ok(interface)
     }
 

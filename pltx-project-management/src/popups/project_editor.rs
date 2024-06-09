@@ -407,23 +407,13 @@ impl ProjectEditor {
     }
 
     fn db_new_project(&self, db: &Database) -> Result<()> {
-        let desc = (*self.inputs.description).borrow().input_string();
-        tracing::debug!("desc = {:?}", &desc);
-        let description = if desc.chars().count() == 0 {
-            None
-        } else {
-            Some(desc)
-        };
-
-        tracing::debug!("description = {:?}", description);
-
         let highest_position = db.get_highest_position("project")?;
         db.execute(
             "INSERT INTO project (title, description, position, created_at, updated_at) VALUES \
              (?1, ?2, ?3, ?4, ?5)",
             (
                 (*self.inputs.title).borrow().input_string(),
-                description,
+                (*self.inputs.description).borrow().get_value_option(),
                 highest_position + 1,
                 DateTime::now(),
                 DateTime::now(),
@@ -461,7 +451,7 @@ impl ProjectEditor {
                 "UPDATE project SET title = ?1, description = ?2, updated_at = ?3 WHERE id = ?4";
             let params = (
                 self.inputs.title.borrow().input_string(),
-                self.inputs.description.borrow().input_string(),
+                self.inputs.description.borrow().get_value_option(),
                 DateTime::now(),
                 data.id,
             );

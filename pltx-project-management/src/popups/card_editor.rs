@@ -288,7 +288,7 @@ impl CardEditor {
             project_id,
             list_id,
             (*self.inputs.title).borrow().input_string(),
-            (*self.inputs.description).borrow().input_string(),
+            (*self.inputs.description).borrow().get_value_option(),
             false,
             DateTime::from_input((*self.inputs.start_date).borrow().input_string()),
             DateTime::from_input((*self.inputs.due_date).borrow().input_string()),
@@ -357,7 +357,7 @@ impl CardEditor {
                      start_date = ?4, due_date = ?5, reminder = ?6, updated_at = ?7 WHERE id = ?8";
         let params = (
             (*self.inputs.title).borrow().input_string(),
-            (*self.inputs.description).borrow().input_string(),
+            (*self.inputs.description).borrow().get_value_option(),
             false,
             DateTime::from_input((*self.inputs.start_date).borrow().input_string()),
             DateTime::from_input((*self.inputs.due_date).borrow().input_string()),
@@ -489,6 +489,7 @@ impl CardEditor {
                 .collect::<Vec<(i32, Span)>>(),
         )
     }
+
     pub fn ids(&mut self, project_id: i32, list_id: i32) {
         self.project_id = Some(project_id);
         self.list_id = Some(list_id);
@@ -501,8 +502,8 @@ impl CardEditor {
         let conn = db.conn();
 
         let query_start = Instant::now();
-        let query = "SELECT id, title, description, start_date, due_date, reminder, position, \
-                     created_at, updated_at FROM project_card WHERE id = ?1";
+        let query = "SELECT id, title, description, start_date, due_date, reminder FROM \
+                     project_card WHERE id = ?1";
         let mut stmt = conn.prepare(query)?;
         let mut card = stmt.query_row([card_id], |r| {
             Ok(CardData {

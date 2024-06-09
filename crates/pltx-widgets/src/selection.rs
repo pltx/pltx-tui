@@ -2,9 +2,10 @@ use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, CompositeWidget, DefaultWidget, KeyEventHandler};
+use pltx_utils::symbols;
 use ratatui::{
     layout::Rect,
-    style::Stylize,
+    style::{Modifier, Stylize},
     text::{Line, Span},
     widgets::Paragraph,
     Frame,
@@ -23,6 +24,7 @@ pub struct Selection<T> {
     pub selected: HashSet<usize>,
     title: String,
     height: u16,
+    checklist: bool,
 }
 
 impl<T> Selection<T> {
@@ -33,6 +35,7 @@ impl<T> Selection<T> {
             selected: HashSet::new(),
             title: title.into(),
             height: DEFAULT_HEIGHT,
+            checklist: false,
         }
     }
 
@@ -43,6 +46,11 @@ impl<T> Selection<T> {
 
     pub fn height(&mut self, height: u16) {
         self.height = height;
+    }
+
+    pub fn checklist(mut self) -> Self {
+        self.checklist = true;
+        self
     }
 
     pub fn options(&mut self, options: SelectionOptions<T>) {
@@ -156,6 +164,7 @@ impl<T> DefaultWidget for Selection<T> {
         let colors = &app.config.colors;
 
         let mut text = vec![];
+        let fill_char = if self.checklist { symbols::CHECK } else { "x" };
 
         for (i, option) in self.options.iter().enumerate() {
             let focused = focused_widget && self.focused_option == i;
@@ -164,10 +173,37 @@ impl<T> DefaultWidget for Selection<T> {
                 Span::from(if focused { "❯" } else { " " })
                     .bold()
                     .fg(colors.primary),
-                Span::from("[").fg(colors.secondary_fg),
-                Span::from(if self.selected.contains(&i) { "x" } else { " " }),
-                Span::from("] ").fg(colors.secondary_fg),
-                if focused {
+                Span::from("[").fg(if self.checklist && self.selected.contains(&i) {
+                    colors.tertiary_fg
+                } else {
+                    colors.secondary_fg
+                }),
+                Span::from(if self.selected.contains(&i) {
+                    fill_char
+                } else {
+                    " "
+                })
+                .fg(if self.checklist {
+                    colors.success
+                } else {
+                    colors.fg
+                }),
+                Span::from("] ").fg(if self.checklist && self.selected.contains(&i) {
+                    colors.tertiary_fg
+                } else {
+                    colors.secondary_fg
+                }),
+                if self.checklist {
+                    if self.selected.contains(&i) {
+                        option
+                            .1
+                            .clone()
+                            .fg(colors.secondary_fg)
+                            .add_modifier(Modifier::CROSSED_OUT)
+                    } else {
+                        option.1.clone()
+                    }
+                } else if focused {
                     option.1.clone().bold()
                 } else {
                     option.1.clone()

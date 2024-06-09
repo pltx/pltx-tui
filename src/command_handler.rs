@@ -17,6 +17,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
     Frame,
 };
+use tracing::info;
 
 use crate::ui::Interface;
 
@@ -83,7 +84,7 @@ impl<'a> CommandHandler<'a> {
             selected_option: 0,
             matcher: Matcher::default(),
         };
-        tracing::info!("initialized command handler in {:?}", start.elapsed());
+        info!("initialized command handler in {:?}", start.elapsed());
         command_handler
     }
 
@@ -256,7 +257,7 @@ impl<'a> CommandHandler<'a> {
 
         if command != Command::None {
             self.reset();
-            tracing::info!("executed command in {:?}", start.elapsed());
+            info!("executed command in {:?}", start.elapsed());
         }
     }
 
