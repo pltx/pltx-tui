@@ -41,6 +41,7 @@ struct OpenProjectCard {
     id: i32,
     list_id: i32,
     title: String,
+    description: Option<String>,
     important: bool,
     start_date: Option<DateTime>,
     due_date: Option<DateTime>,
@@ -482,6 +483,10 @@ impl OpenProject {
 
         let mut details = vec![Span::from(" ".repeat(5)).fg(colors.tertiary_fg)];
 
+        if card.description.is_some() {
+            details.push(Span::from(" ≡").fg(colors.secondary_fg));
+        }
+
         if !card.subtasks.is_empty() {
             details.push(
                 Span::from(format!(
@@ -651,20 +656,21 @@ impl OpenProject {
     ) -> Result<ProjectData> {
         let start = Instant::now();
         let conn = db.conn();
-        let project_card_query = "SELECT id, list_id, title, important, start_date, due_date, \
-                                  completed, position FROM project_card WHERE project_id = ?1 \
-                                  ORDER BY position";
+        let project_card_query = "SELECT id, list_id, title, description, important, start_date, \
+                                  due_date, completed, position FROM project_card WHERE \
+                                  project_id = ?1 ORDER BY position";
         let mut project_card_stmt = conn.prepare(project_card_query)?;
         let project_card_iter = project_card_stmt.query_map([project_id], |r| {
             Ok(OpenProjectCard {
                 id: r.get(0)?,
                 list_id: r.get(1)?,
                 title: r.get(2)?,
-                important: r.get(3)?,
-                start_date: DateTime::from_db_option(r.get(4)?),
-                due_date: DateTime::from_db_option(r.get(5)?),
-                completed: r.get(6)?,
-                position: r.get(7)?,
+                description: r.get(3)?,
+                important: r.get(4)?,
+                start_date: DateTime::from_db_option(r.get(5)?),
+                due_date: DateTime::from_db_option(r.get(6)?),
+                completed: r.get(7)?,
+                position: r.get(8)?,
                 labels: HashSet::new(),
                 subtasks: vec![],
             })
