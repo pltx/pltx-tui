@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use ansi_to_tui::IntoText;
+use ansi_to_ratatui::IntoText;
 use color_eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use pltx_app::{App, DefaultWidget, Screen};
